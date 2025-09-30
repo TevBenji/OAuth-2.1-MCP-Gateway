@@ -66,7 +66,7 @@ app.onError((err, c) => {
   console.error('Unhandled error:', err);
   return c.json({ 
     error: 'Internal Server Error',
-    message: c.env.ENVIRONMENT === 'development' ? err.message : undefined
+    message: c.env?.ENVIRONMENT === 'development' ? err.message : undefined
   }, 500);
 });
 
