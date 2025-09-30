@@ -19,8 +19,8 @@ export const mockEnv: Bindings = {
 };
 
 // Mock KV Namespace
-class MockKVNamespace implements KVNamespace {
-  private store = new Map<string, string>();
+class MockKVNamespace {
+  public store = new Map<string, string>();
   
   async get(key: string): Promise<string | null> {
     return this.store.get(key) || null;
@@ -34,30 +34,42 @@ class MockKVNamespace implements KVNamespace {
     this.store.delete(key);
   }
   
-  async list(): Promise<{ keys: { name: string }[] }> {
-    return { keys: Array.from(this.store.keys()).map(name => ({ name })) };
+  async list(): Promise<{ keys: { name: string }[], list_complete: boolean, cacheStatus: string | null }> {
+    return { 
+      keys: Array.from(this.store.keys()).map(name => ({ name })),
+      list_complete: true,
+      cacheStatus: null
+    };
   }
   
   // Implement other KV methods as needed
-  getWithMetadata = async () => ({ value: null, metadata: null });
+  getWithMetadata = async () => ({ value: null, metadata: null, cacheStatus: null });
   putWithMetadata = async () => {};
 }
 
 // Mock D1 Database
-class MockD1Database implements D1Database {
-  async prepare(query: string): Promise<D1PreparedStatement> {
-    return new MockD1PreparedStatement(query);
+class MockD1Database {
+  prepare(query: string): D1PreparedStatement {
+    return new MockD1PreparedStatement(query) as any;
   }
   
   async dump(): Promise<ArrayBuffer> {
     return new ArrayBuffer(0);
   }
   
-  async batch(statements: D1PreparedStatement[]): Promise<D1Result[]> {
+  async batch<T = unknown>(statements: D1PreparedStatement[]): Promise<D1Result<T>[]> {
     return statements.map(() => ({
       success: true,
-      results: [],
-      meta: { duration: 0, size_after: 0, rows_read: 0, rows_written: 0 }
+      results: [] as T[],
+      meta: { 
+        duration: 0, 
+        size_after: 0, 
+        rows_read: 0, 
+        rows_written: 0,
+        last_row_id: 0,
+        changed_db: false,
+        changes: 0
+      }
     }));
   }
   
@@ -67,57 +79,77 @@ class MockD1Database implements D1Database {
       duration: 0
     };
   }
+  
+  withSession<T>(callback: (db: D1Database) => Promise<T>): Promise<T> {
+    return callback(this as any);
+  }
 }
 
-class MockD1PreparedStatement implements D1PreparedStatement {
+class MockD1PreparedStatement {
   constructor(private query: string) {}
   
   bind(...values: any[]): D1PreparedStatement {
-    return this;
+    return this as any;
   }
   
   async first<T = unknown>(): Promise<T | null> {
     return null;
   }
   
-  async run(): Promise<D1Result> {
+  async run<T = Record<string, unknown>>(): Promise<D1Result<T>> {
     return {
       success: true,
-      results: [],
-      meta: { duration: 0, size_after: 0, rows_read: 0, rows_written: 0 }
+      results: [] as T[],
+      meta: { 
+        duration: 0, 
+        size_after: 0, 
+        rows_read: 0, 
+        rows_written: 0,
+        last_row_id: 0,
+        changed_db: false,
+        changes: 0
+      }
     };
   }
   
   async all<T = unknown>(): Promise<D1Result<T>> {
     return {
       success: true,
-      results: [],
-      meta: { duration: 0, size_after: 0, rows_read: 0, rows_written: 0 }
+      results: [] as T[],
+      meta: { 
+        duration: 0, 
+        size_after: 0, 
+        rows_read: 0, 
+        rows_written: 0,
+        last_row_id: 0,
+        changed_db: false,
+        changes: 0
+      }
     };
   }
   
-  async raw<T = unknown>(): Promise<T[]> {
-    return [];
+  async raw<T = unknown[]>(options?: { columnNames?: boolean }): Promise<T[]> {
+    return [] as T[];
   }
 }
 
 // Setup mock environment
 beforeAll(() => {
   // Initialize mock KV namespaces
-  mockEnv.SESSIONS = new MockKVNamespace();
-  mockEnv.CACHE = new MockKVNamespace();
-  mockEnv.DB = new MockD1Database();
+  mockEnv.SESSIONS = new MockKVNamespace() as any;
+  mockEnv.CACHE = new MockKVNamespace() as any;
+  mockEnv.DB = new MockD1Database() as any;
 });
 
 // Clean up after each test
 afterEach(async () => {
   // Clear KV stores
-  const sessionStore = mockEnv.SESSIONS as MockKVNamespace;
-  const cacheStore = mockEnv.CACHE as MockKVNamespace;
+  const sessionStore = mockEnv.SESSIONS as any;
+  const cacheStore = mockEnv.CACHE as any;
   
   // Clear the internal stores
-  (sessionStore as any).store.clear();
-  (cacheStore as any).store.clear();
+  sessionStore.store.clear();
+  cacheStore.store.clear();
 });
 
 // Test utilities
@@ -179,7 +211,7 @@ export const testUtils = {
     return new Request(url, {
       method,
       headers: new Headers(headers),
-      body
+      body: body || null
     });
   },
   

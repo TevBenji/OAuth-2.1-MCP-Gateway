@@ -15,7 +15,7 @@
   - Add PKCE challenge storage and retrieval mechanisms
   - _Requirements: 1.2, 1.3_
 
-- [ ] 3. Build OAuth 2.1 discovery endpoints
+- [X] 3. Build OAuth 2.1 discovery endpoints
   - Implement RFC 8414 Authorization Server Metadata endpoint (/.well-known/oauth-authorization-server)
   - Implement RFC 9728 Protected Resource Metadata endpoint (/.well-known/oauth-protected-resource)
   - Create endpoint handlers with proper CORS and content-type headers

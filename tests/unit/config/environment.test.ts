@@ -153,9 +153,12 @@ describe('Environment Configuration', () => {
       const overrides = {
         defaultRateLimit: {
           requestsPerMinute: 500,
-          requestsPerHour: 5000
+          requestsPerHour: 5000,
+          requestsPerDay: baseConfig.defaultRateLimit.requestsPerDay,
+          burstLimit: baseConfig.defaultRateLimit.burstLimit
         },
         security: {
+          ...baseConfig.security,
           maxConcurrentSessions: 5
         }
       };
@@ -182,6 +185,7 @@ describe('Environment Configuration', () => {
       const baseConfig = loadEnvironmentConfig(mockEnv);
       const overrides = {
         features: {
+          ...baseConfig.features,
           dynamicClientRegistration: false,
           resourceIndicators: false
         }
