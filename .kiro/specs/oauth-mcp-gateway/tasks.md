@@ -22,21 +22,21 @@
   - Write tests validating discovery metadata format and required fields
   - _Requirements: 1.5, 2.1_
 
-- [ ] 4. Create JWT token generation and validation system
+- [X] 4. Create JWT token generation and validation system
   - Implement JWT token creation with RS256/HS256 signing algorithms
   - Build token validation with audience verification (RFC 8707 Resource Indicators)
   - Create token payload structure with tenant_id, scope, and MCP-specific claims
   - Write unit tests for token lifecycle, expiration, and signature validation
   - _Requirements: 1.3, 2.2, 3.1_
 
-- [ ] 5. Implement Dynamic Client Registration (RFC 7591)
+- [-] 5. Implement Dynamic Client Registration (RFC 7591)
   - Create POST /register endpoint for automatic client onboarding
   - Implement client metadata validation and storage
   - Generate secure client_id and optional client_secret
   - Write tests for client registration edge cases and security validations
   - _Requirements: 1.6, 6.1_
 
-- [ ] 6. Build OAuth 2.1 authorization endpoint
+- [X] 6. Build OAuth 2.1 authorization endpoint
   - Implement GET /authorize with PKCE enforcement
   - Create authorization code generation and storage
   - Build consent UI or redirect logic for user authentication
