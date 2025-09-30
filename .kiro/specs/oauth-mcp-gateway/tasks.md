@@ -108,7 +108,7 @@
   - Write tests for rate limiting accuracy and bypass prevention
   - _Requirements: 5.3, 4.3_
 
-- [ ] 15. Build monitoring and health check system
+- [X] 15. Build monitoring and health check system
   - Implement health check endpoints for gateway and upstream MCP servers
   - Create metrics collection for authentication success/failure rates
   - Build performance monitoring for token validation latency
@@ -116,7 +116,7 @@
   - Write tests for health check accuracy and metric collection
   - _Requirements: 5.4, 6.4_
 
-- [ ] 16. Implement IdP federation (Auth0, Okta, Microsoft Entra)
+- [X] 16. Implement IdP federation (Auth0, Okta, Microsoft Entra)
   - Create OIDC/SAML federation handlers for external identity providers
   - Build user attribute mapping and role synchronization
   - Implement just-in-time user provisioning

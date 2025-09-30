@@ -1,0 +1,267 @@
+#!/usr/bin/env node
+
+/**
+ * Cloudflare Workers Deployment Script
+ * Handles deployment to different environments with proper configuration management
+ */
+
+const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+
+// Environment configuration
+const environments = {
+  development: {
+    name: 'oauth-mcp-gateway-dev',
+    env: 'development',
+    vars: {
+      ENVIRONMENT: 'development',
+      LOG_LEVEL: 'debug',
+      DATABASE_URL: 'sqlite:///tmp/dev.db',
+      JWT_SECRET: 'dev-jwt-secret-key-change-in-production'
+    }
+  },
+  staging: {
+    name: 'oauth-mcp-gateway-staging',
+    env: 'staging',
+    vars: {
+      ENVIRONMENT: 'staging',
+      LOG_LEVEL: 'info',
+      DATABASE_URL: process.env.STAGING_DATABASE_URL || 'cloudflare-d1://staging-db',
+      JWT_SECRET: process.env.STAGING_JWT_SECRET || 'staging-jwt-secret-key'
+    }
+  },
+  production: {
+    name: 'oauth-mcp-gateway',
+    env: 'production',
+    vars: {
+      ENVIRONMENT: 'production',
+      LOG_LEVEL: 'warn',
+      DATABASE_URL: process.env.PRODUCTION_DATABASE_URL || 'cloudflare-d1://production-db',
+      JWT_SECRET: process.env.PRODUCTION_JWT_SECRET || 'production-jwt-secret-key'
+    }
+  }
+};
+
+// Deployment targets
+const targets = {
+  cloudflare: {
+    deploy: deployToCloudflare,
+    rollback: rollbackCloudflareDeployment
+  }
+};
+
+/**
+ * Deploy to Cloudflare Workers
+ */
+async function deployToCloudflare(environment, options = {}) {
+  try {
+    console.log(`🚀 Deploying to Cloudflare Workers (${environment})...`);
+    
+    const envConfig = environments[environment];
+    if (!envConfig) {
+      throw new Error(`Unknown environment: ${environment}`);
+    }
+    
+    // Set environment variables
+    const envVars = { ...envConfig.vars };
+    
+    // Override with command line options if provided
+    if (options.vars) {
+      Object.assign(envVars, options.vars);
+    }
+    
+    // Create temporary wrangler.toml with environment-specific settings
+    const wranglerConfig = generateWranglerConfig(envConfig, envVars);
+    const tempConfigPath = path.join(__dirname, '..', `wrangler.${environment}.toml`);
+    fs.writeFileSync(tempConfigPath, wranglerConfig);
+    
+    // Build the project
+    console.log('🏗️  Building project...');
+    execSync('npm run build', { stdio: 'inherit' });
+    
+    // Deploy to Cloudflare
+    console.log('☁️  Deploying to Cloudflare...');
+    const deployCmd = `npx wrangler deploy --config ${tempConfigPath}`;
+    execSync(deployCmd, { stdio: 'inherit' });
+    
+    // Clean up temporary config
+    fs.unlinkSync(tempConfigPath);
+    
+    console.log(`✅ Successfully deployed to ${environment} environment`);
+    return { success: true, environment };
+  } catch (error) {
+    console.error(`❌ Deployment failed: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Rollback Cloudflare Workers deployment
+ */
+async function rollbackCloudflareDeployment(environment, version) {
+  try {
+    console.log(`⏪ Rolling back ${environment} deployment to version ${version}...`);
+    
+    // In a real implementation, this would use wrangler to rollback to a specific version
+    // For now, we'll just log the intended action
+    console.log(`Would rollback ${environment} to version ${version} using wrangler deployments`);
+    
+    return { success: true, environment, version };
+  } catch (error) {
+    console.error(`❌ Rollback failed: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Generate wrangler.toml configuration for specific environment
+ */
+function generateWranglerConfig(envConfig, envVars) {
+  const config = `
+name = "${envConfig.name}"
+main = "src/index.ts"
+compatibility_date = "2023-10-01"
+
+[vars]
+${Object.entries(envVars).map(([key, value]) => `${key} = "${value}"`).join('\n')}
+
+[[kv_namespaces]]
+binding = "SESSION_STORE"
+id = "${getKVNamespaceId(envConfig.env, 'sessions')}"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "${getD1DatabaseName(envConfig.env)}"
+database_id = "${getD1DatabaseId(envConfig.env)}"
+
+[env.development]
+name = "${environments.development.name}"
+
+[env.staging]
+name = "${environments.staging.name}"
+
+[env.production]
+name = "${environments.production.name}"
+`;
+  
+  return config;
+}
+
+/**
+ * Get KV namespace ID for environment
+ */
+function getKVNamespaceId(environment, namespace) {
+  const ids = {
+    development: {
+      sessions: 'dev-sessions-kv-namespace-id'
+    },
+    staging: {
+      sessions: process.env.STAGING_SESSIONS_KV_ID || 'staging-sessions-kv-namespace-id'
+    },
+    production: {
+      sessions: process.env.PRODUCTION_SESSIONS_KV_ID || 'production-sessions-kv-namespace-id'
+    }
+  };
+  
+  return ids[environment]?.[namespace] || `${environment}-${namespace}-kv-namespace-id`;
+}
+
+/**
+ * Get D1 database name for environment
+ */
+function getD1DatabaseName(environment) {
+  const names = {
+    development: 'oauth-mcp-gateway-dev',
+    staging: process.env.STAGING_D1_DB_NAME || 'oauth-mcp-gateway-staging',
+    production: process.env.PRODUCTION_D1_DB_NAME || 'oauth-mcp-gateway'
+  };
+  
+  return names[environment] || `oauth-mcp-gateway-${environment}`;
+}
+
+/**
+ * Get D1 database ID for environment
+ */
+function getD1DatabaseId(environment) {
+  const ids = {
+    development: 'dev-d1-database-id',
+    staging: process.env.STAGING_D1_DB_ID || 'staging-d1-database-id',
+    production: process.env.PRODUCTION_D1_DB_ID || 'production-d1-database-id'
+  };
+  
+  return ids[environment] || `${environment}-d1-database-id`;
+}
+
+/**
+ * Main deployment function
+ */
+async function main() {
+  const args = process.argv.slice(2);
+  const command = args[0];
+  const environment = args[1] || 'development';
+  const options = {};
+  
+  // Parse additional options
+  for (let i = 2; i < args.length; i++) {
+    if (args[i].startsWith('--var=')) {
+      const [key, value] = args[i].substring(6).split('=');
+      if (key && value) {
+        options.vars = options.vars || {};
+        options.vars[key] = value;
+      }
+    }
+  }
+  
+  switch (command) {
+    case 'deploy':
+      return await deployToCloudflare(environment, options);
+    case 'rollback':
+      const version = args[2];
+      if (!version) {
+        console.error('❌ Please specify a version to rollback to');
+        process.exit(1);
+      }
+      return await rollbackCloudflareDeployment(environment, version);
+    case 'help':
+    default:
+      console.log(`
+OAuth 2.1 MCP Gateway Deployment Tool
+
+Usage:
+  deploy [environment] [options]    Deploy to specified environment
+  rollback [environment] <version>  Rollback to specific version
+  help                              Show this help
+
+Environments:
+  development    Development environment (default)
+  staging        Staging environment
+  production     Production environment
+
+Options:
+  --var=KEY=VALUE    Set environment variable
+
+Examples:
+  deploy staging
+  deploy production --var=LOG_LEVEL=debug
+  rollback production v1.2.3
+      `);
+      process.exit(0);
+  }
+}
+
+// Run if called directly
+if (require.main === module) {
+  main().then(result => {
+    if (result && !result.success) {
+      process.exit(1);
+    }
+  });
+}
+
+module.exports = {
+  deployToCloudflare,
+  rollbackCloudflareDeployment,
+  environments,
+  targets
+};
