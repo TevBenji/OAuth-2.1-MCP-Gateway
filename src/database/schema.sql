@@ -186,6 +186,76 @@ CREATE TRIGGER IF NOT EXISTS update_users_updated_at
     UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE user_id = NEW.user_id;
   END;
 
+-- Usage tracking table
+CREATE TABLE IF NOT EXISTS usage_records (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+  user_id TEXT,
+  client_id TEXT REFERENCES oauth_clients(client_id) ON DELETE SET NULL,
+  resource_id TEXT, -- MCP server ID or other resource identifier
+  action TEXT NOT NULL, -- e.g., 'mcp_request', 'token_issued', 'auth_flow'
+  timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  metadata TEXT -- JSON object for additional context
+);
+
+-- Tenant billing information
+CREATE TABLE IF NOT EXISTS tenant_billing (
+  tenant_id TEXT PRIMARY KEY REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+  billing_tier TEXT DEFAULT 'free' CHECK (billing_tier IN ('free', 'pro', 'business', 'enterprise')),
+  current_period_start DATETIME NOT NULL,
+  current_period_end DATETIME NOT NULL,
+  subscription_status TEXT DEFAULT 'active' CHECK (subscription_status IN ('active', 'past_due', 'canceled', 'trialing', 'unpaid')),
+  last_invoice_date DATETIME,
+  next_billing_date DATETIME,
+  outstanding_balance REAL DEFAULT 0.0,
+  billing_email TEXT NOT NULL,
+  auto_renew BOOLEAN DEFAULT TRUE,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Usage alerts
+CREATE TABLE IF NOT EXISTS usage_alerts (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+  alert_type TEXT NOT NULL CHECK (alert_type IN ('usage_threshold', 'billing_threshold', 'quota_exceeded')),
+  threshold_type TEXT NOT NULL CHECK (threshold_type IN ('percentage', 'absolute')),
+  threshold_value REAL NOT NULL,
+  triggered_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_at DATETIME,
+  notification_sent BOOLEAN DEFAULT FALSE,
+  severity TEXT NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+  message TEXT NOT NULL
+);
+
+-- Usage reports
+CREATE TABLE IF NOT EXISTS usage_reports (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+  period_start DATETIME NOT NULL,
+  period_end DATETIME NOT NULL,
+  generated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  report_data TEXT NOT NULL -- JSON representation of the report
+);
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_usage_records_tenant_id ON usage_records(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_usage_records_timestamp ON usage_records(timestamp);
+CREATE INDEX IF NOT EXISTS idx_usage_records_action ON usage_records(action);
+CREATE INDEX IF NOT EXISTS idx_usage_alerts_tenant_id ON usage_alerts(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_usage_alerts_triggered_at ON usage_alerts(triggered_at);
+CREATE INDEX IF NOT EXISTS idx_usage_alerts_resolved_at ON usage_alerts(resolved_at);
+CREATE INDEX IF NOT EXISTS idx_usage_reports_tenant_id ON usage_reports(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_usage_reports_period_start ON usage_reports(period_start);
+CREATE INDEX IF NOT EXISTS idx_usage_reports_period_end ON usage_reports(period_end);
+
+-- Triggers for updated_at timestamps
+CREATE TRIGGER IF NOT EXISTS update_tenant_billing_updated_at
+  AFTER UPDATE ON tenant_billing
+  BEGIN
+    UPDATE tenant_billing SET updated_at = CURRENT_TIMESTAMP WHERE tenant_id = NEW.tenant_id;
+  END;
+
 -- Insert default tenant for development
 INSERT OR IGNORE INTO tenants (tenant_id, name, domain) 
 VALUES ('default', 'Default Tenant', 'localhost');

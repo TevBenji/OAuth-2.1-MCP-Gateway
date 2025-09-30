@@ -124,7 +124,7 @@
   - Write integration tests with mock IdP responses
   - _Requirements: 8.1, 6.2_
 
-- [ ] 17. Create deployment and infrastructure automation
+- [x] 17. Create deployment and infrastructure automation
   - Build Cloudflare Workers deployment scripts with environment management
   - Create database migration and seeding scripts
   - Implement infrastructure-as-code using Terraform or Pulumi

@@ -139,3 +139,55 @@ export interface MCPServer extends TenantEntity {
   access_token?: string; // If using static token authentication
   authorization_header_name: string; // Name of header to use for auth
 }
+
+// Usage record
+export interface UsageRecord extends TenantEntity {
+  id: string;
+  tenant_id: string;
+  user_id?: string;
+  client_id?: string;
+  resource_id?: string; // MCP server ID or resource being accessed
+  action: string; // Type of action (e.g., 'mcp_request', 'token_issued', 'auth_flow')
+  timestamp: string; // ISO date string
+  metadata?: Record<string, any>; // Additional context about the request
+}
+
+// Tenant billing information
+export interface TenantBilling extends TenantEntity {
+  tenant_id: string;
+  billing_tier: 'free' | 'pro' | 'business' | 'enterprise';
+  current_period_start: string; // ISO date string
+  current_period_end: string; // ISO date string
+  subscription_status: 'active' | 'past_due' | 'canceled' | 'trialing' | 'unpaid';
+  last_invoice_date?: string; // ISO date string
+  next_billing_date?: string; // ISO date string
+  outstanding_balance: number;
+  billing_email: string;
+  auto_renew: boolean;
+  created_at: string; // ISO date string
+  updated_at: string; // ISO date string
+}
+
+// Usage alert
+export interface UsageAlert extends TenantEntity {
+  id: string;
+  tenant_id: string;
+  alert_type: 'usage_threshold' | 'billing_threshold' | 'quota_exceeded';
+  threshold_type: 'percentage' | 'absolute';
+  threshold_value: number;
+  triggered_at: string; // ISO date string
+  resolved_at?: string; // ISO date string
+  notification_sent: boolean;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  message: string;
+}
+
+// Usage report
+export interface UsageReport extends TenantEntity {
+  id: string;
+  tenant_id: string;
+  period_start: string; // ISO date string
+  period_end: string; // ISO date string
+  generated_at: string; // ISO date string
+  report_data: string; // JSON string representation of the full report
+}
