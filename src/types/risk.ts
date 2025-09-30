@@ -1,4 +1,4 @@
-'''/**
+/**
  * Types for risk assessment and threat detection.
  */
 
@@ -16,4 +16,3 @@ export interface RiskAssessment {
   // Additional details or context about the risk assessment.
   details: Record<string, any>;
 }
-'''

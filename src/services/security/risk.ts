@@ -1,4 +1,4 @@
-'''import { RiskAssessment, RiskLevel } from '../../types/risk';
+import { RiskAssessment, RiskLevel } from '../../types/risk';
 import { AuditLogEntry } from '../../types/audit';
 import { KVNamespace } from '@cloudflare/workers-types';
 
@@ -129,4 +129,3 @@ export class RiskService {
     return userAgent.includes('curl');
   }
 }
-'''
