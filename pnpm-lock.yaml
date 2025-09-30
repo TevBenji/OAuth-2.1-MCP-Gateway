@@ -8,12 +8,18 @@ importers:
 
   .:
     dependencies:
+      '@types/uuid':
+        specifier: ^11.0.0
+        version: 11.0.0
       hono:
         specifier: ^3.12.0
         version: 3.12.12
       jose:
         specifier: ^5.2.0
         version: 5.10.0
+      uuid:
+        specifier: ^9.0.1
+        version: 9.0.1
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -768,6 +774,10 @@ packages:
 
   '@types/semver@7.7.1':
     resolution: {integrity: sha512-FmgJfu+MOcQ370SD0ev7EI8TlCAfKYU+B4m5T3yXc1CiRN94g/SZPtsCkk506aUDtlMnFZvasDwHHUcZUEaYuA==, tarball: https://registry.npmmirror.com/@types/semver/-/semver-7.7.1.tgz}
+
+  '@types/uuid@11.0.0':
+    resolution: {integrity: sha512-HVyk8nj2m+jcFRNazzqyVKiZezyhDKrGUA3jlEcg/nZ6Ms+qHwocba1Y/AaVaznJTAM9xpdFSh+ptbNrhOGvZA==, tarball: https://registry.npmmirror.com/@types/uuid/-/uuid-11.0.0.tgz}
+    deprecated: This is a stub types definition. uuid provides its own type definitions, so you do not need this installed.
 
   '@typescript-eslint/eslint-plugin@6.21.0':
     resolution: {integrity: sha512-oy9+hTPCUFpngkEZUSzbf9MxI65wbKFoQYsgPdILTfbUldp5ovUuphZVe4i30emU9M/kP+T64Di0mxl7dSw3MA==, tarball: https://registry.npmmirror.com/@typescript-eslint/eslint-plugin/-/eslint-plugin-6.21.0.tgz}
@@ -1622,6 +1632,10 @@ packages:
   urlpattern-polyfill@4.0.3:
     resolution: {integrity: sha512-DOE84vZT2fEcl9gqCUTcnAw5ZY5Id55ikUcziSUntuEFL3pRvavg5kwDmTEUJkeCHInTlV/HexFomgYnzO5kdQ==, tarball: https://registry.npmmirror.com/urlpattern-polyfill/-/urlpattern-polyfill-4.0.3.tgz}
 
+  uuid@9.0.1:
+    resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==, tarball: https://registry.npmmirror.com/uuid/-/uuid-9.0.1.tgz}
+    hasBin: true
+
   validate-npm-package-name@4.0.0:
     resolution: {integrity: sha512-mzR0L8ZDktZjpX4OB46KT+56MAhl4EIazWP/+G/HPGuvfdaqg4YsCdtOm6U9+LOFyYDoh4dpnpxZRB9MQQns5Q==, tarball: https://registry.npmmirror.com/validate-npm-package-name/-/validate-npm-package-name-4.0.0.tgz}
     engines: {node: ^12.13.0 || ^14.15.0 || >=16.0.0}
@@ -2269,6 +2283,10 @@ snapshots:
       undici-types: 6.21.0
 
   '@types/semver@7.7.1': {}
+
+  '@types/uuid@11.0.0':
+    dependencies:
+      uuid: 9.0.1
 
   '@typescript-eslint/eslint-plugin@6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.9.2))(eslint@8.57.1)(typescript@5.9.2)':
     dependencies:
@@ -3216,6 +3234,8 @@ snapshots:
       punycode: 2.3.1
 
   urlpattern-polyfill@4.0.3: {}
+
+  uuid@9.0.1: {}
 
   validate-npm-package-name@4.0.0:
     dependencies:

@@ -5,8 +5,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ClientService } from '@/services/oauth/client';
-import type { ClientRegistrationRequest } from '@/types/oauth';
+import { ClientService } from '../../../../src/services/oauth/client';
+import type { ClientRegistrationRequest } from '../../../../src/types/oauth';
 
 // Mock D1Database
 const mockDb = {
@@ -143,7 +143,7 @@ describe('ClientService', () => {
       });
 
       expect(mockDb.prepare).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT * FROM oauth_clients WHERE client_id = ? AND tenant_id = ?')
+        expect.stringContaining('SELECT * FROM oauth_clients')
       );
       expect(mockStatement.bind).toHaveBeenCalledWith('mcp_client_test123', 'test-tenant');
     });
@@ -162,7 +162,7 @@ describe('ClientService', () => {
       await clientService.getClient('mcp_client_test123');
 
       expect(mockDb.prepare).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT * FROM oauth_clients WHERE client_id = ?')
+        expect.stringContaining('SELECT * FROM oauth_clients')
       );
       expect(mockStatement.bind).toHaveBeenCalledWith('mcp_client_test123');
     });

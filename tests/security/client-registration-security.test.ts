@@ -6,8 +6,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import app from '@/index';
-import type { ClientRegistrationRequest, OAuthError } from '@/types/oauth';
+import app from '../../src/index';
+import type { ClientRegistrationRequest, OAuthError } from '../../src/types/oauth';
 
 // Test environment setup
 const testEnv = {

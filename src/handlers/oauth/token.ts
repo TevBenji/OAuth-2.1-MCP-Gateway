@@ -11,6 +11,8 @@ export interface AuthorizationCodeData {
   userId: string;
   scopes: string[];
   expiresAt: number;
+  codeChallenge?: string;
+  challengeMethod?: string;
 }
 
 export interface AuthorizationCodeStorage {
@@ -20,7 +22,9 @@ export interface AuthorizationCodeStorage {
     redirectUri: string,
     userId: string,
     scopes: string[],
-    expiresAt: number
+    expiresAt: number,
+    codeChallenge?: string,
+    challengeMethod?: string
   ): Promise<void>;
   
   retrieveAndDeleteCode(code: string): Promise<AuthorizationCodeData | null>;
@@ -80,9 +84,11 @@ class InMemoryAuthorizationCodeStorage implements AuthorizationCodeStorage {
     redirectUri: string,
     userId: string,
     scopes: string[],
-    expiresAt: number
+    expiresAt: number,
+    codeChallenge?: string,
+    challengeMethod?: string
   ): Promise<void> {
-    this.codes.set(code, { clientId, redirectUri, userId, scopes, expiresAt });
+    this.codes.set(code, { clientId, redirectUri, userId, scopes, expiresAt, codeChallenge, challengeMethod });
   }
 
   async retrieveAndDeleteCode(code: string): Promise<AuthorizationCodeData | null> {
@@ -248,25 +254,17 @@ async function handleAuthorizationCodeGrant(c: Context, request: TokenRequest) {
     );
   }
 
-  // Validate PKCE code verifier
-  // For this implementation, we'll need to verify the code challenge was previously stored
-  // In a real implementation, the code_verifier would be validated against the stored code_challenge
-  // Since we're not storing the original challenge in this example, we'll implement a mock validation
-  // In a real system, the authorization server would store the code challenge during /authorize
-  // and validate the code_verifier against it here
-  try {
-    // This would be implemented with proper PKCE validation
-    // For now, we'll just verify the code_verifier format
-    const codeVerifierRegex = /^[A-Za-z0-9_-]+$/;
-    if (!codeVerifierRegex.test(request.code_verifier) || 
-        request.code_verifier.length < 43 || 
-        request.code_verifier.length > 128) {
-      return c.json(
-        { error: 'invalid_grant', error_description: 'Invalid code_verifier format' },
-        400
-      );
-    }
-  } catch (error) {
+  // Validate PKCE: when the authorization code was created, the code challenge should have been stored
+  // Now we need to validate the provided code_verifier against that original challenge
+  if (!codeData.codeChallenge || !codeData.challengeMethod) {
+    return c.json(
+      { error: 'invalid_grant', error_description: 'Missing PKCE challenge data' },
+      400
+    );
+  }
+
+  const isValid = await validateCodeVerifier(request.code_verifier, codeData.codeChallenge, codeData.challengeMethod as 'S256' | 'plain');
+  if (!isValid) {
     return c.json(
       { error: 'invalid_grant', error_description: 'Invalid PKCE verification' },
       400

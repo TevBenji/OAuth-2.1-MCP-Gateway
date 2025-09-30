@@ -44,7 +44,7 @@
   - Write integration tests for complete authorization flow
   - _Requirements: 1.1, 1.2_
 
-- [ ] 7. Implement OAuth 2.1 token endpoint
+- [X] 7. Implement OAuth 2.1 token endpoint
   - Create POST /token endpoint with authorization code grant
   - Implement PKCE verifier validation against stored challenge
   - Add Resource Indicators (RFC 8707) support for audience-specific tokens

@@ -7,8 +7,8 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import type { Bindings } from '@/types/bindings';
-import { registerClient, registerPreflight } from '@/handlers/oauth/register';
+import type { Bindings } from './types/bindings';
+import { registerClient } from './handlers/oauth/register';
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -58,7 +58,6 @@ app.get('/.well-known/oauth-authorization-server', (c) => {
 });
 
 // OAuth 2.1 Dynamic Client Registration (RFC 7591)
-app.options('/register', registerPreflight);
 app.post('/register', registerClient);
 
 // Default 404 handler

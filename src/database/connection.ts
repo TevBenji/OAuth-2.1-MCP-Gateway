@@ -1,0 +1,177 @@
+import { D1Database } from '@cloudflare/workers-types';
+
+/**
+ * Tenant-aware database connection management
+ * Handles connection pooling and tenant context for multi-tenant architecture
+ */
+
+export interface DatabaseConfig {
+  databaseName: string;
+  // Add other database config properties as needed
+}
+
+export interface TenantContext {
+  tenantId: string;
+  userId?: string;
+  requestId: string;
+}
+
+/**
+ * DatabaseManager class for handling multi-tenant database operations
+ */
+export class DatabaseManager {
+  private database: D1Database;
+  private tenantContext?: TenantContext;
+
+  constructor(database: D1Database) {
+    this.database = database;
+  }
+
+  /**
+   * Sets the tenant context for subsequent database operations
+   */
+  setTenantContext(context: TenantContext): void {
+    this.tenantContext = context;
+  }
+
+  /**
+   * Gets the current tenant context
+   */
+  getTenantContext(): TenantContext | undefined {
+    return this.tenantContext;
+  }
+
+  /**
+   * Gets the underlying database instance
+   */
+  getDatabase(): D1Database {
+    return this.database;
+  }
+
+  /**
+   * Executes a query with tenant isolation
+   * Automatically adds tenant filtering to queries where applicable
+   */
+  async executeWithTenant<T>(
+    query: string, 
+    params?: any[],
+    tenantId?: string
+  ): Promise<T> {
+    const actualTenantId = tenantId || this.tenantContext?.tenantId;
+    
+    if (!actualTenantId) {
+      throw new Error('Tenant ID is required for database operations');
+    }
+
+    // Add tenant filter to the query
+    const tenantQuery = this.addTenantFilter(query, actualTenantId);
+    return this.database.prepare(tenantQuery).bind(...(params || [])).all() as Promise<T>;
+  }
+
+  /**
+   * Adds tenant filtering to a SQL query
+   * This ensures row-level security by automatically adding tenant_id filters
+   */
+  private addTenantFilter(query: string, tenantId: string): string {
+    // This is a simplified approach - in a real implementation, 
+    // you'd want more sophisticated query parsing
+    
+    // For SELECT, INSERT, UPDATE, DELETE statements that reference tenant-aware tables
+    // add the tenant_id filter
+    
+    // Check if query contains tenant-aware tables
+    const tenantAwareTables = [
+      'tenants', 'oauth_clients', 'authorization_codes', 
+      'access_tokens', 'refresh_tokens', 'users', 
+      'audit_logs', 'mcp_servers'
+    ];
+    
+    if (tenantAwareTables.some(table => query.toLowerCase().includes(table))) {
+      // For SELECT queries
+      if (/^\s*SELECT/i.test(query)) {
+        // Check if WHERE clause already exists
+        if (!/\bWHERE\b/i.test(query)) {
+          // Add WHERE clause
+          const orderByMatch = query.match(/\bORDER\s+BY\b/i);
+          const limitMatch = query.match(/\bLIMIT\b/i);
+          
+          if (orderByMatch) {
+            const idx = orderByMatch.index;
+            return `${query.substring(0, idx)} WHERE tenant_id = '${tenantId}' ${query.substring(idx)}`;
+          } else if (limitMatch) {
+            const idx = limitMatch.index;
+            return `${query.substring(0, idx)} WHERE tenant_id = '${tenantId}' ${query.substring(idx)}`;
+          } else {
+            return query.replace(/;/g, '') + ` WHERE tenant_id = '${tenantId}';`;
+          }
+        } else {
+          // Add AND condition to existing WHERE clause
+          return query.replace(/(\bWHERE\s+[^]+)/i, `$1 AND tenant_id = '${tenantId}'`);
+        }
+      }
+      // For UPDATE queries
+      else if (/^\s*UPDATE/i.test(query)) {
+        if (!/\bWHERE\b/i.test(query)) {
+          return query.replace(/;/g, '') + ` WHERE tenant_id = '${tenantId}';`;
+        } else {
+          return query.replace(/(\bWHERE\s+[^]+)/i, `$1 AND tenant_id = '${tenantId}'`);
+        }
+      }
+      // For DELETE queries
+      else if (/^\s*DELETE/i.test(query)) {
+        if (!/\bWHERE\b/i.test(query)) {
+          return query.replace(/;/g, '') + ` WHERE tenant_id = '${tenantId}';`;
+        } else {
+          return query.replace(/(\bWHERE\s+[^]+)/i, `$1 AND tenant_id = '${tenantId}'`);
+        }
+      }
+    }
+    
+    return query;
+  }
+
+  /**
+   * Validates that the provided tenant ID is valid
+   */
+  async validateTenantId(tenantId: string): Promise<boolean> {
+    if (!tenantId) {
+      return false;
+    }
+
+    // In a real implementation, you would check against your tenants table
+    // For now, we'll assume all non-empty tenant IDs are valid
+    const result = await this.database
+      .prepare('SELECT 1 FROM tenants WHERE id = ? AND status = \'active\'')
+      .bind(tenantId)
+      .first();
+    
+    return !!result;
+  }
+
+  /**
+   * Creates a new tenant context for a database transaction
+   */
+  async withTenantContext<T>(
+    tenantId: string, 
+    operation: () => Promise<T>
+  ): Promise<T> {
+    const isValid = await this.validateTenantId(tenantId);
+    if (!isValid) {
+      throw new Error(`Invalid or inactive tenant ID: ${tenantId}`);
+    }
+
+    const previousContext = this.tenantContext;
+    this.tenantContext = { tenantId, requestId: crypto.randomUUID() };
+    
+    try {
+      return await operation();
+    } finally {
+      this.tenantContext = previousContext;
+    }
+  }
+}
+
+// Export a function to create a database manager instance
+export function createDatabaseManager(database: D1Database): DatabaseManager {
+  return new DatabaseManager(database);
+}

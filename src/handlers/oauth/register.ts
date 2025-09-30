@@ -8,9 +8,9 @@
 import { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
-import { ClientRegistrationRequestSchema, type ClientRegistrationRequest, type ClientRegistrationResponse, type OAuthError } from '@/types/oauth';
-import { ClientService } from '@/services/oauth/client';
-import { OAUTH_CONSTANTS, HTTP_STATUS } from '@/utils/constants';
+import { ClientRegistrationRequestSchema, type ClientRegistrationRequest, type ClientRegistrationResponse, type OAuthError } from '../../types/oauth';
+import { ClientService } from '../../services/oauth/client';
+import { OAUTH_CONSTANTS, HTTP_STATUS } from '../../utils/constants';
 
 /**
  * POST /register endpoint for Dynamic Client Registration
@@ -19,7 +19,16 @@ import { OAUTH_CONSTANTS, HTTP_STATUS } from '@/utils/constants';
 export const registerClient = async (c: Context) => {
   try {
     // Parse and validate request body
-    const body = await c.req.json();
+    let body: any;
+    try {
+      body = await c.req.json();
+    } catch (error) {
+      const oauthError: OAuthError = {
+        error: 'invalid_request',
+        error_description: 'Invalid JSON in request body'
+      };
+      return c.json(oauthError, HTTP_STATUS.BAD_REQUEST);
+    }
     
     let validatedRequest: ClientRegistrationRequest;
     try {
@@ -51,7 +60,7 @@ export const registerClient = async (c: Context) => {
     const clientResponse = await clientService.registerClient(validatedRequest, tenantId);
     
     // Set proper headers
-    c.header('Content-Type', 'application/json; charset=utf-8');
+    c.header('Content-Type', 'application/json; charset=UTF-8');
     c.header('Cache-Control', 'no-store');
     c.header('Pragma', 'no-cache');
     
@@ -152,6 +161,21 @@ function validateClientRegistrationRequest(request: ClientRegistrationRequest): 
  * Validate redirect URI according to OAuth 2.1 security requirements
  */
 function isValidRedirectUri(uri: string): boolean {
+  // Check for custom schemes first (before URL constructor which may fail)
+  if (!/^https?:/.test(uri)) {
+    // Custom scheme validation - must start with letter and contain valid characters
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(uri)) {
+      return false;
+    }
+    
+    // No fragments allowed in custom schemes
+    if (uri.includes('#')) {
+      return false;
+    }
+    
+    return true;
+  }
+  
   try {
     const url = new URL(uri);
     
@@ -168,14 +192,6 @@ function isValidRedirectUri(uri: string): boolean {
     // No fragments allowed
     if (url.hash) {
       return false;
-    }
-    
-    // Custom schemes for native apps (must not be http/https)
-    if (!['http:', 'https:'].includes(url.protocol)) {
-      // Custom scheme validation - must be reverse domain notation
-      if (!/^[a-z][a-z0-9+.-]*:/.test(uri)) {
-        return false;
-      }
     }
     
     return true;
