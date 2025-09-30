@@ -21,7 +21,10 @@ app.use('*', cors({
       'https://chatgpt.com',
       'https://cursor.sh'
     ];
-    return allowedOrigins.includes(origin) || origin.endsWith('.vercel.app');
+    if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+      return origin;
+    }
+    return null;
   },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
@@ -39,11 +42,12 @@ app.get('/health', (c) => {
 
 // OAuth 2.1 discovery endpoints
 app.get('/.well-known/oauth-authorization-server', (c) => {
+  const issuer = c.env?.JWT_ISSUER || 'https://oauth-mcp-gateway.example.com';
   return c.json({
-    issuer: c.env.JWT_ISSUER,
-    authorization_endpoint: `${c.env.JWT_ISSUER}/authorize`,
-    token_endpoint: `${c.env.JWT_ISSUER}/token`,
-    registration_endpoint: `${c.env.JWT_ISSUER}/register`,
+    issuer,
+    authorization_endpoint: `${issuer}/authorize`,
+    token_endpoint: `${issuer}/token`,
+    registration_endpoint: `${issuer}/register`,
     scopes_supported: ['mcp:tools:read', 'mcp:tools:write', 'mcp:resources:read', 'mcp:resources:write'],
     response_types_supported: ['code'],
     grant_types_supported: ['authorization_code', 'refresh_token'],

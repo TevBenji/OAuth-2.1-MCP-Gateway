@@ -22,4 +22,7 @@ export interface Bindings {
   JWT_PRIVATE_KEY?: string;
   JWT_PUBLIC_KEY?: string;
   DATABASE_URL?: string;
+  
+  // Index signature for Hono compatibility
+  [key: string]: unknown;
 }
