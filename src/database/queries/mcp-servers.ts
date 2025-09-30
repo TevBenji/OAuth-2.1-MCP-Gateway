@@ -4,7 +4,7 @@
  * SQL queries for MCP server registry management with tenant isolation.
  */
 
-import { Database } from '../connection';
+import { DatabaseManager } from '../connection';
 import {
   MCPServerConfig,
   MCPServerRegistryEntry,
@@ -17,9 +17,9 @@ import { MCPServerDatabase } from '../../services/mcp/registry';
  * MCP Server Database Implementation
  */
 export class MCPServerQueries implements MCPServerDatabase {
-  private db: Database;
+  private db: DatabaseManager;
 
-  constructor(db: Database) {
+  constructor(db: DatabaseManager) {
     this.db = db;
   }
 

@@ -31,6 +31,7 @@ describe('MCP Proxy Integration Tests', () => {
 
     // Create test token
     testToken = await jwtService.createToken({
+      issuer: 'oauth-mcp-gateway',
       subject: 'client-123',
       audience: 'https://mcp-server.example.com',
       scopes: 'mcp:tools:read mcp:resources:read',
@@ -72,6 +73,7 @@ describe('MCP Proxy Integration Tests', () => {
 
     it('should reject expired token', async () => {
       const expiredToken = await jwtService.createToken({
+        issuer: 'oauth-mcp-gateway',
         subject: 'client-123',
         audience: 'https://mcp-server.example.com',
         tenantId: testTenantId,

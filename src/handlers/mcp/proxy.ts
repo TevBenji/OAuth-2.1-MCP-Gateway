@@ -49,8 +49,8 @@ export async function proxyToMCPServer(c: Context) {
     const proxyRequest: MCPProxyRequest = {
       method: c.req.method,
       url: targetPath + (c.req.url.includes('?') ? '?' + c.req.url.split('?')[1] : ''),
-      headers: this.extractRequestHeaders(c),
-      body: await this.extractRequestBody(c),
+      headers: extractRequestHeaders(c),
+      body: await extractRequestBody(c),
       context: mcpContext,
     };
 
@@ -117,8 +117,8 @@ export async function proxyByResourceIdentifier(c: Context) {
     const proxyRequest: MCPProxyRequest = {
       method: c.req.method,
       url: targetPath + (c.req.url.includes('?') ? '?' + c.req.url.split('?')[1] : ''),
-      headers: this.extractRequestHeaders(c),
-      body: await this.extractRequestBody(c),
+      headers: extractRequestHeaders(c),
+      body: await extractRequestBody(c),
       context: mcpContext,
     };
 

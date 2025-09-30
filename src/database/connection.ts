@@ -189,7 +189,7 @@ export class DatabaseManager {
    * Creates a new tenant context for a database transaction
    */
   async withTenantContext<T>(
-    tenantId: string, 
+    tenantId: string,
     operation: () => Promise<T>
   ): Promise<T> {
     const isValid = await this.validateTenantId(tenantId);
@@ -199,12 +199,31 @@ export class DatabaseManager {
 
     const previousContext = this.tenantContext;
     this.tenantContext = { tenantId, requestId: crypto.randomUUID() };
-    
+
     try {
       return await operation();
     } finally {
       this.tenantContext = previousContext;
     }
+  }
+
+  /**
+   * Execute a raw SQL query with parameters
+   */
+  async query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
+    const result = await this.database.prepare(sql).bind(...params).all();
+    return (result.results || []) as T[];
+  }
+
+  /**
+   * Execute a SQL statement (INSERT, UPDATE, DELETE)
+   */
+  async execute(sql: string, params: any[] = []): Promise<{ rowsAffected: number; lastRowId?: number }> {
+    const result = await this.database.prepare(sql).bind(...params).run();
+    return {
+      rowsAffected: result.changes || 0,
+      lastRowId: result.last_row_id,
+    };
   }
 }
 
