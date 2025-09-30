@@ -76,7 +76,7 @@
   - Write tests for scope validation and authorization decisions
   - _Requirements: 2.2, 4.1_
 
-- [ ] 11. Create audit logging and compliance system
+- [X] 11. Create audit logging and compliance system
   - Implement structured audit log entry creation with compliance tags
   - Build audit event handlers for authentication, authorization, and MCP events
   - Create log retention policies for different compliance requirements
@@ -84,7 +84,7 @@
   - Write tests for audit log completeness and compliance tag accuracy
   - _Requirements: 4.1, 4.4, 3.4_
 
-- [ ] 12. Build session management system
+- [X] 12. Build session management system
   - Implement session creation, validation, and revocation
   - Create concurrent session limits and idle timeout enforcement
   - Build session storage using Cloudflare KV with TTL
@@ -92,7 +92,7 @@
   - Write tests for session lifecycle and security policies
   - _Requirements: 4.2, 4.3_
 
-- [ ] 13. Implement API key management with rotation
+- [X] 13. Implement API key management with rotation
   - Create API key generation with secure random values and prefixes
   - Build dual-key rotation system for zero-downtime key updates
   - Implement API key validation and tenant association
