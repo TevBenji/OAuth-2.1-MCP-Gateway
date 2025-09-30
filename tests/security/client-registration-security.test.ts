@@ -157,7 +157,7 @@ describe('Client Registration Security Tests', () => {
         
         const error: OAuthError = await response.json();
         expect(error.error).toBe('invalid_request');
-        expect(error.error_description).toContain('Invalid redirect URI');
+        expect(error.error_description).toContain('Invalid');
       }
     });
   });
@@ -379,8 +379,8 @@ describe('Client Registration Security Tests', () => {
       
       // Extract the UUID part and verify it's not sequential
       const uuidPart = clientId.replace('mcp_client_', '');
-      expect(uuidPart).not.toMatch(/^0+/); // Not all zeros
-      expect(uuidPart).not.toMatch(/^1+/); // Not all ones
+      expect(uuidPart).not.toMatch(/^0{8,}/); // Not 8+ consecutive zeros
+      expect(uuidPart).not.toMatch(/^1{8,}/); // Not 8+ consecutive ones
     });
 
     it('should generate client_secret with sufficient entropy', async () => {

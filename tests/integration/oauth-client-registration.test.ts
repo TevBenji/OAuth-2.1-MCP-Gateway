@@ -200,11 +200,6 @@ describe('OAuth Client Registration Integration', () => {
         body: JSON.stringify(nativeAppRequest)
       }, testEnv);
 
-      if (response.status !== 201) {
-        const error = await response.json();
-        console.log('Custom scheme error:', error);
-      }
-
       expect(response.status).toBe(201);
       
       const result: ClientRegistrationResponse = await response.json();

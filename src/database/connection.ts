@@ -86,42 +86,79 @@ export class DatabaseManager {
       'audit_logs', 'mcp_servers'
     ];
     
-    if (tenantAwareTables.some(table => query.toLowerCase().includes(table))) {
+    const hasTenantAwareTable = tenantAwareTables.some(table => 
+      new RegExp(`\\b${table}\\b`, 'i').test(query)
+    );
+    
+    if (hasTenantAwareTable) {
       // For SELECT queries
       if (/^\s*SELECT/i.test(query)) {
         // Check if WHERE clause already exists
-        if (!/\bWHERE\b/i.test(query)) {
-          // Add WHERE clause
-          const orderByMatch = query.match(/\bORDER\s+BY\b/i);
-          const limitMatch = query.match(/\bLIMIT\b/i);
+        const whereIndex = query.toLowerCase().indexOf('where');
+        if (whereIndex === -1) {
+          // Add WHERE clause before any ORDER BY, GROUP BY, or LIMIT
+          const orderByIndex = query.toLowerCase().indexOf('order by');
+          const groupByIndex = query.toLowerCase().indexOf('group by');
+          const limitIndex = query.toLowerCase().indexOf('limit');
           
-          if (orderByMatch) {
-            const idx = orderByMatch.index;
-            return `${query.substring(0, idx)} WHERE tenant_id = '${tenantId}' ${query.substring(idx)}`;
-          } else if (limitMatch) {
-            const idx = limitMatch.index;
-            return `${query.substring(0, idx)} WHERE tenant_id = '${tenantId}' ${query.substring(idx)}`;
+          // Find the earliest occurrence of post-SELECT clauses
+          const endIndexes = [orderByIndex, groupByIndex, limitIndex].filter(i => i !== -1);
+          const earliestEndIndex = endIndexes.length > 0 ? Math.min(...endIndexes) : -1;
+          
+          if (earliestEndIndex !== -1) {
+            // Insert WHERE clause before the first post-SELECT clause
+            const prefix = query.substring(0, earliestEndIndex);
+            const suffix = query.substring(earliestEndIndex);
+            return `${prefix} WHERE tenant_id = '${tenantId}' ${suffix}`;
           } else {
-            return query.replace(/;/g, '') + ` WHERE tenant_id = '${tenantId}';`;
+            // No post-SELECT clauses, append at end
+            return query.replace(/;?\s*$/, ` WHERE tenant_id = '${tenantId}'`);
           }
+        } else {
+          // Add AND condition to existing WHERE clause
+          // Find where the WHERE clause ends (before next clause)
+          const remainingQuery = query.substring(whereIndex + 5); // after "WHERE"
+          const orderByIndex = remainingQuery.toLowerCase().indexOf('order by');
+          const groupByIndex = remainingQuery.toLowerCase().indexOf('group by');
+          const limitIndex = remainingQuery.toLowerCase().indexOf('limit');
+          
+          const endIndexes = [orderByIndex, groupByIndex, limitIndex].filter(i => i !== -1);
+          let clauseEndIndex = -1;
+          if (endIndexes.length > 0) {
+            clauseEndIndex = Math.min(...endIndexes);
+          }
+          
+          if (clauseEndIndex !== -1) {
+            // Insert the AND condition before the next clause
+            const prefix = query.substring(0, whereIndex + 5); // include "WHERE"
+            const whereClause = query.substring(whereIndex + 5, whereIndex + 5 + clauseEndIndex);
+            const suffix = query.substring(whereIndex + 5 + clauseEndIndex);
+            return `${prefix} ${whereClause} AND tenant_id = '${tenantId}' ${suffix}`;
+          } else {
+            // WHERE clause goes to end of query
+            return query.replace(/;?\s*$/, ` AND tenant_id = '${tenantId}'`);
+          }
+        }
+      }
+      // For UPDATE queries
+      else if (/^\s*UPDATE/i.test(query)) {
+        const whereIndex = query.toLowerCase().indexOf('where');
+        if (whereIndex === -1) {
+          // Add WHERE clause at the end
+          return query.replace(/;?\s*$/, ` WHERE tenant_id = '${tenantId}'`);
         } else {
           // Add AND condition to existing WHERE clause
           return query.replace(/(\bWHERE\s+[^]+)/i, `$1 AND tenant_id = '${tenantId}'`);
         }
       }
-      // For UPDATE queries
-      else if (/^\s*UPDATE/i.test(query)) {
-        if (!/\bWHERE\b/i.test(query)) {
-          return query.replace(/;/g, '') + ` WHERE tenant_id = '${tenantId}';`;
-        } else {
-          return query.replace(/(\bWHERE\s+[^]+)/i, `$1 AND tenant_id = '${tenantId}'`);
-        }
-      }
       // For DELETE queries
       else if (/^\s*DELETE/i.test(query)) {
-        if (!/\bWHERE\b/i.test(query)) {
-          return query.replace(/;/g, '') + ` WHERE tenant_id = '${tenantId}';`;
+        const whereIndex = query.toLowerCase().indexOf('where');
+        if (whereIndex === -1) {
+          // Add WHERE clause at the end
+          return query.replace(/;?\s*$/, ` WHERE tenant_id = '${tenantId}'`);
         } else {
+          // Add AND condition to existing WHERE clause
           return query.replace(/(\bWHERE\s+[^]+)/i, `$1 AND tenant_id = '${tenantId}'`);
         }
       }

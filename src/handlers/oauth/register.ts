@@ -161,15 +161,45 @@ function validateClientRegistrationRequest(request: ClientRegistrationRequest): 
  * Validate redirect URI according to OAuth 2.1 security requirements
  */
 function isValidRedirectUri(uri: string): boolean {
+  // Reject dangerous schemes immediately
+  const dangerousSchemes = ['javascript:', 'data:', 'vbscript:', 'file:'];
+  for (const scheme of dangerousSchemes) {
+    if (uri.toLowerCase().startsWith(scheme)) {
+      return false;
+    }
+  }
+  
+  // No fragments allowed
+  if (uri.includes('#')) {
+    return false;
+  }
+  
   // Check for custom schemes first (before URL constructor which may fail)
   if (!/^https?:/.test(uri)) {
     // Custom scheme validation - must start with letter and contain valid characters
-    if (!/^[a-z][a-z0-9+.-]*:/i.test(uri)) {
+    // Must be reverse domain notation or simple app scheme (no hyphens allowed, lowercase only)
+    if (!/^[a-z][a-z0-9+.]*:/.test(uri)) {
       return false;
     }
     
-    // No fragments allowed in custom schemes
-    if (uri.includes('#')) {
+    // Additional validation for custom schemes
+    const scheme = uri.split(':')[0]?.toLowerCase();
+    if (!scheme || scheme.length < 2) {
+      return false;
+    }
+    
+    // Reject schemes that start with numbers
+    if (/^[0-9]/.test(scheme)) {
+      return false;
+    }
+    
+    // Reject schemes with spaces
+    if (scheme.includes(' ') || uri.includes(' ')) {
+      return false;
+    }
+    
+    // Reject schemes that start with hyphens
+    if (scheme.startsWith('-')) {
       return false;
     }
     

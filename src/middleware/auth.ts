@@ -1,0 +1,221 @@
+/**
+ * Authentication Middleware
+ *
+ * Bearer token extraction and validation middleware for MCP requests.
+ * Validates JWT tokens, extracts claims, and attaches context to requests.
+ */
+
+import { Context, Next } from 'hono';
+import { JWTService, TokenPayload } from '../services/oauth/jwt';
+import { MCPRequestContext, MCPError } from '../types/mcp';
+
+// Environment bindings type
+interface Bindings {
+  JWT_SECRET: string;
+  JWT_ALGORITHM?: 'RS256' | 'HS256';
+  ISSUER?: string;
+}
+
+/**
+ * Extract Bearer token from Authorization header
+ */
+export function extractBearerToken(authHeader: string | undefined): string | null {
+  if (!authHeader) {
+    return null;
+  }
+
+  // Check if it starts with "Bearer "
+  const parts = authHeader.split(' ');
+  if (parts.length !== 2 || parts[0] !== 'Bearer') {
+    return null;
+  }
+
+  return parts[1];
+}
+
+/**
+ * Authentication middleware that validates Bearer tokens
+ * and attaches MCP request context to the request
+ */
+export function authMiddleware() {
+  return async (c: Context, next: Next) => {
+    try {
+      // Extract Authorization header
+      const authHeader = c.req.header('Authorization');
+      const token = extractBearerToken(authHeader);
+
+      if (!token) {
+        throw new MCPError(
+          'MISSING_TOKEN',
+          'Missing or invalid Authorization header. Expected: Bearer <token>',
+          401
+        );
+      }
+
+      // Get JWT service configuration from environment
+      const env = c.env as Bindings;
+      const jwtService = new JWTService(
+        env.JWT_SECRET,
+        env.JWT_ALGORITHM || 'HS256',
+        env.ISSUER || 'oauth-mcp-gateway'
+      );
+
+      // Verify the token
+      let verificationResult;
+      try {
+        verificationResult = await jwtService.verifyToken(token);
+      } catch (error) {
+        if (error instanceof Error) {
+          throw new MCPError(
+            'INVALID_TOKEN',
+            `Token validation failed: ${error.message}`,
+            401
+          );
+        }
+        throw new MCPError(
+          'INVALID_TOKEN',
+          'Token validation failed',
+          401
+        );
+      }
+
+      const payload = verificationResult.payload as TokenPayload;
+
+      // Validate required claims
+      if (!payload.tenant_id) {
+        throw new MCPError(
+          'MISSING_TENANT_ID',
+          'Token is missing required tenant_id claim',
+          401
+        );
+      }
+
+      if (!payload.user_id) {
+        throw new MCPError(
+          'MISSING_USER_ID',
+          'Token is missing required user_id claim',
+          401
+        );
+      }
+
+      // Build MCP request context
+      const mcpContext: MCPRequestContext = {
+        tenant_id: payload.tenant_id,
+        user_id: payload.user_id,
+        client_id: payload.sub, // subject is the client_id
+        session_id: payload.jti, // JWT ID can serve as session identifier
+        scopes: payload.scope ? payload.scope.split(' ') : [],
+        ip_address: c.req.header('CF-Connecting-IP') || c.req.header('X-Real-IP') || 'unknown',
+        user_agent: c.req.header('User-Agent') || 'unknown',
+      };
+
+      // Attach context to request for downstream handlers
+      c.set('mcpContext', mcpContext);
+      c.set('tokenPayload', payload);
+
+      // Continue to next middleware/handler
+      await next();
+    } catch (error) {
+      if (error instanceof MCPError) {
+        return c.json(
+          {
+            error: error.code,
+            error_description: error.message,
+            details: error.details,
+          },
+          error.statusCode as 401 | 403
+        );
+      }
+
+      // Unknown error
+      console.error('Authentication error:', error);
+      return c.json(
+        {
+          error: 'AUTHENTICATION_ERROR',
+          error_description: 'An unexpected error occurred during authentication',
+        },
+        500
+      );
+    }
+  };
+}
+
+/**
+ * Optional authentication middleware that allows requests without tokens
+ * but validates tokens if present
+ */
+export function optionalAuthMiddleware() {
+  return async (c: Context, next: Next) => {
+    const authHeader = c.req.header('Authorization');
+
+    // If no auth header, continue without authentication
+    if (!authHeader) {
+      await next();
+      return;
+    }
+
+    // If auth header is present, validate it
+    return authMiddleware()(c, next);
+  };
+}
+
+/**
+ * Scope validation middleware
+ * Checks if the token has the required scopes
+ */
+export function requireScopes(...requiredScopes: string[]) {
+  return async (c: Context, next: Next) => {
+    try {
+      const mcpContext = c.get('mcpContext') as MCPRequestContext | undefined;
+
+      if (!mcpContext) {
+        throw new MCPError(
+          'MISSING_CONTEXT',
+          'Request context not found. Ensure authMiddleware is applied first.',
+          500
+        );
+      }
+
+      const tokenScopes = mcpContext.scopes;
+
+      // Check if token has all required scopes
+      const hasAllScopes = requiredScopes.every(requiredScope => {
+        // Support wildcard scopes (e.g., mcp:tools:* matches mcp:tools:read)
+        if (requiredScope.endsWith(':*')) {
+          const prefix = requiredScope.slice(0, -1); // Remove the *
+          return tokenScopes.some(scope => scope.startsWith(prefix));
+        }
+        return tokenScopes.includes(requiredScope);
+      });
+
+      if (!hasAllScopes) {
+        throw new MCPError(
+          'INSUFFICIENT_SCOPE',
+          `Insufficient scope. Required: ${requiredScopes.join(', ')}, Provided: ${tokenScopes.join(', ')}`,
+          403
+        );
+      }
+
+      await next();
+    } catch (error) {
+      if (error instanceof MCPError) {
+        return c.json(
+          {
+            error: error.code,
+            error_description: error.message,
+          },
+          error.statusCode as 403 | 500
+        );
+      }
+
+      console.error('Scope validation error:', error);
+      return c.json(
+        {
+          error: 'SCOPE_VALIDATION_ERROR',
+          error_description: 'An unexpected error occurred during scope validation',
+        },
+        500
+      );
+    }
+  };
+}

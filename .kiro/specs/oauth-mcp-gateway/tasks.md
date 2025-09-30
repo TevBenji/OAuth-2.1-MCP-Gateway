@@ -29,7 +29,7 @@
   - Write unit tests for token lifecycle, expiration, and signature validation
   - _Requirements: 1.3, 2.2, 3.1_
 
-- [-] 5. Implement Dynamic Client Registration (RFC 7591)
+- [x] 5. Implement Dynamic Client Registration (RFC 7591)
   - Create POST /register endpoint for automatic client onboarding
   - Implement client metadata validation and storage
   - Generate secure client_id and optional client_secret
@@ -52,7 +52,7 @@
   - Write comprehensive tests for token exchange scenarios
   - _Requirements: 1.1, 1.3, 2.2_
 
-- [ ] 8. Create multi-tenant database layer
+- [X] 8. Create multi-tenant database layer
   - Implement tenant-aware database connection management
   - Create row-level security policies for tenant isolation
   - Build tenant configuration management (compliance tiers, limits)
@@ -68,7 +68,7 @@
   - Write integration tests for end-to-end MCP request flow
   - _Requirements: 2.1, 2.3, 2.4, 2.5_
 
-- [ ] 10. Implement scope-based authorization system
+- [X] 10. Implement scope-based authorization system
   - Create scope definition registry (mcp:tools:read, mcp:resources:write, etc.)
   - Build scope validation logic for token requests and API calls
   - Implement hierarchical scope inheritance (mcp:tools:* includes mcp:tools:read)
