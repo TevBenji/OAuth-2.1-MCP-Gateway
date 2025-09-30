@@ -1,0 +1,51 @@
+name = "oauth-mcp-gateway"
+main = "src/index.ts"
+compatibility_date = "2024-01-15"
+compatibility_flags = ["nodejs_compat"]
+
+[env.staging]
+name = "oauth-mcp-gateway-staging"
+
+[env.production]
+name = "oauth-mcp-gateway-prod"
+
+# KV namespaces for session storage
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "sessions_kv"
+preview_id = "sessions_kv_preview"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "cache_kv"
+preview_id = "cache_kv_preview"
+
+# D1 database for persistent storage
+[[d1_databases]]
+binding = "DB"
+database_name = "oauth_mcp_gateway"
+database_id = "oauth_mcp_gateway_db"
+
+[env.staging.d1_databases]
+binding = "DB"
+database_name = "oauth_mcp_gateway_staging"
+database_id = "oauth_mcp_gateway_staging_db"
+
+[env.production.d1_databases]
+binding = "DB"
+database_name = "oauth_mcp_gateway_prod"
+database_id = "oauth_mcp_gateway_prod_db"
+
+# Environment variables
+[vars]
+ENVIRONMENT = "development"
+JWT_ISSUER = "https://oauth-mcp-gateway.example.com"
+CORS_ORIGINS = "http://localhost:3000,https://claude.ai"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+JWT_ISSUER = "https://oauth-mcp-gateway-staging.example.com"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+JWT_ISSUER = "https://oauth-mcp-gateway.example.com"
