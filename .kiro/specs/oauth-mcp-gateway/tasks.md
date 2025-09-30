@@ -100,7 +100,7 @@
   - Write tests for key rotation scenarios and validation edge cases
   - _Requirements: 3.3, 6.2_
 
-- [ ] 14. Create rate limiting and DDoS protection
+- [X] 14. Create rate limiting and DDoS protection
   - Implement per-tenant and per-user rate limiting
   - Build sliding window rate limit algorithm with Cloudflare KV
   - Add IP-based rate limiting and suspicious activity detection
