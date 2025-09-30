@@ -42,7 +42,7 @@ app.get('/health', (c) => {
 
 // OAuth 2.1 discovery endpoints
 app.get('/.well-known/oauth-authorization-server', (c) => {
-  const issuer = c.env?.JWT_ISSUER || 'https://oauth-mcp-gateway.example.com';
+  const issuer = c.env?.JWT_ISSUER || 'https://test.oauth-mcp-gateway.com';
   return c.json({
     issuer,
     authorization_endpoint: `${issuer}/authorize`,
