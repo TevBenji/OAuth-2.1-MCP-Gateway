@@ -10,7 +10,16 @@
 export function generateCodeVerifier(): string {
   // Generate 32-96 bytes of randomness (which becomes 43-128 characters after base64url encoding)
   const randomBytes = new Uint8Array(32 + Math.floor(Math.random() * 64)); // 32 to 96 bytes
-  crypto.getRandomValues(randomBytes);
+  
+  // Use crypto.getRandomValues for cryptographically secure randomness
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(randomBytes);
+  } else {
+    // Fallback for environments where crypto is not available (should not happen in Cloudflare Workers)
+    for (let i = 0; i < randomBytes.length; i++) {
+      randomBytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
   
   // Convert to base64url encoding
   const verifier = base64URLEncode(randomBytes);
