@@ -1,0 +1,531 @@
+openapi: 3.1.0
+info:
+  title: OAuth 2.1 MCP Gateway API
+  version: 1.0.0
+  description: |
+    RESTful API for the OAuth 2.1 Model Context Protocol Gateway.
+
+    The gateway provides OAuth 2.1 authentication and authorization for MCP servers,
+    transforming insecure static API keys to enterprise-grade authentication.
+
+  contact:
+    name: OAuth MCP Gateway Support
+    email: support@oauth-mcp-gateway.com
+    url: https://oauth-mcp-gateway.com/support
+
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://gateway.example.com
+    description: Production server
+  - url: https://staging.gateway.example.com
+    description: Staging server
+  - url: http://localhost:8787
+    description: Local development
+
+tags:
+  - name: OAuth 2.1
+    description: OAuth 2.1 authorization endpoints
+  - name: Discovery
+    description: OAuth metadata discovery endpoints
+  - name: Client Registration
+    description: Dynamic client registration (RFC 7591)
+  - name: MCP
+    description: MCP request proxying
+  - name: Admin
+    description: Administrative endpoints
+
+paths:
+  /.well-known/oauth-authorization-server:
+    get:
+      summary: OAuth Authorization Server Metadata
+      description: Discover OAuth 2.1 server configuration (RFC 8414)
+      tags:
+        - Discovery
+      responses:
+        '200':
+          description: Authorization server metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationServerMetadata'
+
+  /authorize:
+    get:
+      summary: Authorization Endpoint
+      description: OAuth 2.1 authorization endpoint with mandatory PKCE
+      tags:
+        - OAuth 2.1
+      parameters:
+        - name: response_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [code]
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: redirect_uri
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: code_challenge
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: code_challenge_method
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [S256]
+        - name: resource
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uri
+      responses:
+        '302':
+          description: Redirect to login or consent page
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
+
+  /token:
+    post:
+      summary: Token Endpoint
+      description: Exchange authorization code or refresh token for access tokens
+      tags:
+        - OAuth 2.1
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/AuthorizationCodeGrant'
+                - $ref: '#/components/schemas/RefreshTokenGrant'
+      responses:
+        '200':
+          description: Token response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
+
+  /register:
+    post:
+      summary: Dynamic Client Registration
+      description: Register new OAuth client (RFC 7591)
+      tags:
+        - Client Registration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientRegistrationRequest'
+      responses:
+        '201':
+          description: Client registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientRegistrationResponse'
+        '400':
+          description: Invalid registration request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
+
+  /introspect:
+    post:
+      summary: Token Introspection
+      description: Introspect token to get metadata (RFC 7662)
+      tags:
+        - OAuth 2.1
+      security:
+        - ClientAuthentication: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                token_type_hint:
+                  type: string
+                  enum: [access_token, refresh_token]
+      responses:
+        '200':
+          description: Token introspection response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntrospectionResponse'
+
+  /revoke:
+    post:
+      summary: Token Revocation
+      description: Revoke access or refresh token (RFC 7009)
+      tags:
+        - OAuth 2.1
+      security:
+        - ClientAuthentication: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                token_type_hint:
+                  type: string
+                  enum: [access_token, refresh_token]
+      responses:
+        '200':
+          description: Token revoked successfully
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
+
+  /mcp:
+    post:
+      summary: MCP Request Proxy
+      description: Forward authenticated MCP requests to upstream servers
+      tags:
+        - MCP
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MCPRequest'
+      responses:
+        '200':
+          description: MCP response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MCPResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
+        '429':
+          description: Rate limit exceeded
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+            Retry-After:
+              schema:
+                type: integer
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+    ClientAuthentication:
+      type: http
+      scheme: basic
+
+  schemas:
+    AuthorizationServerMetadata:
+      type: object
+      required:
+        - issuer
+        - authorization_endpoint
+        - token_endpoint
+        - jwks_uri
+        - response_types_supported
+        - grant_types_supported
+        - code_challenge_methods_supported
+      properties:
+        issuer:
+          type: string
+          format: uri
+        authorization_endpoint:
+          type: string
+          format: uri
+        token_endpoint:
+          type: string
+          format: uri
+        introspection_endpoint:
+          type: string
+          format: uri
+        revocation_endpoint:
+          type: string
+          format: uri
+        registration_endpoint:
+          type: string
+          format: uri
+        jwks_uri:
+          type: string
+          format: uri
+        scopes_supported:
+          type: array
+          items:
+            type: string
+        response_types_supported:
+          type: array
+          items:
+            type: string
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+        code_challenge_methods_supported:
+          type: array
+          items:
+            type: string
+
+    AuthorizationCodeGrant:
+      type: object
+      required:
+        - grant_type
+        - code
+        - redirect_uri
+        - client_id
+        - code_verifier
+      properties:
+        grant_type:
+          type: string
+          enum: [authorization_code]
+        code:
+          type: string
+        redirect_uri:
+          type: string
+          format: uri
+        client_id:
+          type: string
+        code_verifier:
+          type: string
+        client_secret:
+          type: string
+
+    RefreshTokenGrant:
+      type: object
+      required:
+        - grant_type
+        - refresh_token
+        - client_id
+      properties:
+        grant_type:
+          type: string
+          enum: [refresh_token]
+        refresh_token:
+          type: string
+        client_id:
+          type: string
+        client_secret:
+          type: string
+        scope:
+          type: string
+
+    TokenResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+        refresh_token:
+          type: string
+        scope:
+          type: string
+
+    OAuth2Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          enum:
+            - invalid_request
+            - invalid_client
+            - invalid_grant
+            - unauthorized_client
+            - unsupported_grant_type
+            - invalid_scope
+            - access_denied
+        error_description:
+          type: string
+        error_uri:
+          type: string
+          format: uri
+
+    ClientRegistrationRequest:
+      type: object
+      required:
+        - client_name
+        - redirect_uris
+      properties:
+        client_name:
+          type: string
+        redirect_uris:
+          type: array
+          items:
+            type: string
+            format: uri
+        token_endpoint_auth_method:
+          type: string
+          enum: [client_secret_post, client_secret_basic, none]
+        grant_types:
+          type: array
+          items:
+            type: string
+        response_types:
+          type: array
+          items:
+            type: string
+        scope:
+          type: string
+        contacts:
+          type: array
+          items:
+            type: string
+            format: email
+        logo_uri:
+          type: string
+          format: uri
+        client_uri:
+          type: string
+          format: uri
+
+    ClientRegistrationResponse:
+      type: object
+      required:
+        - client_id
+      properties:
+        client_id:
+          type: string
+        client_secret:
+          type: string
+        client_secret_expires_at:
+          type: integer
+        registration_access_token:
+          type: string
+        registration_client_uri:
+          type: string
+          format: uri
+        client_id_issued_at:
+          type: integer
+
+    IntrospectionResponse:
+      type: object
+      required:
+        - active
+      properties:
+        active:
+          type: boolean
+        scope:
+          type: string
+        client_id:
+          type: string
+        username:
+          type: string
+        token_type:
+          type: string
+        exp:
+          type: integer
+        iat:
+          type: integer
+        sub:
+          type: string
+        aud:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        iss:
+          type: string
+
+    MCPRequest:
+      type: object
+      required:
+        - method
+      properties:
+        method:
+          type: string
+        params:
+          type: object
+        server:
+          type: string
+
+    MCPResponse:
+      type: object
+      properties:
+        result:
+          type: object
+        error:
+          type: object
+          properties:
+            code:
+              type: integer
+            message:
+              type: string
+            data:
+              type: object

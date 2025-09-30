@@ -1,0 +1,285 @@
+# GitHub Actions workflow for OAuth 2.1 MCP Gateway
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+
+jobs:
+  # Build and test job
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+        
+      # Type checking
+      - name: Type checking
+        run: npm run type-check
+        
+      # Run unit tests
+      - name: Run unit tests
+        run: npm run test:unit
+        
+      # Run integration tests
+      - name: Run integration tests
+        run: npm run test:integration
+        
+      # Run security tests
+      - name: Run security tests
+        run: npm run test:security
+        
+      # Build project
+      - name: Build project
+        run: npm run build
+        
+      # Upload build artifacts
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: |
+            dist/
+            wrangler.toml
+          retention-days: 7
+
+  # Deploy to development
+  deploy-development:
+    name: Deploy to Development
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment: development
+    
+    # Only run on develop branch pushes or manual dispatch to development
+    if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'development')
+    
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      # Download build artifacts
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+          
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+        
+      # Setup Cloudflare CLI
+      - name: Setup Cloudflare CLI
+        run: npm install -g wrangler
+        
+      # Deploy to Cloudflare Workers (development)
+      - name: Deploy to Cloudflare Workers (development)
+        run: npx wrangler deploy --env development
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          
+      # Run deployment verification tests
+      - name: Run deployment verification tests
+        run: npm run test:deployment:development
+        env:
+          GATEWAY_URL: ${{ secrets.DEVELOPMENT_GATEWAY_URL }}
+
+  # Deploy to staging
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    # Only run on main branch pushes or manual dispatch to staging
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      # Download build artifacts
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+          
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+        
+      # Setup Cloudflare CLI
+      - name: Setup Cloudflare CLI
+        run: npm install -g wrangler
+        
+      # Deploy to Cloudflare Workers (staging)
+      - name: Deploy to Cloudflare Workers (staging)
+        run: npx wrangler deploy --env staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_STAGING }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_STAGING }}
+          
+      # Run deployment verification tests
+      - name: Run deployment verification tests
+        run: npm run test:deployment:staging
+        env:
+          GATEWAY_URL: ${{ secrets.STAGING_GATEWAY_URL }}
+
+  # Deploy to production
+  deploy-production:
+    name: Deploy to Production
+    needs: [deploy-staging]
+    runs-on: ubuntu-latest
+    environment: production
+    
+    # Only run on manual dispatch to production
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+    
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      # Download build artifacts
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+          
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+        
+      # Setup Cloudflare CLI
+      - name: Setup Cloudflare CLI
+        run: npm install -g wrangler
+        
+      # Deploy to Cloudflare Workers (production)
+      - name: Deploy to Cloudflare Workers (production)
+        run: npx wrangler deploy --env production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_PRODUCTION }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_PRODUCTION }}
+          
+      # Run deployment verification tests
+      - name: Run deployment verification tests
+        run: npm run test:deployment:production
+        env:
+          GATEWAY_URL: ${{ secrets.PRODUCTION_GATEWAY_URL }}
+
+  # Database migration job
+  migrate-database:
+    name: Migrate Database
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'development' }}
+    
+    # Only run on manual dispatch
+    if: github.event_name == 'workflow_dispatch'
+    
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+        
+      # Run database migrations
+      - name: Run database migrations
+        run: node scripts/migrate.js up ${{ github.event.inputs.environment || 'development' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_${{ github.event.inputs.environment || 'DEVELOPMENT' }} }}
+
+  # Database seeding job
+  seed-database:
+    name: Seed Database
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'development' }}
+    
+    # Only run on manual dispatch
+    if: github.event_name == 'workflow_dispatch'
+    
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+        
+      # Seed database
+      - name: Seed database
+        run: node scripts/migrate.js seed ${{ github.event.inputs.environment || 'development' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_${{ github.event.inputs.environment || 'DEVELOPMENT' }} }}
