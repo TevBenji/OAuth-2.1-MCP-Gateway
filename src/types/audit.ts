@@ -70,7 +70,16 @@ export type AuditEventType =
   | 'system.startup'
   | 'system.shutdown'
   | 'system.error'
-  | 'system.config.changed';
+  | 'system.config.changed'
+  
+  // SOC 2 specific events
+  | 'authz.policy.created'
+  | 'authz.policy.updated'
+  | 'authz.policy.deleted'
+  | 'data.access'
+  | 'data.export'
+  | 'system.config.updated'
+  | 'system.schema.updated';
 
 // Standard audit log entry structure
 export interface AuditLogEntry {

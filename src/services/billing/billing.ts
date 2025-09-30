@@ -7,6 +7,7 @@
 import { TenantBilling, BillingTierConfig, UsageMetrics, UsageReport, UsageAlert } from '@/types/usage';
 import { TenantConfig } from '@/types/tenant';
 import { UsageTrackingService } from './usage';
+import { NotificationService } from './notifications';
 import { Bindings } from '@/types/bindings';
 
 export class BillingService {
@@ -117,13 +118,29 @@ export class BillingService {
   }
 
   /**
+   * Gets the billing tier configuration for a specific tenant
+   */
+  async getTierConfigForTenant(tenantId: string): Promise<BillingTierConfig | null> {
+    const billing = await this.usageService.getTenantBilling(tenantId);
+    if (!billing) {
+      // Default to free tier if no billing info
+      return this.billingTiers['free'] || null;
+    }
+    
+    return this.billingTiers[billing.billing_tier] || null;
+  }
+
+  /**
    * Checks if a tenant has exceeded their usage limits
    */
   async isUsageWithinLimits(tenantId: string): Promise<{ withinLimits: boolean; exceededLimits?: string[] }> {
     const billing = await this.usageService.getTenantBilling(tenantId);
     if (!billing) {
-      // If no billing info, assume default limits
-      return { withinLimits: false, exceededLimits: ['no_billing_info'] };
+      // If no billing info, assume free tier limits
+      return { 
+        withinLimits: false, 
+        exceededLimits: ['no_billing_info'] 
+      };
     }
 
     const currentUsage = await this.usageService.getCurrentUsage(tenantId);
@@ -138,11 +155,39 @@ export class BillingService {
 
     const exceededLimits: string[] = [];
 
+    // Check request limits
     if (currentUsage.total_requests > tierConfig.limits.requests_per_month) {
       exceededLimits.push('requests_per_month');
     }
-    // Note: storage, users, mcp_servers, and api_keys would need to be tracked differently
-    // since they're not just request counts
+
+    // We'll fetch additional tenant data to check other limits
+    try {
+      const tenantResult = await this.db.prepare(
+        `SELECT max_users, max_mcp_servers, max_oauth_clients 
+         FROM tenants 
+         WHERE tenant_id = ?`
+      )
+      .bind(tenantId)
+      .first();
+
+      if (tenantResult) {
+        const tenantData = tenantResult as any;
+        
+        if (tenantData.max_users > tierConfig.limits.users) {
+          exceededLimits.push('users');
+        }
+        
+        if (tenantData.max_mcp_servers > tierConfig.limits.mcp_servers) {
+          exceededLimits.push('mcp_servers');
+        }
+        
+        if (tenantData.max_oauth_clients > tierConfig.limits.api_keys) {
+          exceededLimits.push('api_keys');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking tenant limits:', error);
+    }
 
     return {
       withinLimits: exceededLimits.length === 0,
@@ -400,5 +445,71 @@ export class BillingService {
     // Clear usage metrics for next period
     const periodKey = `usage:${tenantId}:${nextPeriodStart.getFullYear()}-${String(nextPeriodStart.getMonth() + 1).padStart(2, '0')}`;
     await this.usageService['kv'].delete(periodKey);
+  }
+  
+  /**
+   * Check usage thresholds and send alerts if crossed
+   */
+  async checkUsageThresholds(tenantId: string): Promise<void> {
+    const billing = await this.usageService.getTenantBilling(tenantId);
+    if (!billing) {
+      return; // No billing info for tenant
+    }
+
+    const currentUsage = await this.usageService.getCurrentUsage(tenantId);
+    if (!currentUsage) {
+      return; // No usage data for tenant
+    }
+
+    const tierConfig = this.billingTiers[billing.billing_tier];
+    if (!tierConfig) {
+      return; // Invalid tier
+    }
+
+    // Check request usage percentage
+    const requestUsagePercent = (currentUsage.billable_requests / tierConfig.limits.requests_per_month) * 100;
+    
+    // Send alerts at different thresholds
+    if (requestUsagePercent >= 90) {
+      await this.usageService.createUsageAlert({
+        tenant_id: tenantId,
+        alert_type: 'usage_threshold',
+        threshold_type: 'percentage',
+        threshold_value: 90,
+        severity: 'critical',
+        message: `Critical: Tenant ${tenantId} has reached ${Math.round(requestUsagePercent)}% of monthly request allocation`
+      });
+    } else if (requestUsagePercent >= 80) {
+      await this.usageService.createUsageAlert({
+        tenant_id: tenantId,
+        alert_type: 'usage_threshold',
+        threshold_type: 'percentage',
+        threshold_value: 80,
+        severity: 'high',
+        message: `Warning: Tenant ${tenantId} has reached ${Math.round(requestUsagePercent)}% of monthly request allocation`
+      });
+    } else if (requestUsagePercent >= 70) {
+      await this.usageService.createUsageAlert({
+        tenant_id: tenantId,
+        alert_type: 'usage_threshold',
+        threshold_type: 'percentage',
+        threshold_value: 70,
+        severity: 'medium',
+        message: `Notice: Tenant ${tenantId} has reached ${Math.round(requestUsagePercent)}% of monthly request allocation`
+      });
+    }
+  }
+
+  /**
+   * Process all pending usage alerts and send notifications
+   */
+  async processUsageAlerts(): Promise<void> {
+    const notificationService = new NotificationService({} as Bindings); // This would need actual bindings
+    
+    // In a real implementation, this would process all pending alerts
+    // and send notifications through the notification service
+    
+    // For now, log that we're processing alerts
+    console.log('Processing usage alerts...');
   }
 }

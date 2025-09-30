@@ -9,6 +9,8 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Bindings } from './types/bindings';
 import { registerClient } from './handlers/oauth/register';
+import adminApi from './handlers/admin/api';
+import adminUi from './handlers/admin/ui';
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -59,6 +61,10 @@ app.get('/.well-known/oauth-authorization-server', (c) => {
 
 // OAuth 2.1 Dynamic Client Registration (RFC 7591)
 app.post('/register', registerClient);
+
+// Admin API and UI routes
+app.route('/admin/api', adminApi);
+app.route('/admin', adminUi);
 
 // Default 404 handler
 app.notFound((c) => {
