@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
-import { Bindings } from '../types/bindings';
-import { Tenant } from '../database/schema';
-import { AuditLog } from '../types/audit';
-import { UsageMetrics } from '../types/usage';
-import { OAuthClient } from '../database/schema';
+import { Bindings } from '../../types/bindings';
+import { Tenant } from '../../database/schema';
+import { AuditLog } from '../../types/audit';
+import { UsageMetrics } from '../../types/usage';
+import { OAuthClient } from '../../database/schema';
 
 type AdminContext = {
   Bindings: Bindings;

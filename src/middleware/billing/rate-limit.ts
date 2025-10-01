@@ -31,7 +31,7 @@ export async function billingRateLimitMiddleware(c: Context<{ Bindings: Bindings
     }
     
     // Proceed with the request if within limits
-    await next();
+    return await next();
   } catch (error) {
     if (error instanceof TenantNotFoundError) {
       return c.json(

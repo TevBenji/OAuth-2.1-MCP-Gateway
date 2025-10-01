@@ -239,8 +239,8 @@ export class ClientService {
       .prepare(`DELETE FROM ${DATABASE_CONSTANTS.TABLES.OAUTH_CLIENTS} WHERE client_id = ? AND tenant_id = ?`)
       .bind(clientId, tenantId)
       .run();
-    
-    return result.changes > 0;
+
+    return result.meta.changes > 0;
   }
 
   /**

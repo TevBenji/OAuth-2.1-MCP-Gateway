@@ -5,6 +5,11 @@
  * Validates JWT tokens, extracts claims, and attaches context to requests.
  */
 
+import type { Context, Next } from 'hono';
+import { MCPError } from '../errors/mcp-error';
+import { JWTService } from '../services/oauth/jwt';
+import type { TokenPayload } from '../types/oauth';
+import type { MCPRequestContext } from '../types/mcp';
 import { RiskService } from '../services/security/risk';
 import { auditService } from '../services/security/audit';
 import { AuditLogEntry } from '../types/audit';

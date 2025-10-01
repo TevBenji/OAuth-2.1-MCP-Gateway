@@ -77,7 +77,7 @@ export async function featureEnforcementMiddleware(c: Context<{ Bindings: Bindin
     }
     
     // Proceed with the request if all checks pass
-    await next();
+    return await next();
   } catch (error) {
     if (error instanceof TenantNotFoundError) {
       return c.json(

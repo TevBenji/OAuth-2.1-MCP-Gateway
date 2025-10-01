@@ -1,8 +1,7 @@
 import { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { v4 as uuidv4 } from 'uuid';
-import { validateCodeVerifier } from '../../services/oauth/pkce';
-import { InMemoryPKCEStorage } from '../../services/oauth/pkce';
+import { validatePKCE } from '../../services/oauth/pkce';
 import { JWTService, TokenClaims, TokenType, JWT_CONFIG } from '../../services/oauth/jwt';
 // Define interfaces locally to avoid circular dependency
 export interface AuthorizationCodeData {
@@ -145,7 +144,6 @@ class InMemoryRefreshTokenStorage implements RefreshTokenStorage {
 }
 
 // Storage instances
-const pkceStorage = new InMemoryPKCEStorage();
 const codeStorage = new InMemoryAuthorizationCodeStorage();
 const refreshTokenStorage = new InMemoryRefreshTokenStorage();
 
@@ -263,7 +261,7 @@ async function handleAuthorizationCodeGrant(c: Context, request: TokenRequest) {
     );
   }
 
-  const isValid = await validateCodeVerifier(request.code_verifier, codeData.codeChallenge, codeData.challengeMethod as 'S256' | 'plain');
+  const isValid = await validatePKCE(request.code_verifier, codeData.codeChallenge, codeData.challengeMethod as 'S256' | 'plain');
   if (!isValid) {
     return c.json(
       { error: 'invalid_grant', error_description: 'Invalid PKCE verification' },

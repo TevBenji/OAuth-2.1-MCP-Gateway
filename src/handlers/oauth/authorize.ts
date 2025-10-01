@@ -1,8 +1,6 @@
 import { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { v4 as uuidv4 } from 'uuid';
-import { validateCodeVerifier } from '../../services/oauth/pkce';
-import { InMemoryPKCEStorage } from '../../services/oauth/pkce';
 
 // Authorization request parameters
 export interface AuthorizationRequest {
@@ -73,7 +71,6 @@ class InMemoryAuthorizationCodeStorage implements AuthorizationCodeStorage {
 }
 
 // Storage instances
-const pkceStorage = new InMemoryPKCEStorage();
 const codeStorage = new InMemoryAuthorizationCodeStorage();
 
 /**
