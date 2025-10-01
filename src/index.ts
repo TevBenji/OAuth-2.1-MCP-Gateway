@@ -12,7 +12,18 @@ import { registerClient } from './handlers/oauth/register';
 import adminApi from './handlers/admin/api';
 import adminUi from './handlers/admin/ui';
 
-const app = new Hono<{ Bindings: Bindings }>();
+// Define context variables for type safety
+type Variables = {
+  tenantId?: string;
+  userId?: string;
+  clientId?: string;
+  mcpContext?: any;
+  tokenPayload?: any;
+  session?: any;
+  deviceInfo?: any;
+};
+
+const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // CORS middleware
 app.use('*', cors({

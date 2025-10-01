@@ -9,7 +9,13 @@ import { Bindings } from '@/types/bindings';
 import { BillingService } from '@/services/billing/billing';
 import { TenantNotFoundError } from '@/types/tenant';
 
-export async function billingRateLimitMiddleware(c: Context<{ Bindings: Bindings }>, next: Next) {
+type Variables = {
+  tenantId?: string;
+  userId?: string;
+  clientId?: string;
+};
+
+export async function billingRateLimitMiddleware(c: Context<{ Bindings: Bindings; Variables: Variables }>, next: Next) {
   const tenantId = c.req.header('X-Tenant-ID') || 
                   (c.get('tenantId') as string) || 
                   'default';

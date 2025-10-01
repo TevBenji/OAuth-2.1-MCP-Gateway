@@ -8,7 +8,13 @@ import { Context, Next } from 'hono';
 import { Bindings } from '@/types/bindings';
 import { UsageTrackingService } from '@/services/billing/usage';
 
-export async function billingMiddleware(c: Context<{ Bindings: Bindings }>, next: Next) {
+type Variables = {
+  tenantId?: string;
+  userId?: string;
+  clientId?: string;
+};
+
+export async function billingMiddleware(c: Context<{ Bindings: Bindings; Variables: Variables }>, next: Next) {
   const startTime = Date.now();
   
   // Extract tenant context from request
