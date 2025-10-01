@@ -28,7 +28,6 @@
     "verify": "node scripts/verify-deployment.js"
   },
   "dependencies": {
-    "@types/uuid": "^11.0.0",
     "hono": "^3.12.0",
     "jose": "^5.2.0",
     "uuid": "^9.0.1",

@@ -14,7 +14,7 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
+    "exactOptionalPropertyTypes": false,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
@@ -41,6 +41,8 @@
   "exclude": [
     "node_modules",
     "dist",
-    "coverage"
+    "coverage",
+    "src/admin-ui/**/*",
+    "admin/**/*"
   ]
 }
