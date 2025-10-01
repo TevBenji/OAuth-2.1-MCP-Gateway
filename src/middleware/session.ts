@@ -57,7 +57,7 @@ export function sessionMiddleware(sessionManager: SessionManager) {
       c.set('session', validationResult.session);
       c.set('deviceInfo', deviceInfo);
 
-      await next();
+      return await next();
     } catch (error) {
       if (error instanceof MCPError) {
         return c.json(

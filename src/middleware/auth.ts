@@ -37,7 +37,7 @@ export function extractBearerToken(authHeader: string | undefined): string | nul
     return null;
   }
 
-  return parts[1];
+  return parts[1] || null;
 }
 
 /**
@@ -86,7 +86,7 @@ export function authMiddleware() {
         );
       }
 
-      const payload = verificationResult.payload as TokenPayload;
+      const payload = verificationResult.payload as unknown as TokenPayload;
 
       // Validate required claims
       if (!payload.tenant_id) {
@@ -97,10 +97,10 @@ export function authMiddleware() {
         );
       }
 
-      if (!payload.user_id) {
+      if (!payload.sub) {
         throw new MCPError(
           'MISSING_USER_ID',
-          'Token is missing required user_id claim',
+          'Token is missing required sub (user_id) claim',
           401
         );
       }
@@ -108,9 +108,9 @@ export function authMiddleware() {
       // Build MCP request context
       const mcpContext: MCPRequestContext = {
         tenant_id: payload.tenant_id,
-        user_id: payload.user_id,
-        client_id: payload.sub, // subject is the client_id
-        session_id: payload.jti, // JWT ID can serve as session identifier
+        user_id: payload.sub, // subject is the user ID
+        client_id: payload.client_id,
+        session_id: payload.session_id || payload.jti, // Use session_id or JWT ID
         scopes: payload.scope ? payload.scope.split(' ') : [],
         ip_address: c.req.header('CF-Connecting-IP') || c.req.header('X-Real-IP') || 'unknown',
         user_agent: c.req.header('User-Agent') || 'unknown',
@@ -167,7 +167,7 @@ export function authMiddleware() {
       }
 
       // Continue to next middleware/handler
-      await next();
+      return await next();
     } catch (error) {
       if (error instanceof MCPError) {
         return c.json(
@@ -203,8 +203,7 @@ export function optionalAuthMiddleware() {
 
     // If no auth header, continue without authentication
     if (!authHeader) {
-      await next();
-      return;
+      return await next();
     }
 
     // If auth header is present, validate it
@@ -249,7 +248,7 @@ export function requireScopes(...requiredScopes: string[]) {
         );
       }
 
-      await next();
+      return await next();
     } catch (error) {
       if (error instanceof MCPError) {
         return c.json(

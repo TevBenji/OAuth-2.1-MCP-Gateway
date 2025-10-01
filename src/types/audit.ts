@@ -155,3 +155,6 @@ export interface RetentionPolicy {
   exportRequired: boolean; // Whether export is required for compliance
   exportFrequency?: 'daily' | 'weekly' | 'monthly'; // How often to export
 }
+
+// Alias for backward compatibility with database schema
+export type AuditLog = AuditLogEntry;

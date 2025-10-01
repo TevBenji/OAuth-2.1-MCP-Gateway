@@ -95,11 +95,11 @@ export function rateLimitMiddleware(rateLimiter: RateLimiter, window?: RateLimit
         );
       }
 
-      await next();
+      return await next();
     } catch (error) {
       console.error('Rate limit middleware error:', error);
       // Don't fail the request on rate limit errors
-      await next();
+      return await next();
     }
   };
 }
@@ -143,11 +143,11 @@ export function ipRateLimitMiddleware(rateLimiter: RateLimiter, window?: RateLim
         );
       }
 
-      await next();
+      return await next();
     } catch (error) {
       console.error('IP rate limit middleware error:', error);
       // Don't fail the request on rate limit errors
-      await next();
+      return await next();
     }
   };
 }
@@ -185,10 +185,10 @@ export function tenantRateLimitMiddleware(rateLimiter: RateLimiter, window?: Rat
         );
       }
 
-      await next();
+      return await next();
     } catch (error) {
       console.error('Tenant rate limit middleware error:', error);
-      await next();
+      return await next();
     }
   };
 }
@@ -230,10 +230,10 @@ export function userRateLimitMiddleware(rateLimiter: RateLimiter, window?: RateL
         );
       }
 
-      await next();
+      return await next();
     } catch (error) {
       console.error('User rate limit middleware error:', error);
-      await next();
+      return await next();
     }
   };
 }
@@ -279,10 +279,10 @@ export function endpointRateLimitMiddleware(
         );
       }
 
-      await next();
+      return await next();
     } catch (error) {
       console.error('Endpoint rate limit middleware error:', error);
-      await next();
+      return await next();
     }
   };
 }
