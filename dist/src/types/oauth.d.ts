@@ -78,17 +78,21 @@ export interface TokenResponse {
 export interface TokenPayload {
     iss: string;
     sub: string;
-    aud: string;
+    aud: string | string[];
     exp: number;
+    nbf?: number;
     iat: number;
     jti: string;
-    scope: string;
-    client_id: string;
-    tenant_id: string;
-    session_id: string;
+    scope?: string;
+    client_id?: string;
+    tenant_id?: string;
+    user_id?: string;
+    session_id?: string;
     device_id?: string;
-    auth_time: number;
+    auth_time?: number;
     risk_score?: number;
+    resource_indicators?: string[];
+    mcp_permissions?: string[];
 }
 export interface PKCEChallenge {
     code_verifier: string;

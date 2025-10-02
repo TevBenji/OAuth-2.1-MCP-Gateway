@@ -1,6 +1,6 @@
 /**
  * OAuth 2.1 Type Definitions
- * 
+ *
  * Complete type definitions for OAuth 2.1 protocol implementation
  * including PKCE, Resource Indicators (RFC 8707), and Dynamic Client Registration.
  */
@@ -18,7 +18,7 @@ export const AuthorizeRequestSchema = z.object({
   code_challenge: z.string().min(43).max(128),
   code_challenge_method: z.literal('S256'),
   // Resource Indicators (RFC 8707)
-  resource: z.string().url().optional()
+  resource: z.string().url().optional(),
 });
 
 export type AuthorizeRequest = z.infer<typeof AuthorizeRequestSchema>;
@@ -42,7 +42,7 @@ export const TokenRequestSchema = z.object({
   resource: z.string().url().optional(),
   // Refresh Token Grant
   refresh_token: z.string().optional(),
-  scope: z.string().optional()
+  scope: z.string().optional(),
 });
 
 export type TokenRequest = z.infer<typeof TokenRequestSchema>;
@@ -63,25 +63,31 @@ export interface TokenPayload {
   // Standard JWT claims
   iss: string; // Issuer
   sub: string; // Subject (user ID)
-  aud: string; // Audience (MCP server resource)
+  aud: string | string[]; // Audience (MCP server resource) - can be array for RFC 8707
   exp: number; // Expiration time
+  nbf?: number; // Not before
   iat: number; // Issued at
   jti: string; // JWT ID
-  
+
   // OAuth 2.1 claims
-  scope: string;
-  client_id: string;
-  
+  scope?: string;
+  client_id?: string;
+
   // Multi-tenant claims
-  tenant_id: string;
-  
+  tenant_id?: string;
+  user_id?: string;
+
   // Session management
-  session_id: string;
+  session_id?: string;
   device_id?: string;
-  
+
   // Security claims
-  auth_time: number;
+  auth_time?: number;
   risk_score?: number;
+
+  // MCP-specific claims (RFC 8707)
+  resource_indicators?: string[];
+  mcp_permissions?: string[];
 }
 
 // PKCE (Proof Key for Code Exchange) Types
@@ -101,9 +107,11 @@ export const ClientRegistrationRequestSchema = z.object({
   contacts: z.array(z.string().email()).optional(),
   tos_uri: z.string().url().optional(),
   policy_uri: z.string().url().optional(),
-  token_endpoint_auth_method: z.enum(['none', 'client_secret_post', 'client_secret_basic']).optional(),
+  token_endpoint_auth_method: z
+    .enum(['none', 'client_secret_post', 'client_secret_basic'])
+    .optional(),
   grant_types: z.array(z.enum(['authorization_code', 'refresh_token'])).optional(),
-  response_types: z.array(z.literal('code')).optional()
+  response_types: z.array(z.literal('code')).optional(),
 });
 
 export type ClientRegistrationRequest = z.infer<typeof ClientRegistrationRequestSchema>;
@@ -128,8 +136,15 @@ export interface ClientRegistrationResponse {
 
 // OAuth Error Response (RFC 6749)
 export interface OAuthError {
-  error: 'invalid_request' | 'invalid_client' | 'invalid_grant' | 'unauthorized_client' | 
-         'unsupported_grant_type' | 'invalid_scope' | 'invalid_target' | 'access_denied';
+  error:
+    | 'invalid_request'
+    | 'invalid_client'
+    | 'invalid_grant'
+    | 'unauthorized_client'
+    | 'unsupported_grant_type'
+    | 'invalid_scope'
+    | 'invalid_target'
+    | 'access_denied';
   error_description?: string;
   error_uri?: string;
   state?: string;

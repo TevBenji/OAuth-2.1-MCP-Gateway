@@ -19,10 +19,11 @@ export class UsageTrackingService {
         const record = {
             ...usageRecord,
             id,
-            timestamp
+            timestamp,
         };
         // Store in database for persistent records
-        await this.db.prepare(`INSERT INTO usage_records (id, tenant_id, user_id, client_id, resource_id, action, timestamp, metadata)
+        await this.db
+            .prepare(`INSERT INTO usage_records (id, tenant_id, user_id, client_id, resource_id, action, timestamp, metadata)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
             .bind(id, record.tenant_id, record.user_id || null, record.client_id || null, record.resource_id || null, record.action, record.timestamp.toISOString(), record.metadata ? JSON.stringify(record.metadata) : null)
             .run();
@@ -35,7 +36,7 @@ export class UsageTrackingService {
      */
     async updateKVUsage(periodKey, record) {
         // Get current usage from KV
-        const currentUsage = await this.kv.get(periodKey, 'json') || {
+        const currentUsage = (await this.kv.get(periodKey, 'json')) || {
             tenant_id: record.tenant_id,
             period_start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
             period_end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0),
@@ -51,7 +52,7 @@ export class UsageTrackingService {
             billable_requests: 0,
             overage_requests: 0,
             estimated_cost: 0,
-            currency: 'USD'
+            currency: 'USD',
         };
         // Update metrics based on the action
         switch (record.action) {
@@ -100,7 +101,8 @@ export class UsageTrackingService {
      * Gets historical usage data for a tenant within a date range
      */
     async getHistoricalUsage(tenantId, startDate, endDate) {
-        const result = await this.db.prepare(`SELECT * FROM usage_records
+        const result = await this.db
+            .prepare(`SELECT * FROM usage_records
        WHERE tenant_id = ? AND timestamp >= ? AND timestamp <= ?
        ORDER BY timestamp DESC`)
             .bind(tenantId, startDate.toISOString(), endDate.toISOString())
@@ -111,12 +113,16 @@ export class UsageTrackingService {
      * Updates tenant's current usage based on their configuration
      */
     async updateTenantUsage(tenantConfig) {
+        if (!tenantConfig.tenant_id) {
+            throw new Error('Tenant ID is required');
+        }
         const currentUsage = await this.getCurrentUsage(tenantConfig.tenant_id);
         if (!currentUsage) {
             return; // No usage recorded yet
         }
         // Update tenant's usage in the database
-        await this.db.prepare(`UPDATE tenants 
+        await this.db
+            .prepare(`UPDATE tenants
        SET current_requests = ?, current_users = ?, current_mcp_servers = ?, current_api_keys = ?
        WHERE id = ?`)
             .bind(currentUsage.total_requests, tenantConfig.max_users, tenantConfig.max_mcp_servers, tenantConfig.max_oauth_clients, tenantConfig.tenant_id)
@@ -126,7 +132,8 @@ export class UsageTrackingService {
      * Gets usage alerts for a tenant
      */
     async getUsageAlerts(tenantId) {
-        const result = await this.db.prepare(`SELECT * FROM usage_alerts 
+        const result = await this.db
+            .prepare(`SELECT * FROM usage_alerts
        WHERE tenant_id = ? AND resolved_at IS NULL
        ORDER BY triggered_at DESC`)
             .bind(tenantId)
@@ -143,9 +150,10 @@ export class UsageTrackingService {
             id,
             ...alert,
             triggered_at: triggeredAt,
-            notification_sent: false
+            notification_sent: false,
         };
-        await this.db.prepare(`INSERT INTO usage_alerts (id, tenant_id, alert_type, threshold_type, threshold_value, 
+        await this.db
+            .prepare(`INSERT INTO usage_alerts (id, tenant_id, alert_type, threshold_type, threshold_value,
                                  triggered_at, resolved_at, notification_sent, severity, message)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
             .bind(id, newAlert.tenant_id, newAlert.alert_type, newAlert.threshold_type, newAlert.threshold_value, newAlert.triggered_at.toISOString(), newAlert.resolved_at?.toISOString() || null, newAlert.notification_sent, newAlert.severity, newAlert.message)
@@ -156,8 +164,9 @@ export class UsageTrackingService {
      * Resolves a usage alert
      */
     async resolveUsageAlert(alertId, tenantId) {
-        await this.db.prepare(`UPDATE usage_alerts 
-       SET resolved_at = ? 
+        await this.db
+            .prepare(`UPDATE usage_alerts
+       SET resolved_at = ?
        WHERE id = ? AND tenant_id = ?`)
             .bind(new Date().toISOString(), alertId, tenantId)
             .run();
@@ -166,7 +175,8 @@ export class UsageTrackingService {
      * Gets billing information for a tenant
      */
     async getTenantBilling(tenantId) {
-        const result = await this.db.prepare(`SELECT * FROM tenant_billing WHERE tenant_id = ?`)
+        const result = await this.db
+            .prepare(`SELECT * FROM tenant_billing WHERE tenant_id = ?`)
             .bind(tenantId)
             .first();
         if (!result) {
@@ -178,7 +188,8 @@ export class UsageTrackingService {
      * Updates billing information for a tenant
      */
     async updateTenantBilling(billing) {
-        await this.db.prepare(`
+        await this.db
+            .prepare(`
       INSERT INTO tenant_billing (
         tenant_id, billing_tier, current_period_start, current_period_end,
         subscription_status, last_invoice_date, next_billing_date,

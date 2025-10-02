@@ -1,4 +1,4 @@
-import { SystemAlert, AlertHandler } from '../handlers/admin/health';
+import { SystemAlert, AlertHandler } from '../../types/alerts';
 export declare class AlertingSystem {
     private alertHandlers;
     private alertHistory;

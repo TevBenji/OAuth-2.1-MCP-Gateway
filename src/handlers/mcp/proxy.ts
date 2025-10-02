@@ -66,7 +66,7 @@ export async function proxyToMCPServer(c: Context) {
     c.header('X-Gateway-Latency-Ms', proxyResponse.latency_ms.toString());
 
     // Return response
-    return c.body(proxyResponse.body as BodyInit, proxyResponse.status);
+    return new Response(proxyResponse.body, { status: proxyResponse.status });
   } catch (error) {
     return handleProxyError(c, error);
   }
@@ -90,8 +90,7 @@ export async function proxyByResourceIdentifier(c: Context) {
     }
 
     // Get resource identifier from query parameter or header
-    const resourceIdentifier =
-      c.req.query('resource') || c.req.header('X-Resource-Identifier');
+    const resourceIdentifier = c.req.query('resource') || c.req.header('X-Resource-Identifier');
 
     if (!resourceIdentifier) {
       throw new MCPError(
@@ -137,7 +136,7 @@ export async function proxyByResourceIdentifier(c: Context) {
     c.header('X-Gateway-Latency-Ms', proxyResponse.latency_ms.toString());
 
     // Return response
-    return c.body(proxyResponse.body as BodyInit, proxyResponse.status);
+    return new Response(proxyResponse.body, { status: proxyResponse.status });
   } catch (error) {
     return handleProxyError(c, error);
   }

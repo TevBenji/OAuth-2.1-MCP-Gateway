@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { Bindings } from '../types/bindings';
+import { Bindings } from '../../types/bindings';
 type AdminContext = {
     Bindings: Bindings;
 };

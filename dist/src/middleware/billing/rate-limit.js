@@ -20,7 +20,7 @@ export async function billingRateLimitMiddleware(c, next) {
             }, 429);
         }
         // Proceed with the request if within limits
-        await next();
+        return await next();
     }
     catch (error) {
         if (error instanceof TenantNotFoundError) {

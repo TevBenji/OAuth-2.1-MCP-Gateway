@@ -84,7 +84,7 @@ export declare class MCPSecurityAuditHandler {
     /**
      * Log an MCP request event
      */
-    static logMCPRequest(tenantId: string, userId?: string, clientId: string | undefined, mcpServerId: string, success: boolean, options?: Omit<AuditLogOptions, 'userId' | 'clientId' | 'resourceId' | 'resourceType'> & {
+    static logMCPRequest(tenantId: string, mcpServerId: string, success: boolean, userId?: string, clientId?: string, options?: Omit<AuditLogOptions, 'userId' | 'clientId' | 'resourceId' | 'resourceType'> & {
         ipAddress?: string;
         mcpEndpoint?: string;
         method?: string;
@@ -92,14 +92,14 @@ export declare class MCPSecurityAuditHandler {
     /**
      * Log an MCP tool invocation event
      */
-    static logMCPToolInvocation(tenantId: string, userId?: string, clientId: string | undefined, toolName: string, success: boolean, options?: Omit<AuditLogOptions, 'userId' | 'clientId' | 'resourceId' | 'resourceType'> & {
+    static logMCPToolInvocation(tenantId: string, toolName: string, success: boolean, userId?: string, clientId?: string, options?: Omit<AuditLogOptions, 'userId' | 'clientId' | 'resourceId' | 'resourceType'> & {
         ipAddress?: string;
         parameters?: Record<string, any>;
     }): Promise<string>;
     /**
      * Log an MCP resource access event
      */
-    static logMCPResourceAccess(tenantId: string, userId?: string, clientId: string | undefined, resourceName: string, success: boolean, options?: Omit<AuditLogOptions, 'userId' | 'clientId' | 'resourceId' | 'resourceType'> & {
+    static logMCPResourceAccess(tenantId: string, resourceName: string, success: boolean, options?: Omit<AuditLogOptions, 'userId' | 'clientId' | 'resourceId' | 'resourceType'> & {
         ipAddress?: string;
         operation?: 'read' | 'write' | 'delete' | 'execute';
     }): Promise<string>;
@@ -111,14 +111,14 @@ export declare class SecurityAuditHandler {
     /**
      * Log a rate limit exceeded event
      */
-    static logRateLimitExceeded(tenantId: string, userId?: string, clientId?: string, resource: string, options?: Omit<AuditLogOptions, 'userId' | 'clientId' | 'resourceId' | 'resourceType'> & {
+    static logRateLimitExceeded(tenantId: string, resource: string, userId?: string, clientId?: string, options?: Omit<AuditLogOptions, 'userId' | 'clientId' | 'resourceId' | 'resourceType'> & {
         ipAddress?: string;
         limitType?: string;
     }): Promise<string>;
     /**
      * Log a suspicious activity event
      */
-    static logSuspiciousActivity(tenantId: string, userId?: string, clientId?: string, activity: string, severity?: 'low' | 'medium' | 'high' | 'critical', options?: Omit<AuditLogOptions, 'userId' | 'clientId' | 'severity'> & {
+    static logSuspiciousActivity(tenantId: string, activity: string, severity?: 'low' | 'medium' | 'high' | 'critical', userId?: string, clientId?: string, options?: Omit<AuditLogOptions, 'userId' | 'clientId' | 'severity'> & {
         ipAddress?: string;
         details?: Record<string, any>;
     }): Promise<string>;

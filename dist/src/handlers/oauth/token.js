@@ -1,7 +1,6 @@
 import { HTTPException } from 'hono/http-exception';
 import { v4 as uuidv4 } from 'uuid';
-import { validateCodeVerifier } from '../../services/oauth/pkce';
-import { InMemoryPKCEStorage } from '../../services/oauth/pkce';
+import { validatePKCE } from '../../services/oauth/pkce';
 import { JWTService, JWT_CONFIG } from '../../services/oauth/jwt';
 // In-memory implementation for development/testing
 class InMemoryAuthorizationCodeStorage {
@@ -47,7 +46,6 @@ class InMemoryRefreshTokenStorage {
     }
 }
 // Storage instances
-const pkceStorage = new InMemoryPKCEStorage();
 const codeStorage = new InMemoryAuthorizationCodeStorage();
 const refreshTokenStorage = new InMemoryRefreshTokenStorage();
 // JWT Service instance (in real implementation, would be configured properly)
@@ -125,7 +123,7 @@ async function handleAuthorizationCodeGrant(c, request) {
     if (!codeData.codeChallenge || !codeData.challengeMethod) {
         return c.json({ error: 'invalid_grant', error_description: 'Missing PKCE challenge data' }, 400);
     }
-    const isValid = await validateCodeVerifier(request.code_verifier, codeData.codeChallenge, codeData.challengeMethod);
+    const isValid = await validatePKCE(request.code_verifier, codeData.codeChallenge, codeData.challengeMethod);
     if (!isValid) {
         return c.json({ error: 'invalid_grant', error_description: 'Invalid PKCE verification' }, 400);
     }

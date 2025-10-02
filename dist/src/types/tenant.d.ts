@@ -79,6 +79,7 @@ export declare const TenantConfigSchema: z.ZodObject<{
     updated_at: z.ZodOptional<z.ZodDate>;
 }, "strip", z.ZodTypeAny, {
     status: "active" | "suspended" | "pending";
+    billing_tier: "free" | "pro" | "business" | "enterprise";
     name: string;
     compliance_tier: "pci-dss" | "hipaa" | "sox" | "standard";
     features: {
@@ -92,7 +93,6 @@ export declare const TenantConfigSchema: z.ZodObject<{
     max_users: number;
     max_concurrent_sessions: number;
     domain: string;
-    billing_tier: "free" | "pro" | "business" | "enterprise";
     audit_retention_days: number;
     encryption_at_rest: boolean;
     max_oauth_clients: number;
@@ -122,6 +122,9 @@ export declare const TenantConfigSchema: z.ZodObject<{
     created_at?: Date | undefined;
     updated_at?: Date | undefined;
     tenant_id?: string | undefined;
+    metadata?: Record<string, any> | undefined;
+    billing_tier?: "free" | "pro" | "business" | "enterprise" | undefined;
+    billing_email?: string | undefined;
     compliance_tier?: "pci-dss" | "hipaa" | "sox" | "standard" | undefined;
     features?: {
         api_key_rotation?: boolean | undefined;
@@ -130,12 +133,9 @@ export declare const TenantConfigSchema: z.ZodObject<{
         sso_integration?: boolean | undefined;
         dedicated_support?: boolean | undefined;
     } | undefined;
-    metadata?: Record<string, any> | undefined;
     max_mcp_servers?: number | undefined;
     max_users?: number | undefined;
     max_concurrent_sessions?: number | undefined;
-    billing_tier?: "free" | "pro" | "business" | "enterprise" | undefined;
-    billing_email?: string | undefined;
     audit_retention_days?: number | undefined;
     encryption_at_rest?: boolean | undefined;
     max_oauth_clients?: number | undefined;
@@ -208,8 +208,8 @@ export declare const APIKeyConfigSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     status: "active" | "inactive" | "revoked";
     tenant_id: string;
-    name: string;
     version: number;
+    name: string;
     key_prefix: string;
     key_hash: string;
     scopes: string[];

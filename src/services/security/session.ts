@@ -58,7 +58,9 @@ export class SessionManager {
       const oldestSession = activeSessions.sort(
         (a, b) => a.created_at.getTime() - b.created_at.getTime()
       )[0];
-      await this.revokeSession(oldestSession.session_id, 'concurrent_limit_exceeded');
+      if (oldestSession) {
+        await this.revokeSession(oldestSession.session_id, 'concurrent_limit_exceeded');
+      }
     }
 
     const now = new Date();
@@ -442,7 +444,7 @@ export class SessionManager {
       headers['CF-Connecting-IP'] ||
       headers['x-real-ip'] ||
       headers['X-Real-IP'] ||
-      headers['x-forwarded-for']?.split(',')[0].trim() ||
+      headers['x-forwarded-for']?.split(',')[0]?.trim() ||
       'unknown';
 
     // Simple device type detection

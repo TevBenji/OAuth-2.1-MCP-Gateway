@@ -13,8 +13,8 @@ export class AuthenticationAuditHandler {
             clientId,
             details: {
                 ...options?.details,
-                eventType: 'auth.login'
-            }
+                eventType: 'auth.login',
+            },
         });
     }
     /**
@@ -28,8 +28,8 @@ export class AuthenticationAuditHandler {
             details: {
                 ...options?.details,
                 eventType: 'auth.login.failed',
-                failureReason
-            }
+                failureReason,
+            },
         });
     }
     /**
@@ -42,8 +42,8 @@ export class AuthenticationAuditHandler {
             sessionId,
             details: {
                 ...options?.details,
-                eventType: 'auth.logout'
-            }
+                eventType: 'auth.logout',
+            },
         });
     }
     /**
@@ -58,8 +58,8 @@ export class AuthenticationAuditHandler {
             clientId,
             details: {
                 ...options?.details,
-                eventType: success ? 'auth.refresh' : 'auth.refresh.failed'
-            }
+                eventType: success ? 'auth.refresh' : 'auth.refresh.failed',
+            },
         });
     }
 }
@@ -78,8 +78,8 @@ export class AuthorizationAuditHandler {
             details: {
                 ...options?.details,
                 eventType: 'authz.permission.granted',
-                permission
-            }
+                permission,
+            },
         });
     }
     /**
@@ -94,8 +94,8 @@ export class AuthorizationAuditHandler {
                 ...options?.details,
                 eventType: 'authz.permission.denied',
                 permission,
-                reason
-            }
+                reason,
+            },
         });
     }
     /**
@@ -109,8 +109,8 @@ export class AuthorizationAuditHandler {
             details: {
                 ...options?.details,
                 eventType: 'authz.scope.granted',
-                scope
-            }
+                scope,
+            },
         });
     }
     /**
@@ -125,8 +125,8 @@ export class AuthorizationAuditHandler {
                 ...options?.details,
                 eventType: 'authz.scope.denied',
                 scope,
-                reason
-            }
+                reason,
+            },
         });
     }
     /**
@@ -142,16 +142,20 @@ export class AuthorizationAuditHandler {
             details: {
                 ...options?.details,
                 eventType: success ? 'authz.token.issued' : 'authz.token.issued.failed',
-                tokenType
-            }
+                tokenType,
+            },
         });
     }
     /**
      * Log a token validation event
      */
     static async logTokenValidated(tenantId, userId, clientId, tokenType, success, options) {
-        const event = success ? 'authz.token.validated' : 'authz.token.validated.failed';
-        const action = success ? `Token validated: ${tokenType}` : `Token validation failed: ${tokenType}`;
+        const event = success
+            ? 'authz.token.validated'
+            : 'authz.token.validated.failed';
+        const action = success
+            ? `Token validated: ${tokenType}`
+            : `Token validation failed: ${tokenType}`;
         return await auditService.createLogEntry(tenantId, event, action, success, {
             ...options,
             userId,
@@ -159,8 +163,8 @@ export class AuthorizationAuditHandler {
             details: {
                 ...options?.details,
                 eventType: success ? 'authz.token.validated' : 'authz.token.validated.failed',
-                tokenType
-            }
+                tokenType,
+            },
         });
     }
     /**
@@ -174,8 +178,8 @@ export class AuthorizationAuditHandler {
             details: {
                 ...options?.details,
                 eventType: 'authz.token.revoked',
-                tokenType
-            }
+                tokenType,
+            },
         });
     }
 }
@@ -186,9 +190,11 @@ export class MCPSecurityAuditHandler {
     /**
      * Log an MCP request event
      */
-    static async logMCPRequest(tenantId, userId, clientId = 'system', mcpServerId, success, options) {
+    static async logMCPRequest(tenantId, mcpServerId, success, userId, clientId = 'system', options) {
         const event = success ? 'mcp.request' : 'mcp.request.failed';
-        const action = success ? `MCP request to ${mcpServerId} successful` : `MCP request to ${mcpServerId} failed`;
+        const action = success
+            ? `MCP request to ${mcpServerId} successful`
+            : `MCP request to ${mcpServerId} failed`;
         return await auditService.createLogEntry(tenantId, event, action, success, {
             ...options,
             userId,
@@ -200,16 +206,18 @@ export class MCPSecurityAuditHandler {
                 eventType: success ? 'mcp.request' : 'mcp.request.failed',
                 mcpServerId,
                 mcpEndpoint: options?.details?.mcpEndpoint || options?.mcpEndpoint,
-                method: options?.details?.method || options?.method
-            }
+                method: options?.details?.method || options?.method,
+            },
         });
     }
     /**
      * Log an MCP tool invocation event
      */
-    static async logMCPToolInvocation(tenantId, userId, clientId = 'system', toolName, success, options) {
+    static async logMCPToolInvocation(tenantId, toolName, success, userId, clientId = 'system', options) {
         const event = success ? 'mcp.tool.invoked' : 'mcp.tool.invoked.failed';
-        const action = success ? `MCP tool invoked: ${toolName}` : `MCP tool invocation failed: ${toolName}`;
+        const action = success
+            ? `MCP tool invoked: ${toolName}`
+            : `MCP tool invocation failed: ${toolName}`;
         return await auditService.createLogEntry(tenantId, event, action, success, {
             ...options,
             userId,
@@ -220,28 +228,30 @@ export class MCPSecurityAuditHandler {
                 ...options?.details,
                 eventType: success ? 'mcp.tool.invoked' : 'mcp.tool.invoked.failed',
                 toolName,
-                parameters: options?.parameters
-            }
+                parameters: options?.parameters,
+            },
         });
     }
     /**
      * Log an MCP resource access event
      */
-    static async logMCPResourceAccess(tenantId, userId, clientId = 'system', resourceName, success, options) {
-        const event = success ? 'mcp.resource.accessed' : 'mcp.resource.accessed.failed';
-        const action = success ? `MCP resource accessed: ${resourceName}` : `MCP resource access failed: ${resourceName}`;
+    static async logMCPResourceAccess(tenantId, resourceName, success, options) {
+        const event = success
+            ? 'mcp.resource.accessed'
+            : 'mcp.resource.accessed.failed';
+        const action = success
+            ? `MCP resource accessed: ${resourceName}`
+            : `MCP resource access failed: ${resourceName}`;
         return await auditService.createLogEntry(tenantId, event, action, success, {
             ...options,
-            userId,
-            clientId,
             resourceId: resourceName,
             resourceType: 'mcp-resource',
             details: {
                 ...options?.details,
                 eventType: success ? 'mcp.resource.accessed' : 'mcp.resource.accessed.failed',
                 resourceName,
-                operation: options?.operation
-            }
+                operation: options?.operation,
+            },
         });
     }
 }
@@ -252,7 +262,7 @@ export class SecurityAuditHandler {
     /**
      * Log a rate limit exceeded event
      */
-    static async logRateLimitExceeded(tenantId, userId, clientId, resource, options) {
+    static async logRateLimitExceeded(tenantId, resource, userId, clientId, options) {
         return await auditService.createLogEntry(tenantId, 'security.rate.limit.exceeded', `Rate limit exceeded for ${resource}`, false, {
             ...options,
             userId,
@@ -263,14 +273,14 @@ export class SecurityAuditHandler {
                 ...options?.details,
                 eventType: 'security.rate.limit.exceeded',
                 resource,
-                limitType: options?.limitType
-            }
+                limitType: options?.limitType,
+            },
         });
     }
     /**
      * Log a suspicious activity event
      */
-    static async logSuspiciousActivity(tenantId, userId, clientId, activity, severity = 'medium', options) {
+    static async logSuspiciousActivity(tenantId, activity, severity = 'medium', userId, clientId, options) {
         return await auditService.createLogEntry(tenantId, 'security.suspicious.activity', `Suspicious activity detected: ${activity}`, false, {
             ...options,
             userId,
@@ -280,8 +290,8 @@ export class SecurityAuditHandler {
                 ...options?.details,
                 eventType: 'security.suspicious.activity',
                 activity,
-                detectedAt: new Date().toISOString()
-            }
+                detectedAt: new Date().toISOString(),
+            },
         });
     }
     /**
@@ -296,8 +306,8 @@ export class SecurityAuditHandler {
                 ...options?.details,
                 eventType: 'security.brute.force.detected',
                 attempts: options?.attempts,
-                detectionTime: new Date().toISOString()
-            }
+                detectionTime: new Date().toISOString(),
+            },
         });
     }
 }
@@ -312,7 +322,7 @@ export async function logSystemEvent(tenantId, event, action, success, options) 
         details: {
             ...options?.details,
             eventType: event,
-            errorDetails: options?.errorDetails
-        }
+            errorDetails: options?.errorDetails,
+        },
     });
 }

@@ -6,7 +6,17 @@
  */
 import { Hono } from 'hono';
 import type { Bindings } from './types/bindings';
+type Variables = {
+    tenantId?: string;
+    userId?: string;
+    clientId?: string;
+    mcpContext?: any;
+    tokenPayload?: any;
+    session?: any;
+    deviceInfo?: any;
+};
 declare const app: Hono<{
     Bindings: Bindings;
+    Variables: Variables;
 }, {}, "/">;
 export default app;

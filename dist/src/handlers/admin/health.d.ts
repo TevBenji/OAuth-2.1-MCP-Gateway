@@ -1,4 +1,5 @@
 import { Context } from 'hono';
+import type { SystemAlert, AlertHandler, SystemFailureListener, SecurityEventListener } from '../../types/alerts';
 export interface HealthCheckResponse {
     status: 'healthy' | 'degraded' | 'unhealthy';
     timestamp: string;
@@ -40,19 +41,6 @@ export interface AlertingSystem {
     addSystemFailureListener(listener: SystemFailureListener): void;
     addSecurityEventListener(listener: SecurityEventListener): void;
 }
-export interface AlertHandler {
-    handleAlert(alert: SystemAlert): Promise<void>;
-}
-export interface SystemAlert {
-    id: string;
-    type: 'security' | 'performance' | 'availability' | 'capacity';
-    severity: 'low' | 'medium' | 'high' | 'critical';
-    message: string;
-    timestamp: string;
-    metadata?: Record<string, any>;
-}
-export type SystemFailureListener = (error: Error, context: string) => void;
-export type SecurityEventListener = (event: string, details: Record<string, any>) => void;
 declare class SimpleAlertingSystem implements AlertingSystem {
     private alertHandlers;
     private failureListeners;

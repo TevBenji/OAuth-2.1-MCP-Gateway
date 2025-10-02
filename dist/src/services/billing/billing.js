@@ -27,13 +27,13 @@ export class BillingService {
                     custom_domains: 0,
                     sso: false,
                     dedicated_support: false,
-                    audit_retention_days: 30
+                    audit_retention_days: 30,
                 },
                 overage_costs: {
                     request: 0, // Free tier doesn't allow overages
                     gb_storage: 0,
-                    user: 0
-                }
+                    user: 0,
+                },
             },
             pro: {
                 tier: 'pro',
@@ -49,13 +49,13 @@ export class BillingService {
                     custom_domains: 1,
                     sso: true,
                     dedicated_support: false,
-                    audit_retention_days: 90
+                    audit_retention_days: 90,
                 },
                 overage_costs: {
                     request: 100, // $1 per 1000 requests over limit (in cents)
                     gb_storage: 1000, // $10 per GB over limit (in cents)
-                    user: 500 // $5 per user over limit (in cents)
-                }
+                    user: 500, // $5 per user over limit (in cents)
+                },
             },
             business: {
                 tier: 'business',
@@ -71,13 +71,13 @@ export class BillingService {
                     custom_domains: 3,
                     sso: true,
                     dedicated_support: true,
-                    audit_retention_days: 365
+                    audit_retention_days: 365,
                 },
                 overage_costs: {
                     request: 50, // $0.50 per 1000 requests over limit (in cents)
                     gb_storage: 500, // $5 per GB over limit (in cents)
-                    user: 250 // $2.50 per user over limit (in cents)
-                }
+                    user: 250, // $2.50 per user over limit (in cents)
+                },
             },
             enterprise: {
                 tier: 'enterprise',
@@ -93,14 +93,14 @@ export class BillingService {
                     custom_domains: 10,
                     sso: true,
                     dedicated_support: true,
-                    audit_retention_days: 2555 // 7 years
+                    audit_retention_days: 2555, // 7 years
                 },
                 overage_costs: {
                     request: 25, // $0.25 per 1000 requests over limit (in cents)
                     gb_storage: 250, // $2.50 per GB over limit (in cents)
-                    user: 100 // $1 per user over limit (in cents)
-                }
-            }
+                    user: 100, // $1 per user over limit (in cents)
+                },
+            },
         };
     }
     /**
@@ -129,7 +129,7 @@ export class BillingService {
             // If no billing info, assume free tier limits
             return {
                 withinLimits: false,
-                exceededLimits: ['no_billing_info']
+                exceededLimits: ['no_billing_info'],
             };
         }
         const currentUsage = await this.usageService.getCurrentUsage(tenantId);
@@ -147,8 +147,9 @@ export class BillingService {
         }
         // We'll fetch additional tenant data to check other limits
         try {
-            const tenantResult = await this.db.prepare(`SELECT max_users, max_mcp_servers, max_oauth_clients 
-         FROM tenants 
+            const tenantResult = await this.db
+                .prepare(`SELECT max_users, max_mcp_servers, max_oauth_clients
+         FROM tenants
          WHERE tenant_id = ?`)
                 .bind(tenantId)
                 .first();
@@ -170,7 +171,7 @@ export class BillingService {
         }
         return {
             withinLimits: exceededLimits.length === 0,
-            exceededLimits
+            exceededLimits,
         };
     }
     /**
@@ -184,18 +185,19 @@ export class BillingService {
             if (billing && billing.billing_tier === 'free') {
                 return {
                     allowed: false,
-                    reason: `Usage limit exceeded for ${limitsCheck.exceededLimits?.join(', ')}`
+                    reason: `Usage limit exceeded for ${limitsCheck.exceededLimits?.join(', ')}`,
                 };
             }
             // For paid tiers, we may allow some overages but trigger alerts
             if (limitsCheck.exceededLimits?.includes('requests_per_month')) {
+                const tierConfig = this.billingTiers[billing?.billing_tier || 'free'];
                 const alert = await this.usageService.createUsageAlert({
                     tenant_id: tenantId,
                     alert_type: 'usage_threshold',
                     threshold_type: 'absolute',
-                    threshold_value: this.billingTiers[billing?.billing_tier || 'free'].limits.requests_per_month,
+                    threshold_value: tierConfig?.limits.requests_per_month ?? 1000,
                     severity: 'high',
-                    message: `Tenant ${tenantId} has exceeded their monthly request limit`
+                    message: `Tenant ${tenantId} has exceeded their monthly request limit`,
                 });
             }
         }
@@ -244,10 +246,10 @@ export class BillingService {
         // Get usage alerts for the period
         const alerts = await this.usageService.getUsageAlerts(tenantId);
         // Calculate costs
-        const baseTierCost = this.billingTiers[billing.billing_tier]?.monthly_fee || 0;
+        const tierConfig = this.billingTiers[billing.billing_tier];
+        const baseTierCost = tierConfig?.monthly_fee || 0;
         let overageCost = 0;
-        if (currentUsage.billable_requests > this.billingTiers[billing.billing_tier]?.limits.requests_per_month) {
-            const tierConfig = this.billingTiers[billing.billing_tier];
+        if (tierConfig && currentUsage.billable_requests > tierConfig.limits.requests_per_month) {
             const overageRequests = currentUsage.billable_requests - tierConfig.limits.requests_per_month;
             const thousandRequestBatches = Math.ceil(overageRequests / 1000);
             overageCost = thousandRequestBatches * tierConfig.overage_costs.request;
@@ -258,22 +260,22 @@ export class BillingService {
             base_tier_cost: baseTierCost,
             overage_cost: overageCost,
             total_cost: totalCost,
-            currency: this.billingTiers[billing.billing_tier]?.currency || 'USD',
+            currency: tierConfig?.currency || 'USD',
             details: [
                 {
                     category: 'Base Plan',
                     count: 1,
                     unit_cost: baseTierCost,
-                    total_cost: baseTierCost
-                }
-            ]
+                    total_cost: baseTierCost,
+                },
+            ],
         };
-        if (overageCost > 0) {
+        if (overageCost > 0 && tierConfig) {
             costBreakdown.details.push({
                 category: 'Usage Overage',
-                count: currentUsage.billable_requests - this.billingTiers[billing.billing_tier]?.limits.requests_per_month,
-                unit_cost: this.billingTiers[billing.billing_tier]?.overage_costs.request || 0,
-                total_cost: overageCost
+                count: currentUsage.billable_requests - tierConfig.limits.requests_per_month,
+                unit_cost: tierConfig.overage_costs.request,
+                total_cost: overageCost,
             });
         }
         const report = {
@@ -283,7 +285,7 @@ export class BillingService {
             generated_at: new Date(),
             metrics: currentUsage,
             alerts,
-            cost_breakdown: costBreakdown
+            cost_breakdown: costBreakdown,
         };
         return report;
     }
@@ -292,7 +294,9 @@ export class BillingService {
      */
     async checkAndSendUsageAlerts() {
         // Get all tenants and their billing info
-        const result = await this.db.prepare(`SELECT tenant_id, billing_tier FROM tenant_billing`).all();
+        const result = await this.db
+            .prepare(`SELECT tenant_id, billing_tier FROM tenant_billing`)
+            .all();
         for (const row of result.results) {
             const tenantId = row.tenant_id;
             const billingTier = row.billing_tier;
@@ -311,7 +315,7 @@ export class BillingService {
                     threshold_type: 'percentage',
                     threshold_value: 80,
                     severity: usagePercentage >= 90 ? 'critical' : 'high',
-                    message: `Tenant ${tenantId} has used ${Math.round(usagePercentage)}% of their monthly request allocation`
+                    message: `Tenant ${tenantId} has used ${Math.round(usagePercentage)}% of their monthly request allocation`,
                 });
             }
         }
@@ -321,8 +325,10 @@ export class BillingService {
      */
     async processBillingPeriodEnd() {
         // Get all tenants with active subscriptions
-        const result = await this.db.prepare(`SELECT tenant_id, billing_tier, current_period_end FROM tenant_billing
-       WHERE subscription_status = 'active'`).all();
+        const result = await this.db
+            .prepare(`SELECT tenant_id, billing_tier, current_period_end FROM tenant_billing
+       WHERE subscription_status = 'active'`)
+            .all();
         for (const row of result.results) {
             const tenantId = row.tenant_id;
             const currentPeriodEnd = new Date(row.current_period_end);
@@ -347,7 +353,8 @@ export class BillingService {
             const report = await this.generateUsageReport(tenantId, currentUsage.period_start, currentUsage.period_end);
             // Save report to the database
             if (report) {
-                await this.db.prepare(`INSERT INTO usage_reports 
+                await this.db
+                    .prepare(`INSERT INTO usage_reports
            (tenant_id, period_start, period_end, generated_at, report_data)
            VALUES (?, ?, ?, ?, ?)`)
                     .bind(tenantId, report.report_period_start.toISOString(), report.report_period_end.toISOString(), report.generated_at.toISOString(), JSON.stringify(report))
@@ -360,7 +367,8 @@ export class BillingService {
         nextPeriodStart.setMonth(nextPeriodStart.getMonth() + 1);
         const nextPeriodEnd = new Date(nextPeriodStart.getFullYear(), nextPeriodStart.getMonth() + 1, 0);
         // Reset usage counter for next period
-        await this.db.prepare(`UPDATE tenant_billing 
+        await this.db
+            .prepare(`UPDATE tenant_billing
        SET current_period_start = ?, current_period_end = ?, last_invoice_date = ?
        WHERE tenant_id = ?`)
             .bind(nextPeriodStart.toISOString(), nextPeriodEnd.toISOString(), new Date().toISOString(), tenantId)
@@ -395,7 +403,7 @@ export class BillingService {
                 threshold_type: 'percentage',
                 threshold_value: 90,
                 severity: 'critical',
-                message: `Critical: Tenant ${tenantId} has reached ${Math.round(requestUsagePercent)}% of monthly request allocation`
+                message: `Critical: Tenant ${tenantId} has reached ${Math.round(requestUsagePercent)}% of monthly request allocation`,
             });
         }
         else if (requestUsagePercent >= 80) {
@@ -405,7 +413,7 @@ export class BillingService {
                 threshold_type: 'percentage',
                 threshold_value: 80,
                 severity: 'high',
-                message: `Warning: Tenant ${tenantId} has reached ${Math.round(requestUsagePercent)}% of monthly request allocation`
+                message: `Warning: Tenant ${tenantId} has reached ${Math.round(requestUsagePercent)}% of monthly request allocation`,
             });
         }
         else if (requestUsagePercent >= 70) {
@@ -415,7 +423,7 @@ export class BillingService {
                 threshold_type: 'percentage',
                 threshold_value: 70,
                 severity: 'medium',
-                message: `Notice: Tenant ${tenantId} has reached ${Math.round(requestUsagePercent)}% of monthly request allocation`
+                message: `Notice: Tenant ${tenantId} has reached ${Math.round(requestUsagePercent)}% of monthly request allocation`,
             });
         }
     }

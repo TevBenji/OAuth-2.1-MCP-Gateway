@@ -1,6 +1,5 @@
 import { HTTPException } from 'hono/http-exception';
 import { v4 as uuidv4 } from 'uuid';
-import { InMemoryPKCEStorage } from '../../services/oauth/pkce';
 // In-memory implementation for development/testing
 class InMemoryAuthorizationCodeStorage {
     codes = new Map();
@@ -23,7 +22,6 @@ class InMemoryAuthorizationCodeStorage {
     }
 }
 // Storage instances
-const pkceStorage = new InMemoryPKCEStorage();
 const codeStorage = new InMemoryAuthorizationCodeStorage();
 /**
  * GET /authorize endpoint - OAuth 2.1 authorization endpoint

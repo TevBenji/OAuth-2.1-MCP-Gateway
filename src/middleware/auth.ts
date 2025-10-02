@@ -73,43 +73,27 @@ export function authMiddleware() {
         verificationResult = await jwtService.verifyToken(token);
       } catch (error) {
         if (error instanceof Error) {
-          throw new MCPError(
-            'INVALID_TOKEN',
-            `Token validation failed: ${error.message}`,
-            401
-          );
+          throw new MCPError('INVALID_TOKEN', `Token validation failed: ${error.message}`, 401);
         }
-        throw new MCPError(
-          'INVALID_TOKEN',
-          'Token validation failed',
-          401
-        );
+        throw new MCPError('INVALID_TOKEN', 'Token validation failed', 401);
       }
 
       const payload = verificationResult.payload as unknown as TokenPayload;
 
       // Validate required claims
       if (!payload.tenant_id) {
-        throw new MCPError(
-          'MISSING_TENANT_ID',
-          'Token is missing required tenant_id claim',
-          401
-        );
+        throw new MCPError('MISSING_TENANT_ID', 'Token is missing required tenant_id claim', 401);
       }
 
       if (!payload.sub) {
-        throw new MCPError(
-          'MISSING_USER_ID',
-          'Token is missing required sub (user_id) claim',
-          401
-        );
+        throw new MCPError('MISSING_USER_ID', 'Token is missing required sub (user_id) claim', 401);
       }
 
       // Build MCP request context
       const mcpContext: MCPRequestContext = {
-        tenant_id: payload.tenant_id,
+        tenant_id: payload.tenant_id || '',
         user_id: payload.sub, // subject is the user ID
-        client_id: payload.client_id,
+        client_id: payload.client_id || '',
         session_id: payload.session_id || payload.jti, // Use session_id or JWT ID
         scopes: payload.scope ? payload.scope.split(' ') : [],
         ip_address: c.req.header('CF-Connecting-IP') || c.req.header('X-Real-IP') || 'unknown',

@@ -40,7 +40,12 @@ export class OIDCFederationService {
       const metadata = (await response.json()) as OIDCDiscoveryMetadata;
 
       // Validate required fields
-      if (!metadata.issuer || !metadata.authorization_endpoint || !metadata.token_endpoint || !metadata.jwks_uri) {
+      if (
+        !metadata.issuer ||
+        !metadata.authorization_endpoint ||
+        !metadata.token_endpoint ||
+        !metadata.jwks_uri
+      ) {
         throw new IdPError(
           IdPErrorCode.DISCOVERY_FAILED,
           'Invalid OIDC discovery document: missing required fields'
@@ -142,11 +147,11 @@ export class OIDCFederationService {
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
+        const error = (await response.json().catch(() => ({}))) as { error_description?: string };
         throw new IdPError(
           IdPErrorCode.TOKEN_EXCHANGE_FAILED,
           `Token exchange failed: ${error.error_description || response.statusText}`,
-          error
+          error as Record<string, any>
         );
       }
 

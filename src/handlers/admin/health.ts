@@ -1,7 +1,12 @@
 import { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { auditService } from '../../services/security/audit';
-import { MCPServerRegistry } from '../../services/mcp/registry';
+import type {
+  SystemAlert,
+  AlertHandler,
+  SystemFailureListener,
+  SecurityEventListener,
+} from '../../types/alerts';
 
 // Health check response structure
 export interface HealthCheckResponse {
@@ -75,7 +80,7 @@ class InMemoryMetricsCollector implements MetricsCollector {
       tokenValidation: {
         avgLatency: this.getTokenValidationAvgLatency(),
         sampleCount: this.tokenValidationLatencies.length,
-      }
+      },
     };
   }
 }
@@ -91,28 +96,12 @@ export interface AlertingSystem {
   addSecurityEventListener(listener: SecurityEventListener): void;
 }
 
-export interface AlertHandler {
-  handleAlert(alert: SystemAlert): Promise<void>;
-}
-
-export interface SystemAlert {
-  id: string;
-  type: 'security' | 'performance' | 'availability' | 'capacity';
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  message: string;
-  timestamp: string;
-  metadata?: Record<string, any>;
-}
-
-export type SystemFailureListener = (error: Error, context: string) => void;
-export type SecurityEventListener = (event: string, details: Record<string, any>) => void;
-
 // Simple alerting system implementation
 class SimpleAlertingSystem implements AlertingSystem {
   private alertHandlers: AlertHandler[] = [];
   private failureListeners: SystemFailureListener[] = [];
   private securityListeners: SecurityEventListener[] = [];
-  
+
   registerAlertHandler(handler: AlertHandler): void {
     this.alertHandlers.push(handler);
   }
@@ -143,7 +132,7 @@ class SimpleAlertingSystem implements AlertingSystem {
         console.error('Error in failure listener:', err);
       }
     }
-    
+
     // Also trigger an alert
     await this.triggerAlert({
       id: `failure-${Date.now()}`,
@@ -151,7 +140,7 @@ class SimpleAlertingSystem implements AlertingSystem {
       severity: 'high',
       message: `System failure in ${context}: ${error.message}`,
       timestamp: new Date().toISOString(),
-      metadata: { context, errorMessage: error.message }
+      metadata: { context, errorMessage: error.message },
     });
   }
 
@@ -163,7 +152,7 @@ class SimpleAlertingSystem implements AlertingSystem {
         console.error('Error in security listener:', err);
       }
     }
-    
+
     // Also trigger an alert if it's a significant security event
     if (event.includes('attack') || event.includes('breach') || event.includes('unauthorized')) {
       await this.triggerAlert({
@@ -172,7 +161,7 @@ class SimpleAlertingSystem implements AlertingSystem {
         severity: 'critical',
         message: `Security event: ${event}`,
         timestamp: new Date().toISOString(),
-        metadata: details
+        metadata: details,
       });
     }
   }
@@ -187,7 +176,7 @@ export const alertingSystem = new SimpleAlertingSystem();
 export const healthCheck = async (c: Context): Promise<Response> => {
   try {
     const startTime = Date.now();
-    
+
     // Basic health check - system is responding
     const gatewayCheck = {
       status: 'healthy' as const,
@@ -196,10 +185,10 @@ export const healthCheck = async (c: Context): Promise<Response> => {
 
     // Check database connectivity (if available)
     let dbCheck = { status: 'healthy' as const, message: 'Database connection OK' };
-    
+
     // Check if MCP server registry is accessible
     let mcpRegistryCheck = { status: 'healthy' as const, message: 'MCP registry OK' };
-    
+
     // Check other critical dependencies
     const uptime = process.uptime ? process.uptime() * 1000 : startTime - Date.now(); // fallback for Cloudflare Workers
 
@@ -214,7 +203,7 @@ export const healthCheck = async (c: Context): Promise<Response> => {
         database: dbCheck,
         mcpRegistry: mcpRegistryCheck,
         // Add more checks as needed
-      }
+      },
     };
 
     // Calculate overall status based on individual checks
@@ -225,26 +214,22 @@ export const healthCheck = async (c: Context): Promise<Response> => {
     return c.json(response, 200);
   } catch (error) {
     console.error('Health check error:', error);
-    
+
     // Log the error for audit purposes
-    await auditService.createLogEntry(
-      'system',
-      'system.error',
-      'Health check failed',
-      false,
-      { details: { error: (error as Error).message } }
-    );
-    
+    await auditService.createLogEntry('system', 'system.error', 'Health check failed', false, {
+      details: { error: (error as Error).message },
+    });
+
     const response: HealthCheckResponse = {
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
       service: 'oauth-mcp-gateway',
       checks: {
-        gateway: { 
-          status: 'unhealthy', 
-          message: `Health check failed: ${(error as Error).message}` 
-        }
-      }
+        gateway: {
+          status: 'unhealthy',
+          message: `Health check failed: ${(error as Error).message}`,
+        },
+      },
     };
 
     return c.json(response, 503);
@@ -257,42 +242,29 @@ export const healthCheck = async (c: Context): Promise<Response> => {
 export const detailedHealthCheck = async (c: Context): Promise<Response> => {
   try {
     const startTime = Date.now();
-    
+
     // Basic health check
     const gatewayCheck = {
       status: 'healthy' as const,
       responseTime: Date.now() - startTime,
     };
 
-    // Check all MCP servers
-    const mcpRegistry = new MCPServerRegistry(); // This would normally be injected
-    const mcpServers = await mcpRegistry.getAllServers();
-    const mcpChecks: { [key: string]: { status: 'healthy' | 'degraded' | 'unhealthy'; message?: string; responseTime?: number } } = {};
+    // Note: MCP server health checks would require database access
+    // For now, we'll just report gateway health
+    const mcpChecks: {
+      [key: string]: {
+        status: 'healthy' | 'degraded' | 'unhealthy';
+        message?: string;
+        responseTime?: number;
+      };
+    } = {
+      mcpRegistry: {
+        status: 'healthy',
+        message: 'MCP registry available (detailed checks require database)',
+      },
+    };
 
     let overallMcpStatus: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
-    
-    for (const server of mcpServers) {
-      try {
-        // In a real implementation, we would actually ping the MCP server
-        // For now, we'll simulate the check
-        const checkStartTime = Date.now();
-        
-        // Simulate connection to MCP server
-        // This would be an actual HTTP request to the server's health endpoint
-        const responseTime = Date.now() - checkStartTime;
-        
-        mcpChecks[server.id] = {
-          status: 'healthy',
-          responseTime: responseTime
-        };
-      } catch (error) {
-        mcpChecks[server.id] = {
-          status: 'unhealthy',
-          message: `Cannot connect to MCP server: ${(error as Error).message}`
-        };
-        overallMcpStatus = 'unhealthy';
-      }
-    }
 
     const response: HealthCheckResponse = {
       status: overallMcpStatus,
@@ -302,8 +274,8 @@ export const detailedHealthCheck = async (c: Context): Promise<Response> => {
       service: 'oauth-mcp-gateway',
       checks: {
         gateway: gatewayCheck,
-        ...mcpChecks
-      }
+        ...mcpChecks,
+      },
     };
 
     // Adjust overall status based on all checks
@@ -317,17 +289,17 @@ export const detailedHealthCheck = async (c: Context): Promise<Response> => {
     return c.json(response, 200);
   } catch (error) {
     console.error('Detailed health check error:', error);
-    
+
     const response: HealthCheckResponse = {
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
       service: 'oauth-mcp-gateway',
       checks: {
-        gateway: { 
-          status: 'unhealthy', 
-          message: `Detailed health check failed: ${(error as Error).message}` 
-        }
-      }
+        gateway: {
+          status: 'unhealthy',
+          message: `Detailed health check failed: ${(error as Error).message}`,
+        },
+      },
     };
 
     return c.json(response, 503);

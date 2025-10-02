@@ -8,10 +8,10 @@ import { SessionManager } from '../services/security/session';
 /**
  * Session middleware that validates session and attaches it to context
  */
-export declare function sessionMiddleware(sessionManager: SessionManager): (c: Context, next: Next) => Promise<(Response & import("hono").TypedResponse<{
+export declare function sessionMiddleware(sessionManager: SessionManager): (c: Context, next: Next) => Promise<void | (Response & import("hono").TypedResponse<{
     error: string;
     error_description: string;
-}>) | undefined>;
+}>)>;
 /**
  * Optional session middleware that doesn't require a session
  */

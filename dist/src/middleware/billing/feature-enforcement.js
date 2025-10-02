@@ -49,7 +49,7 @@ export async function featureEnforcementMiddleware(c, next) {
             }, 403);
         }
         // Proceed with the request if all checks pass
-        await next();
+        return await next();
     }
     catch (error) {
         if (error instanceof TenantNotFoundError) {

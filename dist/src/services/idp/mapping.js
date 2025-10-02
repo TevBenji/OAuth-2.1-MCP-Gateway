@@ -79,7 +79,9 @@ export class AttributeMappingService {
             const arrayMatch = part.match(/^(\w+)\[(\d+)\]$/);
             if (arrayMatch) {
                 const [, key, index] = arrayMatch;
-                value = value[key]?.[parseInt(index, 10)];
+                if (key && index !== undefined) {
+                    value = value[key]?.[parseInt(index, 10)];
+                }
             }
             else {
                 value = value[part];
@@ -151,7 +153,7 @@ export class AttributeMappingService {
         }
         if (typeof value === 'string') {
             // Handle comma-separated roles
-            return value.split(',').map((r) => r.trim());
+            return value.split(',').map(r => r.trim());
         }
         return [];
     }
@@ -211,12 +213,12 @@ export class RoleSynchronizationService {
      * Validate roles against allowed roles for tenant
      */
     validateRoles(roles, allowedRoles) {
-        return roles.every((role) => allowedRoles.includes(role));
+        return roles.every(role => allowedRoles.includes(role));
     }
     /**
      * Filter roles based on tenant permissions
      */
     filterRoles(roles, allowedRoles) {
-        return roles.filter((role) => allowedRoles.includes(role));
+        return roles.filter(role => allowedRoles.includes(role));
     }
 }

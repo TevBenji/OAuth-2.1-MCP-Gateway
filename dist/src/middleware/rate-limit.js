@@ -18,7 +18,7 @@ function extractIPAddress(c) {
     // Try X-Forwarded-For (first IP in the list)
     const forwardedFor = c.req.header('X-Forwarded-For');
     if (forwardedFor) {
-        return forwardedFor.split(',')[0].trim();
+        return forwardedFor.split(',')[0]?.trim() ?? 'unknown';
     }
     return 'unknown';
 }
@@ -68,12 +68,12 @@ export function rateLimitMiddleware(rateLimiter, window) {
                     retry_after: result.retry_after,
                 }, 429);
             }
-            await next();
+            return await next();
         }
         catch (error) {
             console.error('Rate limit middleware error:', error);
             // Don't fail the request on rate limit errors
-            await next();
+            return await next();
         }
     };
 }
@@ -105,12 +105,12 @@ export function ipRateLimitMiddleware(rateLimiter, window) {
                     retry_after: result.retry_after,
                 }, 429);
             }
-            await next();
+            return await next();
         }
         catch (error) {
             console.error('IP rate limit middleware error:', error);
             // Don't fail the request on rate limit errors
-            await next();
+            return await next();
         }
     };
 }
@@ -139,11 +139,11 @@ export function tenantRateLimitMiddleware(rateLimiter, window) {
                     retry_after: result.retry_after,
                 }, 429);
             }
-            await next();
+            return await next();
         }
         catch (error) {
             console.error('Tenant rate limit middleware error:', error);
-            await next();
+            return await next();
         }
     };
 }
@@ -172,11 +172,11 @@ export function userRateLimitMiddleware(rateLimiter, window) {
                     retry_after: result.retry_after,
                 }, 429);
             }
-            await next();
+            return await next();
         }
         catch (error) {
             console.error('User rate limit middleware error:', error);
-            await next();
+            return await next();
         }
     };
 }
@@ -205,11 +205,11 @@ export function endpointRateLimitMiddleware(rateLimiter, endpoint, window) {
                     retry_after: result.retry_after,
                 }, 429);
             }
-            await next();
+            return await next();
         }
         catch (error) {
             console.error('Endpoint rate limit middleware error:', error);
-            await next();
+            return await next();
         }
     };
 }

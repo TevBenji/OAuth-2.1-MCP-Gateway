@@ -20,10 +20,7 @@ export class AttributeMappingService {
   /**
    * Map IdP claims to local user attributes
    */
-  mapAttributes(
-    config: IdPConfig,
-    claims: Record<string, any>
-  ): Partial<IdPAuthResponse> {
+  mapAttributes(config: IdPConfig, claims: Record<string, any>): Partial<IdPAuthResponse> {
     try {
       const mapping = config.attribute_mapping;
 
@@ -115,7 +112,9 @@ export class AttributeMappingService {
       const arrayMatch = part.match(/^(\w+)\[(\d+)\]$/);
       if (arrayMatch) {
         const [, key, index] = arrayMatch;
-        value = value[key]?.[parseInt(index, 10)];
+        if (key && index !== undefined) {
+          value = value[key]?.[parseInt(index, 10)];
+        }
       } else {
         value = value[part];
       }
@@ -200,7 +199,7 @@ export class AttributeMappingService {
 
     if (typeof value === 'string') {
       // Handle comma-separated roles
-      return value.split(',').map((r) => r.trim());
+      return value.split(',').map(r => r.trim());
     }
 
     return [];
@@ -282,13 +281,13 @@ export class RoleSynchronizationService {
    * Validate roles against allowed roles for tenant
    */
   validateRoles(roles: string[], allowedRoles: string[]): boolean {
-    return roles.every((role) => allowedRoles.includes(role));
+    return roles.every(role => allowedRoles.includes(role));
   }
 
   /**
    * Filter roles based on tenant permissions
    */
   filterRoles(roles: string[], allowedRoles: string[]): string[] {
-    return roles.filter((role) => allowedRoles.includes(role));
+    return roles.filter(role => allowedRoles.includes(role));
   }
 }

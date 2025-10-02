@@ -24,7 +24,7 @@ function extractIPAddress(c: Context): string {
   // Try X-Forwarded-For (first IP in the list)
   const forwardedFor = c.req.header('X-Forwarded-For');
   if (forwardedFor) {
-    return forwardedFor.split(',')[0].trim();
+    return forwardedFor.split(',')[0]?.trim() ?? 'unknown';
   }
 
   return 'unknown';
@@ -123,7 +123,8 @@ export function ipRateLimitMiddleware(rateLimiter: RateLimiter, window?: RateLim
           return c.json(
             {
               error: 'ip_blocked',
-              error_description: result.block_reason || 'Your IP has been blocked due to suspicious activity',
+              error_description:
+                result.block_reason || 'Your IP has been blocked due to suspicious activity',
               retry_after: result.retry_after,
             },
             429
@@ -175,7 +176,8 @@ export function tenantRateLimitMiddleware(rateLimiter: RateLimiter, window?: Rat
         return c.json(
           {
             error: 'tenant_rate_limit_exceeded',
-            error_description: 'Tenant rate limit exceeded. Please upgrade your plan or try again later.',
+            error_description:
+              'Tenant rate limit exceeded. Please upgrade your plan or try again later.',
             limit: result.limit,
             remaining: result.remaining,
             reset: result.reset,
@@ -256,11 +258,7 @@ export function endpointRateLimitMiddleware(
       }
 
       // Check endpoint rate limit
-      const result = await rateLimiter.checkEndpointLimit(
-        endpoint,
-        mcpContext.tenant_id,
-        window
-      );
+      const result = await rateLimiter.checkEndpointLimit(endpoint, mcpContext.tenant_id, window);
 
       // Set rate limit headers
       setRateLimitHeaders(c, result);

@@ -6,9 +6,21 @@
  */
 import type { PKCEChallenge } from '@/types/oauth';
 /**
+ * Generate a cryptographically secure random string for PKCE code verifier
+ */
+export declare function generateCodeVerifier(): string;
+/**
+ * Generate SHA256 hash and encode as base64url (also exported as createS256CodeChallenge)
+ */
+export declare function sha256(plain: string): Promise<string>;
+/**
  * Generate PKCE challenge/verifier pair
  */
 export declare function generatePKCE(): Promise<PKCEChallenge>;
+/**
+ * Alias for sha256 - creates S256 code challenge from verifier
+ */
+export declare const createS256CodeChallenge: typeof sha256;
 /**
  * Validate PKCE verifier against challenge
  */
@@ -21,3 +33,16 @@ export declare function isValidCodeVerifier(codeVerifier: string): boolean;
  * Validate code challenge format
  */
 export declare function isValidCodeChallenge(codeChallenge: string): boolean;
+/**
+ * In-memory PKCE storage for development/testing
+ * In production, this should be replaced with a persistent storage solution
+ */
+export declare class InMemoryPKCEStorage {
+    private storage;
+    store(code: string, verifier: string, challenge: string): Promise<void>;
+    get(code: string): Promise<{
+        verifier: string;
+        challenge: string;
+    } | null>;
+    cleanup(maxAge?: number): Promise<void>;
+}

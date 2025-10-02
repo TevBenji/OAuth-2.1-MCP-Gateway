@@ -200,29 +200,32 @@ export class MetricsCollector {
         if (data.length === 0)
             return 0;
         const sorted = [...data].sort((a, b) => a - b);
-        const index = Math.floor(percentile / 100 * (sorted.length - 1));
-        return sorted[index];
+        const index = Math.floor((percentile / 100) * (sorted.length - 1));
+        return sorted[index] ?? 0;
     }
     // Get current metrics snapshot
     getMetrics() {
         const uptime = (Date.now() - this.startTime) / 1000; // in seconds
         // Calculate averages and percentiles for HTTP requests
         const httpAvgLatency = this.httpRequestLatencies.length > 0
-            ? this.httpRequestLatencies.reduce((sum, val) => sum + val, 0) / this.httpRequestLatencies.length
+            ? this.httpRequestLatencies.reduce((sum, val) => sum + val, 0) /
+                this.httpRequestLatencies.length
             : 0;
         const httpP50 = this.calculatePercentile(this.httpRequestLatencies, 50);
         const httpP95 = this.calculatePercentile(this.httpRequestLatencies, 95);
         const httpP99 = this.calculatePercentile(this.httpRequestLatencies, 99);
         // Calculate averages and percentiles for token validation
         const tokenAvgLatency = this.tokenValidationLatencies.length > 0
-            ? this.tokenValidationLatencies.reduce((sum, val) => sum + val, 0) / this.tokenValidationLatencies.length
+            ? this.tokenValidationLatencies.reduce((sum, val) => sum + val, 0) /
+                this.tokenValidationLatencies.length
             : 0;
         const tokenP50 = this.calculatePercentile(this.tokenValidationLatencies, 50);
         const tokenP95 = this.calculatePercentile(this.tokenValidationLatencies, 95);
         const tokenP99 = this.calculatePercentile(this.tokenValidationLatencies, 99);
         // Calculate averages and percentiles for MCP requests
         const mcpAvgLatency = this.mcpRequestLatencies.length > 0
-            ? this.mcpRequestLatencies.reduce((sum, val) => sum + val, 0) / this.mcpRequestLatencies.length
+            ? this.mcpRequestLatencies.reduce((sum, val) => sum + val, 0) /
+                this.mcpRequestLatencies.length
             : 0;
         const mcpP50 = this.calculatePercentile(this.mcpRequestLatencies, 50);
         const mcpP95 = this.calculatePercentile(this.mcpRequestLatencies, 95);
@@ -341,7 +344,7 @@ export const authMetricsEndpoint = async (c) => {
         const metrics = metricsCollector.getMetrics();
         return c.json({
             authentication: metrics.authentication,
-            authorization: metrics.authorization
+            authorization: metrics.authorization,
         }, 200);
     }
     catch (error) {
@@ -357,7 +360,7 @@ export const tokenLatencyEndpoint = async (c) => {
         const metrics = metricsCollector.getMetrics();
         return c.json({
             tokenValidationLatency: metrics.tokens.validationLatency,
-            tokensValidated: metrics.tokens.validated
+            tokensValidated: metrics.tokens.validated,
         }, 200);
     }
     catch (error) {

@@ -38,7 +38,7 @@ export function sessionMiddleware(sessionManager) {
             // Attach session to context
             c.set('session', validationResult.session);
             c.set('deviceInfo', deviceInfo);
-            await next();
+            return await next();
         }
         catch (error) {
             if (error instanceof MCPError) {

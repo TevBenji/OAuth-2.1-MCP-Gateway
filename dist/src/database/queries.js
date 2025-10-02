@@ -18,7 +18,10 @@ export class TenantIsolationService {
         // Ensure the query includes tenant isolation
         const isolatedQuery = this.ensureTenantIsolation(query, tenantId);
         // Execute the query
-        return this.db.prepare(isolatedQuery).bind(...params).all();
+        return this.db
+            .prepare(isolatedQuery)
+            .bind(...params)
+            .all();
     }
     /**
      * Checks if a tenant has access to a specific resource
@@ -27,11 +30,11 @@ export class TenantIsolationService {
         // This method would check if a resource belongs to a tenant
         // The implementation depends on the specific resource type
         const tableMap = {
-            'client': 'oauth_clients',
-            'user': 'users',
-            'token': 'access_tokens',
-            'mcp_server': 'mcp_servers',
-            'audit_log': 'audit_logs'
+            client: 'oauth_clients',
+            user: 'users',
+            token: 'access_tokens',
+            mcp_server: 'mcp_servers',
+            audit_log: 'audit_logs',
         };
         const tableName = tableMap[resourceType];
         if (!tableName) {
@@ -39,13 +42,11 @@ export class TenantIsolationService {
         }
         // Query to check if the resource exists and belongs to the tenant
         const query = `
-      SELECT 1 
-      FROM ${tableName} 
+      SELECT 1
+      FROM ${tableName}
       WHERE id = ? AND tenant_id = ?
     `;
-        const result = await this.db.prepare(query)
-            .bind(resourceId, tenantId)
-            .first();
+        const result = await this.db.prepare(query).bind(resourceId, tenantId).first();
         return !!result;
     }
     /**
@@ -57,9 +58,14 @@ export class TenantIsolationService {
         // beyond the application-level filtering.
         // List of tables that require tenant isolation
         const tenantAwareTables = [
-            'tenants', 'oauth_clients', 'authorization_codes',
-            'access_tokens', 'refresh_tokens', 'users',
-            'audit_logs', 'mcp_servers'
+            'tenants',
+            'oauth_clients',
+            'authorization_codes',
+            'access_tokens',
+            'refresh_tokens',
+            'users',
+            'audit_logs',
+            'mcp_servers',
         ];
         // Check if the query involves any tenant-aware tables
         const queryLower = query.toLowerCase();
@@ -86,13 +92,15 @@ export class TenantIsolationService {
      * Checks if a query already has a tenant filter
      */
     hasTenantFilter(query, tenantId) {
-        // This is a simplified check - in a real implementation, 
+        // This is a simplified check - in a real implementation,
         // you'd want more sophisticated query parsing
         const whereClauseMatch = /\bWHERE\b(.*)$/i;
         const whereMatch = query.match(whereClauseMatch);
         if (whereMatch) {
             // Check if the where clause contains tenant filter
             const wherePart = whereMatch[1];
+            if (wherePart === undefined)
+                return false;
             return /tenant_id\s*=/.test(wherePart);
         }
         return false;
@@ -108,15 +116,15 @@ export class TenantIsolationService {
                 const orderByMatch = query.match(/\bORDER\s+BY\b/i);
                 const limitMatch = query.match(/\bLIMIT\b/i);
                 const groupByMatch = query.match(/\bGROUP\s+BY\b/i);
-                if (orderByMatch) {
+                if (orderByMatch && orderByMatch.index !== undefined) {
                     const idx = orderByMatch.index;
                     return `${query.substring(0, idx)} WHERE tenant_id = '${tenantId}' ${query.substring(idx)}`;
                 }
-                else if (groupByMatch) {
+                else if (groupByMatch && groupByMatch.index !== undefined) {
                     const idx = groupByMatch.index;
                     return `${query.substring(0, idx)} WHERE tenant_id = '${tenantId}' ${query.substring(idx)}`;
                 }
-                else if (limitMatch) {
+                else if (limitMatch && limitMatch.index !== undefined) {
                     const idx = limitMatch.index;
                     return `${query.substring(0, idx)} WHERE tenant_id = '${tenantId}' ${query.substring(idx)}`;
                 }
@@ -163,18 +171,22 @@ export class TenantIsolationService {
     async getTenantStats(tenantId) {
         // Get various statistics for a specific tenant
         const [clientCount, userCount, tokenCount, serverCount] = await Promise.all([
-            this.db.prepare('SELECT COUNT(*) as count FROM oauth_clients WHERE tenant_id = ?')
+            this.db
+                .prepare('SELECT COUNT(*) as count FROM oauth_clients WHERE tenant_id = ?')
                 .bind(tenantId)
                 .first(),
-            this.db.prepare('SELECT COUNT(*) as count FROM users WHERE tenant_id = ?')
+            this.db
+                .prepare('SELECT COUNT(*) as count FROM users WHERE tenant_id = ?')
                 .bind(tenantId)
                 .first(),
-            this.db.prepare('SELECT COUNT(*) as count FROM access_tokens WHERE tenant_id = ?')
+            this.db
+                .prepare('SELECT COUNT(*) as count FROM access_tokens WHERE tenant_id = ?')
                 .bind(tenantId)
                 .first(),
-            this.db.prepare('SELECT COUNT(*) as count FROM mcp_servers WHERE tenant_id = ?')
+            this.db
+                .prepare('SELECT COUNT(*) as count FROM mcp_servers WHERE tenant_id = ?')
                 .bind(tenantId)
-                .first()
+                .first(),
         ]);
         return {
             tenantId,
@@ -252,7 +264,7 @@ export class TenantQueryBuilder {
         }
         return {
             query: this.baseQuery,
-            params: this.params
+            params: this.params,
         };
     }
 }

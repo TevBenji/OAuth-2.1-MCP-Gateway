@@ -27,7 +27,9 @@ export class SessionManager {
         if (activeSessions.length >= this.limits.max_concurrent_sessions) {
             // Revoke oldest session to make room
             const oldestSession = activeSessions.sort((a, b) => a.created_at.getTime() - b.created_at.getTime())[0];
-            await this.revokeSession(oldestSession.session_id, 'concurrent_limit_exceeded');
+            if (oldestSession) {
+                await this.revokeSession(oldestSession.session_id, 'concurrent_limit_exceeded');
+            }
         }
         const now = new Date();
         const idleTimeout = max_idle_time || this.limits.max_idle_time_seconds;
@@ -344,7 +346,7 @@ export class SessionManager {
             headers['CF-Connecting-IP'] ||
             headers['x-real-ip'] ||
             headers['X-Real-IP'] ||
-            headers['x-forwarded-for']?.split(',')[0].trim() ||
+            headers['x-forwarded-for']?.split(',')[0]?.trim() ||
             'unknown';
         // Simple device type detection
         let deviceType = 'unknown';

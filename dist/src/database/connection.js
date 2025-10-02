@@ -175,8 +175,8 @@ export class DatabaseManager {
     async execute(sql, params = []) {
         const result = await this.database.prepare(sql).bind(...params).run();
         return {
-            rowsAffected: result.changes || 0,
-            lastRowId: result.last_row_id,
+            rowsAffected: result.meta.changes || 0,
+            lastRowId: result.meta.last_row_id,
         };
     }
 }

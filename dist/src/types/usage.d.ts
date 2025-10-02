@@ -83,6 +83,9 @@ export declare const TenantBillingSchema: z.ZodObject<{
     auto_renew: z.ZodDefault<z.ZodBoolean>;
 }, "strip", z.ZodTypeAny, {
     tenant_id: string;
+    billing_tier: "free" | "pro" | "business" | "enterprise";
+    current_period_start: Date;
+    current_period_end: Date;
     limits: {
         mcp_servers: number;
         api_keys: number;
@@ -90,9 +93,6 @@ export declare const TenantBillingSchema: z.ZodObject<{
         requests_per_month: number;
         storage_gb: number;
     };
-    billing_tier: "free" | "pro" | "business" | "enterprise";
-    current_period_start: Date;
-    current_period_end: Date;
     current_usage: {
         requests_this_month: number;
         storage_used_gb: number;
@@ -108,6 +108,9 @@ export declare const TenantBillingSchema: z.ZodObject<{
     next_billing_date?: Date | undefined;
 }, {
     tenant_id: string;
+    billing_tier: "free" | "pro" | "business" | "enterprise";
+    current_period_start: Date;
+    current_period_end: Date;
     limits: {
         mcp_servers: number;
         api_keys: number;
@@ -115,9 +118,6 @@ export declare const TenantBillingSchema: z.ZodObject<{
         requests_per_month: number;
         storage_gb: number;
     };
-    billing_tier: "free" | "pro" | "business" | "enterprise";
-    current_period_start: Date;
-    current_period_end: Date;
     current_usage: {
         requests_this_month: number;
         storage_used_gb: number;

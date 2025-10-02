@@ -1,4 +1,4 @@
-import { SystemAlert, AlertHandler } from '../handlers/admin/health';
+import { SystemAlert, AlertHandler } from '../../types/alerts';
 
 // Alerting system for monitoring and notifications
 export class AlertingSystem {
@@ -13,7 +13,7 @@ export class AlertingSystem {
   async triggerAlert(alert: SystemAlert): Promise<void> {
     // Add to history
     this.alertHistory.push(alert);
-    
+
     // Keep only the last N alerts
     if (this.alertHistory.length > this.maxAlertHistory) {
       this.alertHistory = this.alertHistory.slice(-this.maxAlertHistory);
@@ -45,15 +45,18 @@ export class AlertingSystem {
 export class ConsoleAlertHandler implements AlertHandler {
   async handleAlert(alert: SystemAlert): Promise<void> {
     const timestamp = new Date(alert.timestamp).toLocaleString();
-    const severityEmoji = {
-      low: 'ℹ️',
-      medium: '⚠️',
-      high: '🚨',
-      critical: '🔥'
-    }[alert.severity] || '🔔';
+    const severityEmoji =
+      {
+        low: 'ℹ️',
+        medium: '⚠️',
+        high: '🚨',
+        critical: '🔥',
+      }[alert.severity] || '🔔';
 
-    console.log(`${severityEmoji} [${timestamp}] ${alert.type.toUpperCase()} ALERT: ${alert.message}`);
-    
+    console.log(
+      `${severityEmoji} [${timestamp}] ${alert.type.toUpperCase()} ALERT: ${alert.message}`
+    );
+
     if (alert.metadata) {
       console.log('Metadata:', JSON.stringify(alert.metadata, null, 2));
     }
@@ -71,12 +74,12 @@ export class EmailAlertHandler implements AlertHandler {
   async handleAlert(alert: SystemAlert): Promise<void> {
     // In a real implementation, this would send emails
     // For now, we'll just log that we would send an email
-    
+
     const timestamp = new Date(alert.timestamp).toLocaleString();
     console.log(`📧 Would send email alert to ${this.emailAddresses.join(', ')}`);
     console.log(`Subject: ${alert.severity.toUpperCase()} ${alert.type} Alert - ${alert.message}`);
     console.log(`Body: Alert triggered at ${timestamp}: ${alert.message}`);
-    
+
     if (alert.metadata) {
       console.log(`Metadata: ${JSON.stringify(alert.metadata)}`);
     }
@@ -94,7 +97,7 @@ export class WebhookAlertHandler implements AlertHandler {
   async handleAlert(alert: SystemAlert): Promise<void> {
     // In a real implementation, this would POST to webhook URLs
     // For now, we'll just log that we would send a webhook
-    
+
     for (const url of this.webhookUrls) {
       console.log(`🔗 Would send webhook alert to ${url}`);
       console.log(`Payload: ${JSON.stringify(alert)}`);
@@ -113,10 +116,10 @@ export class SlackAlertHandler implements AlertHandler {
   async handleAlert(alert: SystemAlert): Promise<void> {
     // In a real implementation, this would send to Slack
     // For now, we'll just log that we would send to Slack
-    
+
     console.log(`💬 Would send Slack alert to ${this.webhookUrl}`);
     console.log(`Message: ${alert.severity.toUpperCase()} ${alert.type} Alert: ${alert.message}`);
-    
+
     if (alert.metadata) {
       console.log(`Details: ${JSON.stringify(alert.metadata)}`);
     }

@@ -1,22 +1,9 @@
-import { SignJWT, jwtVerify, type JWTVerifyResult } from 'jose';
+import { SignJWT, jwtVerify, type JWTVerifyResult, type JWTPayload } from 'jose';
 import { v4 as uuidv4 } from 'uuid';
+import type { TokenPayload as OAuthTokenPayload } from '../../types/oauth';
 
-// Define JWT payload types
-export interface TokenPayload {
-  iss: string; // issuer
-  sub: string; // subject
-  aud: string | string[]; // audience (for RFC 8707 Resource Indicators)
-  exp: number; // expiration time
-  nbf: number; // not before
-  iat: number; // issued at
-  jti: string; // JWT ID
-  scope?: string; // OAuth 2.1 scopes
-  tenant_id?: string; // tenant identifier for multi-tenancy
-  user_id?: string; // user identifier
-  // MCP-specific claims
-  resource_indicators?: string[]; // Resource Indicators per RFC 8707
-  mcp_permissions?: string[]; // MCP-specific permissions
-}
+// Extend OAuth TokenPayload with index signature for JWT compatibility
+export interface TokenPayload extends OAuthTokenPayload, Record<string, unknown> {}
 
 export interface TokenClaims {
   issuer: string;
@@ -40,7 +27,7 @@ export class JWTService {
   private verificationKey: Uint8Array | CryptoKey;
   private algorithm: 'RS256' | 'HS256';
   private issuer: string;
-  
+
   constructor(
     signingKey: string | Uint8Array | CryptoKey,
     algorithm: 'RS256' | 'HS256' = 'RS256',
@@ -52,7 +39,7 @@ export class JWTService {
     } else {
       this.signingKey = signingKey;
     }
-    
+
     // If verification key is provided, use it, otherwise use signing key
     if (verificationKey) {
       if (typeof verificationKey === 'string') {
@@ -63,7 +50,7 @@ export class JWTService {
     } else {
       this.verificationKey = this.signingKey;
     }
-    
+
     this.algorithm = algorithm;
     this.issuer = issuer;
   }
@@ -76,7 +63,7 @@ export class JWTService {
   async createToken(claims: TokenClaims): Promise<string> {
     const now = Math.floor(Date.now() / 1000);
     const jwtId = uuidv4();
-    
+
     // Build the token payload
     const payload: TokenPayload = {
       iss: this.issuer,
@@ -111,21 +98,17 @@ export class JWTService {
    */
   async verifyToken(token: string, expectedAudience?: string | string[]): Promise<JWTVerifyResult> {
     try {
-      const result = await jwtVerify(
-        token,
-        this.verificationKey as Uint8Array,
-        {
-          issuer: this.issuer,
-          audience: expectedAudience,
-        }
-      );
+      const result = await jwtVerify(token, this.verificationKey as Uint8Array, {
+        issuer: this.issuer,
+        audience: expectedAudience,
+      });
 
       // Additional validation for MCP-specific fields
       const payload = result.payload as TokenPayload;
       if (!payload.jti) {
         throw new Error('Token is missing required jti claim');
       }
-      
+
       // Validate audience according to RFC 8707 Resource Indicators
       if (expectedAudience && payload.aud) {
         if (typeof expectedAudience === 'string') {
@@ -208,15 +191,19 @@ export class JWTService {
       if (parts.length !== 3) {
         return null;
       }
-      
+
       // Decode the payload part (second part)
       const payloadB64 = parts[1];
+      if (!payloadB64) {
+        throw new Error('Invalid JWT: missing payload');
+      }
+
       // Add padding if needed
       const paddedPayloadB64 = payloadB64.padEnd(
-        payloadB64.length + (4 - (payloadB64.length % 4)) % 4,
+        payloadB64.length + ((4 - (payloadB64.length % 4)) % 4),
         '='
       );
-      
+
       const payloadJSON = atob(paddedPayloadB64);
       return JSON.parse(payloadJSON) as TokenPayload;
     } catch (error) {

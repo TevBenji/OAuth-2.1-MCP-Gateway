@@ -4,6 +4,8 @@
  * Bearer token extraction and validation middleware for MCP requests.
  * Validates JWT tokens, extracts claims, and attaches context to requests.
  */
+import { MCPError } from '../errors/mcp-error';
+import { JWTService } from '../services/oauth/jwt';
 import { RiskService } from '../services/security/risk';
 import { auditService } from '../services/security/audit';
 /**
@@ -18,7 +20,7 @@ export function extractBearerToken(authHeader) {
     if (parts.length !== 2 || parts[0] !== 'Bearer') {
         return null;
     }
-    return parts[1];
+    return parts[1] || null;
 }
 /**
  * Authentication middleware that validates Bearer tokens
@@ -52,15 +54,15 @@ export function authMiddleware() {
             if (!payload.tenant_id) {
                 throw new MCPError('MISSING_TENANT_ID', 'Token is missing required tenant_id claim', 401);
             }
-            if (!payload.user_id) {
-                throw new MCPError('MISSING_USER_ID', 'Token is missing required user_id claim', 401);
+            if (!payload.sub) {
+                throw new MCPError('MISSING_USER_ID', 'Token is missing required sub (user_id) claim', 401);
             }
             // Build MCP request context
             const mcpContext = {
-                tenant_id: payload.tenant_id,
-                user_id: payload.user_id,
-                client_id: payload.sub, // subject is the client_id
-                session_id: payload.jti, // JWT ID can serve as session identifier
+                tenant_id: payload.tenant_id || '',
+                user_id: payload.sub, // subject is the user ID
+                client_id: payload.client_id || '',
+                session_id: payload.session_id || payload.jti, // Use session_id or JWT ID
                 scopes: payload.scope ? payload.scope.split(' ') : [],
                 ip_address: c.req.header('CF-Connecting-IP') || c.req.header('X-Real-IP') || 'unknown',
                 user_agent: c.req.header('User-Agent') || 'unknown',
@@ -101,7 +103,7 @@ export function authMiddleware() {
                 { riskAssessment });
             }
             // Continue to next middleware/handler
-            await next();
+            return await next();
         }
         catch (error) {
             if (error instanceof MCPError) {
@@ -129,8 +131,7 @@ export function optionalAuthMiddleware() {
         const authHeader = c.req.header('Authorization');
         // If no auth header, continue without authentication
         if (!authHeader) {
-            await next();
-            return;
+            return await next();
         }
         // If auth header is present, validate it
         return authMiddleware()(c, next);
@@ -160,7 +161,7 @@ export function requireScopes(...requiredScopes) {
             if (!hasAllScopes) {
                 throw new MCPError('INSUFFICIENT_SCOPE', `Insufficient scope. Required: ${requiredScopes.join(', ')}, Provided: ${tokenScopes.join(', ')}`, 403);
             }
-            await next();
+            return await next();
         }
         catch (error) {
             if (error instanceof MCPError) {

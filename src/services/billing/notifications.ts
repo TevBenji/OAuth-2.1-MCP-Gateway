@@ -1,6 +1,6 @@
 /**
  * Notification Service for Usage Alerts
- * 
+ *
  * Handles sending notifications when usage thresholds are reached
  */
 
@@ -32,7 +32,7 @@ export class EmailNotificationChannel implements NotificationChannel {
       host: config.smtp_host || 'localhost',
       port: config.smtp_port || 587,
       user: config.smtp_user || '',
-      password: config.smtp_password || ''
+      password: config.smtp_password || '',
     };
   }
 
@@ -74,23 +74,27 @@ export class SlackNotificationChannel implements NotificationChannel {
           text: `Usage Alert for Tenant ${payload.tenant_id}: ${payload.message}`,
           attachments: [
             {
-              color: payload.alert.severity === 'critical' ? 'danger' : 
-                     payload.alert.severity === 'high' ? 'warning' : 'good',
+              color:
+                payload.alert.severity === 'critical'
+                  ? 'danger'
+                  : payload.alert.severity === 'high'
+                    ? 'warning'
+                    : 'good',
               fields: [
                 {
                   title: 'Alert Type',
                   value: payload.alert.alert_type,
-                  short: true
+                  short: true,
                 },
                 {
                   title: 'Triggered At',
                   value: payload.timestamp.toISOString(),
-                  short: true
-                }
-              ]
-            }
-          ]
-        })
+                  short: true,
+                },
+              ],
+            },
+          ],
+        }),
       });
 
       return response.ok;
@@ -111,18 +115,24 @@ export class NotificationService {
 
     // Register available channels based on configuration
     if (bindings.SMTP_HOST && bindings.SMTP_USER && bindings.SMTP_PASSWORD) {
-      this.channels.set('email', new EmailNotificationChannel({
-        smtp_host: bindings.SMTP_HOST,
-        smtp_port: bindings.SMTP_PORT ? parseInt(bindings.SMTP_PORT, 10) : 587,
-        smtp_user: bindings.SMTP_USER,
-        smtp_password: bindings.SMTP_PASSWORD
-      }));
+      this.channels.set(
+        'email',
+        new EmailNotificationChannel({
+          smtp_host: bindings.SMTP_HOST,
+          smtp_port: bindings.SMTP_PORT ? parseInt(bindings.SMTP_PORT as string, 10) : 587,
+          smtp_user: bindings.SMTP_USER,
+          smtp_password: bindings.SMTP_PASSWORD,
+        })
+      );
     }
 
     if (bindings.SLACK_WEBHOOK_URL) {
-      this.channels.set('slack', new SlackNotificationChannel({
-        slack_webhook_url: bindings.SLACK_WEBHOOK_URL
-      }));
+      this.channels.set(
+        'slack',
+        new SlackNotificationChannel({
+          slack_webhook_url: bindings.SLACK_WEBHOOK_URL,
+        })
+      );
     }
   }
 
@@ -132,9 +142,9 @@ export class NotificationService {
   async sendNotification(alert: UsageAlert, tenantId: string, message: string): Promise<boolean> {
     // Get tenant's notification preferences
     const tenantPrefs = await this.getTenantNotificationPreferences(tenantId);
-    
+
     let success = false;
-    
+
     // Send notifications to all configured channels for this tenant
     for (const channelType of tenantPrefs.channels) {
       const channel = this.channels.get(channelType);
@@ -144,12 +154,12 @@ export class NotificationService {
             tenant_id: tenantId,
             alert,
             message,
-            timestamp: new Date()
+            timestamp: new Date(),
           };
-          
+
           const channelSuccess = await channel.send(payload);
           success = success || channelSuccess;
-          
+
           if (channelSuccess) {
             // Mark the alert as having notification sent
             await this.markAlertNotificationSent(alert.id);
@@ -159,7 +169,7 @@ export class NotificationService {
         }
       }
     }
-    
+
     return success;
   }
 
@@ -174,30 +184,31 @@ export class NotificationService {
     // In a real implementation, this would fetch from a database
     // For now, return default preferences
     try {
-      const result = await this.db.prepare(
-        `SELECT notification_channels, notification_thresholds, notifications_enabled 
-         FROM tenant_preferences 
+      const result = await this.db
+        .prepare(
+          `SELECT notification_channels, notification_thresholds, notifications_enabled
+         FROM tenant_preferences
          WHERE tenant_id = ?`
-      )
-      .bind(tenantId)
-      .first();
-      
+        )
+        .bind(tenantId)
+        .first();
+
       if (result) {
         return {
-          channels: JSON.parse(result.notification_channels as string || '["email"]'),
-          thresholds: JSON.parse(result.notification_thresholds as string || '{"usage": 80}'),
-          enabled: result.notifications_enabled as boolean || true
+          channels: JSON.parse((result.notification_channels as string) || '["email"]'),
+          thresholds: JSON.parse((result.notification_thresholds as string) || '{"usage": 80}'),
+          enabled: (result.notifications_enabled as boolean) || true,
         };
       }
     } catch (error) {
       console.error('Error fetching tenant notification preferences:', error);
     }
-    
+
     // Default preferences
     return {
       channels: ['email'],
       thresholds: { usage: 80 },
-      enabled: true
+      enabled: true,
     };
   }
 
@@ -205,30 +216,34 @@ export class NotificationService {
    * Mark an alert as having notification sent
    */
   async markAlertNotificationSent(alertId: string): Promise<void> {
-    await this.db.prepare(
-      `UPDATE usage_alerts 
-       SET notification_sent = TRUE 
+    await this.db
+      .prepare(
+        `UPDATE usage_alerts
+       SET notification_sent = TRUE
        WHERE id = ?`
-    )
-    .bind(alertId)
-    .run();
+      )
+      .bind(alertId)
+      .run();
   }
 
   /**
    * Send notifications for all pending alerts
    */
   async sendPendingNotifications(): Promise<void> {
-    const result = await this.db.prepare(
-      `SELECT * FROM usage_alerts 
-       WHERE notification_sent = FALSE 
+    const result = await this.db
+      .prepare(
+        `SELECT * FROM usage_alerts
+       WHERE notification_sent = FALSE
        ORDER BY triggered_at DESC`
-    )
-    .all();
-    
+      )
+      .all();
+
     for (const row of result.results) {
-      const alert = row as UsageAlert;
-      const message = alert.message || `Usage alert of type ${alert.alert_type} triggered for tenant ${alert.tenant_id}`;
-      
+      const alert = row as unknown as UsageAlert;
+      const message =
+        alert.message ||
+        `Usage alert of type ${alert.alert_type} triggered for tenant ${alert.tenant_id}`;
+
       await this.sendNotification(alert, alert.tenant_id, message);
     }
   }

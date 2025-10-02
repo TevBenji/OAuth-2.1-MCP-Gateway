@@ -1,17 +1,6 @@
 import { type JWTVerifyResult } from 'jose';
-export interface TokenPayload {
-    iss: string;
-    sub: string;
-    aud: string | string[];
-    exp: number;
-    nbf: number;
-    iat: number;
-    jti: string;
-    scope?: string;
-    tenant_id?: string;
-    user_id?: string;
-    resource_indicators?: string[];
-    mcp_permissions?: string[];
+import type { TokenPayload as OAuthTokenPayload } from '../../types/oauth';
+export interface TokenPayload extends OAuthTokenPayload, Record<string, unknown> {
 }
 export interface TokenClaims {
     issuer: string;

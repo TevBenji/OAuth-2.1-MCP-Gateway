@@ -86,7 +86,8 @@ export class MetricsCollector {
   private authTotal = 0;
   private authSuccess = 0;
   private authFailure = 0;
-  private authByMethod: { [method: string]: { total: number; success: number; failure: number } } = {};
+  private authByMethod: { [method: string]: { total: number; success: number; failure: number } } =
+    {};
   private authzTotal = 0;
   private authzSuccess = 0;
   private authzFailure = 0;
@@ -194,7 +195,7 @@ export class MetricsCollector {
   // Record authentication attempt
   recordAuthentication(method: string, success: boolean): void {
     this.authTotal++;
-    
+
     if (success) {
       this.authSuccess++;
     } else {
@@ -205,7 +206,7 @@ export class MetricsCollector {
     if (!this.authByMethod[method]) {
       this.authByMethod[method] = { total: 0, success: 0, failure: 0 };
     }
-    
+
     this.authByMethod[method].total++;
     if (success) {
       this.authByMethod[method].success++;
@@ -217,7 +218,7 @@ export class MetricsCollector {
   // Record authorization decision
   recordAuthorization(success: boolean, denied: boolean = false): void {
     this.authzTotal++;
-    
+
     if (success) {
       this.authzSuccess++;
     } else {
@@ -230,7 +231,10 @@ export class MetricsCollector {
   }
 
   // Record token operations
-  recordTokenOperation(operation: 'issue' | 'validate' | 'refresh' | 'revoke', latencyMs?: number): void {
+  recordTokenOperation(
+    operation: 'issue' | 'validate' | 'refresh' | 'revoke',
+    latencyMs?: number
+  ): void {
     switch (operation) {
       case 'issue':
         this.tokensIssued++;
@@ -288,47 +292,53 @@ export class MetricsCollector {
   // Calculate percentile
   private calculatePercentile(data: number[], percentile: number): number {
     if (data.length === 0) return 0;
-    
+
     const sorted = [...data].sort((a, b) => a - b);
-    const index = Math.floor(percentile / 100 * (sorted.length - 1));
-    return sorted[index];
+    const index = Math.floor((percentile / 100) * (sorted.length - 1));
+    return sorted[index] ?? 0;
   }
 
   // Get current metrics snapshot
   getMetrics(): MetricsData {
     const uptime = (Date.now() - this.startTime) / 1000; // in seconds
-    
+
     // Calculate averages and percentiles for HTTP requests
-    const httpAvgLatency = this.httpRequestLatencies.length > 0 
-      ? this.httpRequestLatencies.reduce((sum, val) => sum + val, 0) / this.httpRequestLatencies.length
-      : 0;
-      
+    const httpAvgLatency =
+      this.httpRequestLatencies.length > 0
+        ? this.httpRequestLatencies.reduce((sum, val) => sum + val, 0) /
+          this.httpRequestLatencies.length
+        : 0;
+
     const httpP50 = this.calculatePercentile(this.httpRequestLatencies, 50);
     const httpP95 = this.calculatePercentile(this.httpRequestLatencies, 95);
     const httpP99 = this.calculatePercentile(this.httpRequestLatencies, 99);
-    
+
     // Calculate averages and percentiles for token validation
-    const tokenAvgLatency = this.tokenValidationLatencies.length > 0
-      ? this.tokenValidationLatencies.reduce((sum, val) => sum + val, 0) / this.tokenValidationLatencies.length
-      : 0;
-      
+    const tokenAvgLatency =
+      this.tokenValidationLatencies.length > 0
+        ? this.tokenValidationLatencies.reduce((sum, val) => sum + val, 0) /
+          this.tokenValidationLatencies.length
+        : 0;
+
     const tokenP50 = this.calculatePercentile(this.tokenValidationLatencies, 50);
     const tokenP95 = this.calculatePercentile(this.tokenValidationLatencies, 95);
     const tokenP99 = this.calculatePercentile(this.tokenValidationLatencies, 99);
-    
+
     // Calculate averages and percentiles for MCP requests
-    const mcpAvgLatency = this.mcpRequestLatencies.length > 0
-      ? this.mcpRequestLatencies.reduce((sum, val) => sum + val, 0) / this.mcpRequestLatencies.length
-      : 0;
-      
+    const mcpAvgLatency =
+      this.mcpRequestLatencies.length > 0
+        ? this.mcpRequestLatencies.reduce((sum, val) => sum + val, 0) /
+          this.mcpRequestLatencies.length
+        : 0;
+
     const mcpP50 = this.calculatePercentile(this.mcpRequestLatencies, 50);
     const mcpP95 = this.calculatePercentile(this.mcpRequestLatencies, 95);
     const mcpP99 = this.calculatePercentile(this.mcpRequestLatencies, 99);
-    
+
     // Calculate authentication success rate
     const authSuccessRate = this.authTotal > 0 ? (this.authSuccess / this.authTotal) * 100 : 0;
     const authFailureRate = this.authTotal > 0 ? (this.authFailure / this.authTotal) * 100 : 0;
-    
+
     // Calculate authorization success rate
     const authzSuccessRate = this.authzTotal > 0 ? (this.authzSuccess / this.authzTotal) * 100 : 0;
     const authzFailureRate = this.authzTotal > 0 ? (this.authzFailure / this.authzTotal) * 100 : 0;
@@ -442,10 +452,13 @@ export const metricsEndpoint = async (c: Context): Promise<Response> => {
 export const authMetricsEndpoint = async (c: Context): Promise<Response> => {
   try {
     const metrics = metricsCollector.getMetrics();
-    return c.json({
-      authentication: metrics.authentication,
-      authorization: metrics.authorization
-    }, 200);
+    return c.json(
+      {
+        authentication: metrics.authentication,
+        authorization: metrics.authorization,
+      },
+      200
+    );
   } catch (error) {
     console.error('Auth metrics endpoint error:', error);
     return c.json({ error: 'Failed to collect authentication metrics' }, 500);
@@ -458,10 +471,13 @@ export const authMetricsEndpoint = async (c: Context): Promise<Response> => {
 export const tokenLatencyEndpoint = async (c: Context): Promise<Response> => {
   try {
     const metrics = metricsCollector.getMetrics();
-    return c.json({
-      tokenValidationLatency: metrics.tokens.validationLatency,
-      tokensValidated: metrics.tokens.validated
-    }, 200);
+    return c.json(
+      {
+        tokenValidationLatency: metrics.tokens.validationLatency,
+        tokensValidated: metrics.tokens.validated,
+      },
+      200
+    );
   } catch (error) {
     console.error('Token latency endpoint error:', error);
     return c.json({ error: 'Failed to collect token validation metrics' }, 500);

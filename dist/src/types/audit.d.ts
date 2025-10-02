@@ -68,3 +68,4 @@ export interface RetentionPolicy {
     exportRequired: boolean;
     exportFrequency?: 'daily' | 'weekly' | 'monthly';
 }
+export type AuditLog = AuditLogEntry;

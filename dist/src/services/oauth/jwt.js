@@ -165,8 +165,11 @@ export class JWTService {
             }
             // Decode the payload part (second part)
             const payloadB64 = parts[1];
+            if (!payloadB64) {
+                throw new Error('Invalid JWT: missing payload');
+            }
             // Add padding if needed
-            const paddedPayloadB64 = payloadB64.padEnd(payloadB64.length + (4 - (payloadB64.length % 4)) % 4, '=');
+            const paddedPayloadB64 = payloadB64.padEnd(payloadB64.length + ((4 - (payloadB64.length % 4)) % 4), '=');
             const payloadJSON = atob(paddedPayloadB64);
             return JSON.parse(payloadJSON);
         }

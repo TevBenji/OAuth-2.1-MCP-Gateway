@@ -47,7 +47,7 @@ export async function proxyToMCPServer(c) {
         // Add performance header
         c.header('X-Gateway-Latency-Ms', proxyResponse.latency_ms.toString());
         // Return response
-        return c.body(proxyResponse.body, proxyResponse.status);
+        return new Response(proxyResponse.body, { status: proxyResponse.status });
     }
     catch (error) {
         return handleProxyError(c, error);
@@ -95,7 +95,7 @@ export async function proxyByResourceIdentifier(c) {
         // Add performance header
         c.header('X-Gateway-Latency-Ms', proxyResponse.latency_ms.toString());
         // Return response
-        return c.body(proxyResponse.body, proxyResponse.status);
+        return new Response(proxyResponse.body, { status: proxyResponse.status });
     }
     catch (error) {
         return handleProxyError(c, error);

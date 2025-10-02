@@ -4,11 +4,7 @@
  * Handles SAML 2.0 federation with external identity providers.
  */
 
-import {
-  IdPConfig,
-  IdPError,
-  IdPErrorCode,
-} from '../../types/idp';
+import { IdPConfig, IdPError, IdPErrorCode } from '../../types/idp';
 
 /**
  * SAML Federation Service
@@ -122,7 +118,8 @@ export class SAMLFederationService {
       }
 
       // Extract attributes
-      const attributePattern = /<saml:Attribute[^>]*Name="([^"]+)"[^>]*>[\s\S]*?<saml:AttributeValue[^>]*>([^<]+)<\/saml:AttributeValue>/g;
+      const attributePattern =
+        /<saml:Attribute[^>]*Name="([^"]+)"[^>]*>[\s\S]*?<saml:AttributeValue[^>]*>([^<]+)<\/saml:AttributeValue>/g;
       let match;
 
       while ((match = attributePattern.exec(samlXml)) !== null) {
@@ -130,14 +127,16 @@ export class SAMLFederationService {
         const attributeValue = match[2];
 
         // Handle multiple values for the same attribute
-        if (attributes[attributeName]) {
-          if (Array.isArray(attributes[attributeName])) {
-            attributes[attributeName].push(attributeValue);
+        if (attributeName && attributeValue !== undefined) {
+          if (attributes[attributeName]) {
+            if (Array.isArray(attributes[attributeName])) {
+              (attributes[attributeName] as string[]).push(attributeValue);
+            } else {
+              attributes[attributeName] = [attributes[attributeName] as string, attributeValue];
+            }
           } else {
-            attributes[attributeName] = [attributes[attributeName], attributeValue];
+            attributes[attributeName] = attributeValue;
           }
-        } else {
-          attributes[attributeName] = attributeValue;
         }
       }
 
@@ -154,10 +153,7 @@ export class SAMLFederationService {
    * Verify SAML response signature
    * Note: This is a placeholder. In production, implement proper XML signature verification.
    */
-  async verifySAMLSignature(
-    samlResponse: string,
-    certificate: string
-  ): Promise<boolean> {
+  async verifySAMLSignature(samlResponse: string, certificate: string): Promise<boolean> {
     try {
       // In production, implement XML signature verification using Web Crypto API
       // This requires:
@@ -192,10 +188,7 @@ export class SAMLFederationService {
 
     // Verify signature if required
     if (samlConfig.want_assertions_signed || samlConfig.want_response_signed) {
-      const signatureValid = await this.verifySAMLSignature(
-        samlResponse,
-        samlConfig.certificate
-      );
+      const signatureValid = await this.verifySAMLSignature(samlResponse, samlConfig.certificate);
 
       if (!signatureValid) {
         throw new IdPError(
@@ -218,11 +211,26 @@ export class SAMLFederationService {
   private normalizeSAMLAttributes(attributes: Record<string, any>): Record<string, any> {
     // Map common SAML attribute names to standard claims
     const normalized: Record<string, any> = {
-      user_id: attributes.nameId || attributes.NameID || attributes['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'],
-      email: attributes.email || attributes.EmailAddress || attributes['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'],
-      name: attributes.name || attributes.DisplayName || attributes['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'],
-      given_name: attributes.given_name || attributes.GivenName || attributes['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname'],
-      family_name: attributes.family_name || attributes.Surname || attributes['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname'],
+      user_id:
+        attributes.nameId ||
+        attributes.NameID ||
+        attributes['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'],
+      email:
+        attributes.email ||
+        attributes.EmailAddress ||
+        attributes['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'],
+      name:
+        attributes.name ||
+        attributes.DisplayName ||
+        attributes['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'],
+      given_name:
+        attributes.given_name ||
+        attributes.GivenName ||
+        attributes['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname'],
+      family_name:
+        attributes.family_name ||
+        attributes.Surname ||
+        attributes['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname'],
     };
 
     // Include all original attributes

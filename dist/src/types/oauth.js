@@ -16,7 +16,7 @@ export const AuthorizeRequestSchema = z.object({
     code_challenge: z.string().min(43).max(128),
     code_challenge_method: z.literal('S256'),
     // Resource Indicators (RFC 8707)
-    resource: z.string().url().optional()
+    resource: z.string().url().optional(),
 });
 // OAuth 2.1 Token Request
 export const TokenRequestSchema = z.object({
@@ -31,7 +31,7 @@ export const TokenRequestSchema = z.object({
     resource: z.string().url().optional(),
     // Refresh Token Grant
     refresh_token: z.string().optional(),
-    scope: z.string().optional()
+    scope: z.string().optional(),
 });
 // OAuth Client Registration (RFC 7591)
 export const ClientRegistrationRequestSchema = z.object({
@@ -43,7 +43,9 @@ export const ClientRegistrationRequestSchema = z.object({
     contacts: z.array(z.string().email()).optional(),
     tos_uri: z.string().url().optional(),
     policy_uri: z.string().url().optional(),
-    token_endpoint_auth_method: z.enum(['none', 'client_secret_post', 'client_secret_basic']).optional(),
+    token_endpoint_auth_method: z
+        .enum(['none', 'client_secret_post', 'client_secret_basic'])
+        .optional(),
     grant_types: z.array(z.enum(['authorization_code', 'refresh_token'])).optional(),
-    response_types: z.array(z.literal('code')).optional()
+    response_types: z.array(z.literal('code')).optional(),
 });

@@ -7,7 +7,7 @@
 /**
  * Generate a cryptographically secure random string for PKCE code verifier
  */
-function generateCodeVerifier() {
+export function generateCodeVerifier() {
     const array = new Uint8Array(32);
     crypto.getRandomValues(array);
     // Convert to base64url encoding
@@ -18,15 +18,12 @@ function generateCodeVerifier() {
             binary += String.fromCharCode(byte);
         }
     }
-    return btoa(binary)
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=/g, '');
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 /**
- * Generate SHA256 hash and encode as base64url
+ * Generate SHA256 hash and encode as base64url (also exported as createS256CodeChallenge)
  */
-async function sha256(plain) {
+export async function sha256(plain) {
     const encoder = new TextEncoder();
     const data = encoder.encode(plain);
     const hash = await crypto.subtle.digest('SHA-256', data);
@@ -39,10 +36,7 @@ async function sha256(plain) {
             binary += String.fromCharCode(byte);
         }
     }
-    return btoa(binary)
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=/g, '');
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 /**
  * Generate PKCE challenge/verifier pair
@@ -53,9 +47,13 @@ export async function generatePKCE() {
     return {
         code_verifier: codeVerifier,
         code_challenge: codeChallenge,
-        code_challenge_method: 'S256'
+        code_challenge_method: 'S256',
     };
 }
+/**
+ * Alias for sha256 - creates S256 code challenge from verifier
+ */
+export const createS256CodeChallenge = sha256;
 /**
  * Validate PKCE verifier against challenge
  */
@@ -103,4 +101,30 @@ export function isValidCodeChallenge(codeChallenge) {
     }
     // Must contain only base64url characters
     return /^[A-Za-z0-9_-]+$/.test(codeChallenge);
+}
+/**
+ * In-memory PKCE storage for development/testing
+ * In production, this should be replaced with a persistent storage solution
+ */
+export class InMemoryPKCEStorage {
+    storage = new Map();
+    async store(code, verifier, challenge) {
+        this.storage.set(code, { verifier, challenge, timestamp: Date.now() });
+    }
+    async get(code) {
+        const entry = this.storage.get(code);
+        if (!entry)
+            return null;
+        // Clean up entry after retrieval
+        this.storage.delete(code);
+        return { verifier: entry.verifier, challenge: entry.challenge };
+    }
+    async cleanup(maxAge = 600000) {
+        const now = Date.now();
+        for (const [code, entry] of this.storage.entries()) {
+            if (now - entry.timestamp > maxAge) {
+                this.storage.delete(code);
+            }
+        }
+    }
 }

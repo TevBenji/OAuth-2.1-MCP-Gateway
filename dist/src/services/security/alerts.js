@@ -41,7 +41,7 @@ export class ConsoleAlertHandler {
             low: 'ℹ️',
             medium: '⚠️',
             high: '🚨',
-            critical: '🔥'
+            critical: '🔥',
         }[alert.severity] || '🔔';
         console.log(`${severityEmoji} [${timestamp}] ${alert.type.toUpperCase()} ALERT: ${alert.message}`);
         if (alert.metadata) {
