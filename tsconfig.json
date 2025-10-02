@@ -34,15 +34,6 @@
     },
     "types": ["@cloudflare/workers-types", "vitest/globals"]
   },
-  "include": [
-    "src/**/*",
-    "tests/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "coverage",
-    "src/admin-ui/**/*",
-    "admin/**/*"
-  ]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "coverage", "src/admin-ui/**/*", "admin/**/*"]
 }

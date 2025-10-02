@@ -18,7 +18,7 @@
     "test:deployment": "vitest run tests/deployment",
     "test:smoke": "vitest run tests/deployment/smoke-tests.test.ts",
     "test:pre-deploy": "npm run lint && npm run type-check && npm run test",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsc --noEmit --project tsconfig.tests.json",
     "lint": "eslint src tests --ext .ts",
     "format": "prettier --write src tests",
     "db:migrate": "node scripts/migrate.js",
