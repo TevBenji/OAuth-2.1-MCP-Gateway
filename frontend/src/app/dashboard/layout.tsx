@@ -4,6 +4,7 @@ import { useAuth, UserButton, useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { getUserSubscription } from '@/app/actions';
 import {
   Building2,
   Settings,
@@ -126,6 +127,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedSections, setExpandedSections] = useState<string[]>(['Organization', 'Billing']);
   const [searchQuery, setSearchQuery] = useState('');
+  const [subscription, setSubscription] = useState<{
+    plan: string;
+    apiCallsUsed: number;
+    apiCallLimit: number;
+  } | null>(null);
 
   useEffect(() => {
     // Redirect to sign-in if not authenticated
@@ -133,6 +139,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push('/sign-in');
     }
   }, [isLoaded, userId, router]);
+
+  useEffect(() => {
+    async function loadSubscription() {
+      if (!user?.id) return;
+
+      try {
+        const result = await getUserSubscription(user.id);
+        if (result.success && result.data) {
+          setSubscription(result.data as any);
+        }
+      } catch (error) {
+        console.error('Error loading subscription:', error);
+      }
+    }
+
+    loadSubscription();
+  }, [user?.id]);
 
   const toggleSection = (section: string) => {
     setExpandedSections((prev) =>
@@ -333,23 +356,36 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <span className='text-xs font-medium text-wise-gray-600'>API Usage</span>
                     <span className='text-xs text-wise-gray-500'>This Month</span>
                   </div>
-                  <div className='mb-2'>
-                    <div className='flex items-end justify-between mb-1'>
-                      <span className='text-2xl font-bold text-wise-gray-900'>2,451</span>
-                      <span className='text-xs text-wise-gray-500'>/ 10,000</span>
+                  {subscription ? (
+                    <div className='mb-2'>
+                      <div className='flex items-end justify-between mb-1'>
+                        <span className='text-2xl font-bold text-wise-gray-900'>
+                          {subscription.apiCallsUsed.toLocaleString()}
+                        </span>
+                        <span className='text-xs text-wise-gray-500'>
+                          / {subscription.apiCallLimit.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className='w-full h-2 bg-wise-gray-200 rounded-full overflow-hidden'>
+                        <div
+                          className='h-full bg-wise-green-primary rounded-full transition-all duration-300'
+                          style={{
+                            width: `${Math.min(100, (subscription.apiCallsUsed / subscription.apiCallLimit) * 100)}%`
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className='w-full h-2 bg-wise-gray-200 rounded-full overflow-hidden'>
-                      <div
-                        className='h-full bg-wise-green-primary rounded-full transition-all duration-300'
-                        style={{ width: '24.51%' }}
-                      />
+                  ) : (
+                    <div className='mb-2 animate-pulse'>
+                      <div className='h-8 bg-wise-gray-200 rounded mb-2'></div>
+                      <div className='h-2 bg-wise-gray-200 rounded'></div>
                     </div>
-                  </div>
+                  )}
                   <Link
                     href='/dashboard/billing/overview'
                     className='text-xs text-wise-green-primary hover:text-wise-green-600 font-medium'
                   >
-                    Upgrade Plan →
+                    {subscription?.plan === 'FREE' ? 'Upgrade Plan →' : 'Manage Plan →'}
                   </Link>
                 </div>
               </div>

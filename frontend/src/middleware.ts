@@ -1,134 +1,113 @@
-import { authMiddleware } from '@clerk/nextjs';
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
-// This example protects all routes including api/trpc routes
-// Please edit this to allow other routes to be public as needed.
-// See https://clerk.com/docs/references/nextjs/auth-middleware for more information about configuring your Middleware
-export default authMiddleware({
-  // Routes that can be accessed while signed out
-  publicRoutes: [
-    '/',
-    '/sign-in',
-    '/sign-up',
-    '/sign-in/(.*)',
-    '/sign-up/(.*)',
-    '/api/webhook/(.*)',
-    '/api/stripe/webhook',
-    '/pricing',
-    '/features',
-    '/docs',
-    '/docs/(.*)',
-    '/blog',
-    '/blog/(.*)',
-    '/about',
-    '/contact',
-    '/privacy',
-    '/terms',
-    '/security',
-    '/compliance',
-    '/careers',
-    '/api/health',
-    '/api/status',
-    // Public API routes for documentation
-    '/api/public/(.*)',
-    // Static files
-    '/((?!.+\\.[\\w]+$|_next).*)',
-    '/(api|trpc)(.*)',
-  ],
+// Define public routes that don't require authentication
+const isPublicRoute = createRouteMatcher([
+  '/',
+  '/sign-in(.*)',
+  '/sign-up(.*)',
+  '/pricing',
+  '/features',
+  '/docs(.*)',
+  '/about',
+  '/contact',
+  '/privacy',
+  '/terms',
+  '/security',
+  '/compliance',
+  '/careers',
+  '/api/health',
+  '/api/status',
+  '/api/webhook/(.*)',
+  '/api/stripe/webhook',
+  '/api/public/(.*)',
+]);
 
-  // Routes that can always be accessed, and have
-  // no authentication information
-  ignoredRoutes: [
-    '/api/webhook/clerk',
-    '/api/webhook/stripe',
-    '/((?!api|trpc))(_next.*|.+\\.[\\w]+$)',
-  ],
+// Define routes that require authentication
+const isProtectedRoute = createRouteMatcher([
+  '/dashboard(.*)',
+  '/api/protected(.*)',
+  '/onboarding(.*)',
+  '/settings(.*)',
+]);
 
-  // Force the user to sign in if they are not authenticated
-  // and trying to access a protected route
-  beforeAuth: (req) => {
-    // Get the URL
-    const url = req.nextUrl.clone();
+// Define routes that require organization selection
+const requiresOrganization = createRouteMatcher([
+  '/dashboard/organization(.*)',
+  '/dashboard/team(.*)',
+  '/dashboard/billing(.*)',
+]);
 
-    // Add custom logic here if needed
-    // For example, redirect based on user agent, geo-location, etc.
+export default clerkMiddleware(async (auth, req) => {
+  const { userId, orgId, sessionClaims } = await auth();
+  const { pathname } = req.nextUrl;
 
-    return NextResponse.next();
-  },
-
-  afterAuth(auth, req, evt) {
-    // Handle users who aren't authenticated
-    if (!auth.userId && !auth.isPublicRoute) {
-      const signInUrl = new URL('/sign-in', req.url);
-      signInUrl.searchParams.set('redirect_url', req.url);
-      return NextResponse.redirect(signInUrl);
+  // For users visiting protected routes
+  if (isProtectedRoute(req)) {
+    // If they're not signed in, redirect to sign in
+    if (!userId) {
+      const authObj = await auth();
+      return authObj.redirectToSignIn({ returnBackUrl: req.url });
     }
 
-    // Handle users who are authenticated but don't have an active organization
-    if (
-      auth.userId &&
-      req.nextUrl.pathname.startsWith('/dashboard') &&
-      !auth.orgId &&
-      req.nextUrl.pathname !== '/dashboard/organization/create'
-    ) {
-      const orgSelectionUrl = new URL('/dashboard/organization/create', req.url);
+    // Check if organization is required for certain routes
+    if (requiresOrganization(req) && !orgId) {
+      const orgSelectionUrl = new URL('/dashboard', req.url);
+      orgSelectionUrl.searchParams.set('select-org', 'true');
       return NextResponse.redirect(orgSelectionUrl);
     }
 
-    // If the user is signed in and trying to access a sign-in or sign-up page,
-    // redirect them to the dashboard
-    if (
-      auth.userId &&
-      (req.nextUrl.pathname.startsWith('/sign-in') ||
-        req.nextUrl.pathname.startsWith('/sign-up'))
-    ) {
-      const dashboardUrl = new URL('/dashboard', req.url);
-      return NextResponse.redirect(dashboardUrl);
-    }
+    // Check subscription status for certain features
+    const restrictedFeatures = [
+      '/dashboard/organization/api-keys',
+      '/dashboard/billing/export',
+      '/dashboard/team',
+    ];
 
-    // Check for subscription status for certain routes
-    if (auth.userId && req.nextUrl.pathname.startsWith('/dashboard')) {
-      // You can add custom logic here to check subscription status
-      // This would typically involve checking user metadata or making an API call
+    // Check if the current path requires a paid subscription
+    const requiresSubscription = restrictedFeatures.some(path => pathname.startsWith(path));
 
-      // Example: Restrict certain features based on plan
-      const restrictedRoutes = [
-        '/dashboard/organization/api-keys',
-        '/dashboard/billing/export',
-        '/dashboard/team',
-      ];
+    if (requiresSubscription) {
+      // This is a placeholder - in production, you would check actual subscription status
+      // from user metadata or database
+      const hasActiveSubscription = sessionClaims?.subscription?.status === 'active' || true; // Default to true for development
 
-      // This is a placeholder - you would check actual subscription status
-      const hasActiveSubscription = true; // Replace with actual check
-
-      if (restrictedRoutes.includes(req.nextUrl.pathname) && !hasActiveSubscription) {
+      if (!hasActiveSubscription) {
         const billingUrl = new URL('/dashboard/billing/overview', req.url);
         billingUrl.searchParams.set('upgrade', 'true');
-        billingUrl.searchParams.set('feature', req.nextUrl.pathname);
+        billingUrl.searchParams.set('feature', pathname);
         return NextResponse.redirect(billingUrl);
       }
     }
+  }
 
-    // Add custom headers for authenticated requests
-    if (auth.userId) {
-      const response = NextResponse.next();
-      response.headers.set('x-user-id', auth.userId);
-      if (auth.orgId) {
-        response.headers.set('x-org-id', auth.orgId);
+  // For users visiting public routes
+  if (isPublicRoute(req)) {
+    // If they're signed in and trying to access auth pages, redirect to dashboard
+    if (userId && (pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up'))) {
+      const dashboardUrl = new URL('/dashboard', req.url);
+      return NextResponse.redirect(dashboardUrl);
+    }
+    return NextResponse.next();
+  }
+
+  // For API routes, add custom headers
+  if (pathname.startsWith('/api/')) {
+    const response = NextResponse.next();
+
+    if (userId) {
+      response.headers.set('x-user-id', userId);
+      if (orgId) {
+        response.headers.set('x-org-id', orgId);
       }
       response.headers.set('x-auth-status', 'authenticated');
-      return response;
     }
 
-    return NextResponse.next();
-  },
+    return response;
+  }
 
-  // Custom sign-in and sign-up URLs
-  signInUrl: '/sign-in',
-  signUpUrl: '/sign-up',
-
-  // Enable debug mode in development
-  debug: process.env.NODE_ENV === 'development',
+  // Default behavior for other routes
+  return NextResponse.next();
 });
 
 export const config = {
@@ -138,8 +117,7 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder
-     * - public files with extensions (e.g., .png, .jpg, .svg)
+     * - public files with extensions
      */
     '/((?!_next/static|_next/image|favicon.ico|.*\\..*|_next).*)',
     '/',

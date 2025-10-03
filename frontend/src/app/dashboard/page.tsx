@@ -43,77 +43,117 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { getTenantDashboard, getUsageStats, getAuditLogs, getOAuthConfigs, getUserSubscription } from '@/app/actions';
 
-// Sample data for charts
-const usageData = [
-  { date: 'Jan 1', calls: 1200, tokens: 450000 },
-  { date: 'Jan 2', calls: 1350, tokens: 520000 },
-  { date: 'Jan 3', calls: 1100, tokens: 410000 },
-  { date: 'Jan 4', calls: 1450, tokens: 580000 },
-  { date: 'Jan 5', calls: 1600, tokens: 620000 },
-  { date: 'Jan 6', calls: 1300, tokens: 490000 },
-  { date: 'Jan 7', calls: 1750, tokens: 680000 },
-];
-
-const providerData = [
-  { name: 'Google', value: 35, color: '#4285F4' },
-  { name: 'GitHub', value: 28, color: '#333333' },
-  { name: 'Microsoft', value: 22, color: '#00BCF2' },
-  { name: 'Custom', value: 15, color: '#9FE870' },
-];
-
-const recentActivity = [
-  {
-    id: 1,
-    type: 'auth_success',
-    message: 'Successfully authenticated via Google OAuth',
-    timestamp: '2 minutes ago',
-    status: 'success',
-  },
-  {
-    id: 2,
-    type: 'api_key_created',
-    message: 'New API key created for Production',
-    timestamp: '1 hour ago',
-    status: 'info',
-  },
-  {
-    id: 3,
-    type: 'rate_limit',
-    message: 'Rate limit warning: 80% of monthly quota used',
-    timestamp: '3 hours ago',
-    status: 'warning',
-  },
-  {
-    id: 4,
-    type: 'token_refresh',
-    message: 'OAuth tokens refreshed for GitHub provider',
-    timestamp: '5 hours ago',
-    status: 'success',
-  },
-  {
-    id: 5,
-    type: 'auth_failed',
-    message: 'Authentication failed: Invalid credentials',
-    timestamp: '1 day ago',
-    status: 'error',
-  },
-];
+interface DashboardData {
+  stats: {
+    totalApiCalls: number;
+    activeProjects: number;
+    oauthProviders: number;
+    teamMembers: number;
+  };
+  usageData: Array<{ date: string; calls: number; tokens: number }>;
+  providerData: Array<{ name: string; value: number; color: string }>;
+  recentActivity: Array<{
+    id: number;
+    type: string;
+    message: string;
+    timestamp: string;
+    status: string;
+  }>;
+}
 
 export default function DashboardPage() {
   const { user } = useUser();
   const [timeRange, setTimeRange] = useState('7d');
   const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [subscription, setSubscription] = useState<{
+    plan: string;
+    apiCallsUsed: number;
+    apiCallLimit: number;
+  } | null>(null);
 
   useEffect(() => {
-    // Simulate data loading
-    setTimeout(() => setLoading(false), 1000);
-  }, []);
+    async function loadDashboardData() {
+      try {
+        setLoading(true);
+        setError(null);
 
-  const stats = [
+        if (!user?.id) {
+          throw new Error('User not authenticated');
+        }
+
+        // Fetch real data from database using Clerk user ID
+        const [dashboardResult, usageResult, activityResult, oauthResult, subscriptionResult] = await Promise.all([
+          getTenantDashboard(user.id),
+          getUsageStats(user.id, timeRange === '24h' ? 1 : timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90),
+          getAuditLogs(user.id, 5),
+          getOAuthConfigs(user.id),
+          getUserSubscription(user.id)
+        ]);
+
+        if (subscriptionResult.success && subscriptionResult.data) {
+          setSubscription(subscriptionResult.data as any);
+        }
+
+        if (!dashboardResult.success || !usageResult.success || !activityResult.success) {
+          throw new Error('Failed to load dashboard data');
+        }
+
+        // Calculate OAuth provider distribution from real data
+        const oauthConfigs = oauthResult.data || [];
+        const providerCounts: Record<string, number> = {};
+        oauthConfigs.forEach((config: any) => {
+          providerCounts[config.provider] = (providerCounts[config.provider] || 0) + 1;
+        });
+
+        const totalProviders = Object.values(providerCounts).reduce((sum, count) => sum + count, 0);
+        const providerData = Object.entries(providerCounts).map(([name, count]) => ({
+          name: name.charAt(0).toUpperCase() + name.slice(1),
+          value: totalProviders > 0 ? Math.round((count / totalProviders) * 100) : 0,
+          color: name === 'google' ? '#4285F4' : name === 'github' ? '#333333' : name === 'microsoft' ? '#00BCF2' : '#9FE870',
+        }));
+
+        // Transform the data for the dashboard
+        const data: DashboardData = {
+          stats: {
+            totalApiCalls: dashboardResult.data?.totalApiCalls || 0,
+            activeProjects: dashboardResult.data?.activeProjects || 0,
+            oauthProviders: dashboardResult.data?.activeOAuthClients || 0,
+            teamMembers: dashboardResult.data?.teamMembers || 0,
+          },
+          usageData: usageResult.data || [],
+          providerData: providerData.length > 0 ? providerData : [],
+          recentActivity: (activityResult.data || []).map((log: any, index: number) => ({
+            id: index + 1,
+            type: log.action || 'unknown',
+            message: log.details || 'No details available',
+            timestamp: new Date(log.created_at).toLocaleString(),
+            status: log.action?.includes('success') ? 'success' :
+                    log.action?.includes('fail') ? 'error' : 'info',
+          })),
+        };
+
+        setDashboardData(data);
+      } catch (err) {
+        console.error('Error loading dashboard:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load dashboard');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (user) {
+      loadDashboardData();
+    }
+  }, [user, timeRange]);
+
+  const stats = dashboardData ? [
     {
       label: 'Total API Calls',
-      value: '24.5K',
+      value: dashboardData.stats.totalApiCalls.toLocaleString(),
       change: '+12.5%',
       trend: 'up',
       icon: Activity,
@@ -122,7 +162,7 @@ export default function DashboardPage() {
     },
     {
       label: 'Active Projects',
-      value: '8',
+      value: dashboardData.stats.activeProjects.toString(),
       change: '+2',
       trend: 'up',
       icon: Server,
@@ -131,7 +171,7 @@ export default function DashboardPage() {
     },
     {
       label: 'OAuth Providers',
-      value: '5',
+      value: dashboardData.stats.oauthProviders.toString(),
       change: '0',
       trend: 'neutral',
       icon: Globe,
@@ -140,14 +180,14 @@ export default function DashboardPage() {
     },
     {
       label: 'Team Members',
-      value: '12',
+      value: dashboardData.stats.teamMembers.toString(),
       change: '+3',
       trend: 'up',
       icon: Users,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50',
     },
-  ];
+  ] : [];
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -165,7 +205,40 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className='min-h-[60vh] flex items-center justify-center'>
-        <div className='loader-wise'></div>
+        <div className='flex flex-col items-center'>
+          <div className='w-12 h-12 border-4 border-wise-green-primary border-t-transparent rounded-full animate-spin mb-4'></div>
+          <p className='text-wise-gray-600'>Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className='min-h-[60vh] flex items-center justify-center'>
+        <div className='card-wise p-8 max-w-md text-center'>
+          <AlertCircle className='w-12 h-12 text-red-500 mx-auto mb-4' />
+          <h3 className='text-xl font-semibold text-wise-gray-900 mb-2'>Error Loading Dashboard</h3>
+          <p className='text-wise-gray-600 mb-4'>{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className='btn-wise-primary px-6 py-2'
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!dashboardData) {
+    return (
+      <div className='min-h-[60vh] flex items-center justify-center'>
+        <div className='card-wise p-8 max-w-md text-center'>
+          <Database className='w-12 h-12 text-wise-gray-400 mx-auto mb-4' />
+          <h3 className='text-xl font-semibold text-wise-gray-900 mb-2'>No Data Available</h3>
+          <p className='text-wise-gray-600'>Start using the API to see your dashboard populate.</p>
+        </div>
       </div>
     );
   }
@@ -263,7 +336,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <ResponsiveContainer width='100%' height={300}>
-            <AreaChart data={usageData}>
+            <AreaChart data={dashboardData.usageData}>
               <CartesianGrid strokeDasharray='3 3' stroke='#e5e7eb' />
               <XAxis dataKey='date' stroke='#6b7280' fontSize={12} />
               <YAxis stroke='#6b7280' fontSize={12} />
@@ -292,38 +365,48 @@ export default function DashboardPage() {
             <h2 className='text-lg font-semibold text-wise-gray-900'>OAuth Providers</h2>
             <p className='text-sm text-wise-gray-600'>Distribution by provider</p>
           </div>
-          <ResponsiveContainer width='100%' height={200}>
-            <PieChart>
-              <Pie
-                data={providerData}
-                cx='50%'
-                cy='50%'
-                innerRadius={60}
-                outerRadius={80}
-                paddingAngle={2}
-                dataKey='value'
-              >
-                {providerData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
+          {dashboardData.providerData.length > 0 ? (
+            <>
+              <ResponsiveContainer width='100%' height={200}>
+                <PieChart>
+                  <Pie
+                    data={dashboardData.providerData}
+                    cx='50%'
+                    cy='50%'
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={2}
+                    dataKey='value'
+                  >
+                    {dashboardData.providerData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className='mt-4 space-y-2'>
+                {dashboardData.providerData.map((provider) => (
+                  <div key={provider.name} className='flex items-center justify-between'>
+                    <div className='flex items-center'>
+                      <div
+                        className='w-3 h-3 rounded-full mr-2'
+                        style={{ backgroundColor: provider.color }}
+                      />
+                      <span className='text-sm text-wise-gray-700'>{provider.name}</span>
+                    </div>
+                    <span className='text-sm font-medium text-wise-gray-900'>{provider.value}%</span>
+                  </div>
                 ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className='mt-4 space-y-2'>
-            {providerData.map((provider) => (
-              <div key={provider.name} className='flex items-center justify-between'>
-                <div className='flex items-center'>
-                  <div
-                    className='w-3 h-3 rounded-full mr-2'
-                    style={{ backgroundColor: provider.color }}
-                  />
-                  <span className='text-sm text-wise-gray-700'>{provider.name}</span>
-                </div>
-                <span className='text-sm font-medium text-wise-gray-900'>{provider.value}%</span>
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            <div className='text-center py-12'>
+              <Globe className='w-12 h-12 text-wise-gray-300 mx-auto mb-3' />
+              <p className='text-sm text-wise-gray-600 mb-2'>No OAuth providers configured</p>
+              <p className='text-xs text-wise-gray-500'>Create a project and add OAuth providers to get started</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -341,18 +424,25 @@ export default function DashboardPage() {
             </Link>
           </div>
           <div className='space-y-3'>
-            {recentActivity.map((activity) => (
-              <div
-                key={activity.id}
-                className='flex items-start space-x-3 p-3 rounded-lg hover:bg-wise-gray-50 transition-colors'
-              >
-                {getStatusIcon(activity.status)}
-                <div className='flex-1'>
-                  <p className='text-sm text-wise-gray-900'>{activity.message}</p>
-                  <p className='text-xs text-wise-gray-500 mt-1'>{activity.timestamp}</p>
+            {dashboardData.recentActivity.length > 0 ? (
+              dashboardData.recentActivity.map((activity) => (
+                <div
+                  key={activity.id}
+                  className='flex items-start space-x-3 p-3 rounded-lg hover:bg-wise-gray-50 transition-colors'
+                >
+                  {getStatusIcon(activity.status)}
+                  <div className='flex-1'>
+                    <p className='text-sm text-wise-gray-900'>{activity.message}</p>
+                    <p className='text-xs text-wise-gray-500 mt-1'>{activity.timestamp}</p>
+                  </div>
                 </div>
+              ))
+            ) : (
+              <div className='text-center py-8 text-wise-gray-500'>
+                <Activity className='w-8 h-8 mx-auto mb-2 opacity-50' />
+                <p className='text-sm'>No recent activity</p>
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -415,36 +505,42 @@ export default function DashboardPage() {
       </div>
 
       {/* Subscription Status */}
-      <div className='card-wise p-6 bg-gradient-to-r from-wise-green-50 to-wise-green-100/50'>
-        <div className='flex items-center justify-between'>
-          <div>
-            <h3 className='text-lg font-semibold text-wise-gray-900'>
-              You're on the Starter Plan
-            </h3>
-            <p className='text-sm text-wise-gray-600 mt-1'>
-              You've used 2,451 of 10,000 API calls this month
-            </p>
-            <div className='mt-3'>
-              <div className='w-full max-w-xs h-2 bg-white/50 rounded-full overflow-hidden'>
-                <div
-                  className='h-full bg-wise-green-primary rounded-full transition-all duration-300'
-                  style={{ width: '24.51%' }}
-                />
+      {subscription && (
+        <div className='card-wise p-6 bg-gradient-to-r from-wise-green-50 to-wise-green-100/50'>
+          <div className='flex items-center justify-between'>
+            <div>
+              <h3 className='text-lg font-semibold text-wise-gray-900'>
+                You're on the {subscription.plan.charAt(0) + subscription.plan.slice(1).toLowerCase()} Plan
+              </h3>
+              <p className='text-sm text-wise-gray-600 mt-1'>
+                You've used {subscription.apiCallsUsed.toLocaleString()} of {subscription.apiCallLimit.toLocaleString()} API calls this month
+              </p>
+              <div className='mt-3'>
+                <div className='w-full max-w-xs h-2 bg-white/50 rounded-full overflow-hidden'>
+                  <div
+                    className='h-full bg-wise-green-primary rounded-full transition-all duration-300'
+                    style={{
+                      width: `${Math.min(100, (subscription.apiCallsUsed / subscription.apiCallLimit) * 100)}%`
+                    }}
+                  />
+                </div>
               </div>
             </div>
-          </div>
-          <div className='flex flex-col items-end space-y-2'>
-            <Link
-              href='/dashboard/billing/overview'
-              className='btn-wise-primary px-6 py-2 flex items-center'
-            >
-              <TrendingUp className='w-4 h-4 mr-2' />
-              Upgrade Plan
-            </Link>
-            <p className='text-xs text-wise-gray-600'>Get more API calls & features</p>
+            <div className='flex flex-col items-end space-y-2'>
+              <Link
+                href='/dashboard/billing/overview'
+                className='btn-wise-primary px-6 py-2 flex items-center'
+              >
+                <TrendingUp className='w-4 h-4 mr-2' />
+                {subscription.plan === 'FREE' ? 'Upgrade Plan' : 'Manage Plan'}
+              </Link>
+              <p className='text-xs text-wise-gray-600'>
+                {subscription.plan === 'FREE' ? 'Get more API calls & features' : 'Review your current plan'}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

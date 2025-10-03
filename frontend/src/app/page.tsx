@@ -187,12 +187,6 @@ export default function LandingPage() {
                 >
                   Documentation
                 </Link>
-                <Link
-                  href='/blog'
-                  className='text-wise-gray-600 hover:text-wise-green-primary transition-colors'
-                >
-                  Blog
-                </Link>
               </div>
             </div>
             <div className='hidden md:flex items-center space-x-4'>
@@ -253,12 +247,6 @@ export default function LandingPage() {
                 className='block px-4 py-2 text-wise-gray-600 hover:bg-wise-gray-50 rounded-lg'
               >
                 Documentation
-              </Link>
-              <Link
-                href='/blog'
-                className='block px-4 py-2 text-wise-gray-600 hover:bg-wise-gray-50 rounded-lg'
-              >
-                Blog
               </Link>
               <div className='pt-4 border-t border-wise-gray-200 space-y-2'>
                 {isSignedIn ? (
@@ -615,11 +603,6 @@ export default function LandingPage() {
                 <li>
                   <Link href='/about' className='hover:text-wise-green-primary transition-colors'>
                     About
-                  </Link>
-                </li>
-                <li>
-                  <Link href='/blog' className='hover:text-wise-green-primary transition-colors'>
-                    Blog
                   </Link>
                 </li>
                 <li>

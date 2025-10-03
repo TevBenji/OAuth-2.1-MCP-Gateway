@@ -24,84 +24,30 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getApiKeys, deleteApiKey } from '@/app/actions';
+import { useEffect } from 'react';
 
 interface ApiKey {
   id: string;
   name: string;
   key: string;
-  prefix: string;
-  createdAt: string;
-  lastUsedAt: string | null;
-  expiresAt: string | null;
+  prefix: string | null;
+  createdAt: Date;
+  lastUsedAt: Date | null;
+  expiresAt: Date | null;
   scopes: string[];
-  project: string;
+  project: {
+    name: string;
+  } | null;
   isActive: boolean;
   usageCount: number;
   rateLimit: number;
 }
 
-const mockApiKeys: ApiKey[] = [
-  {
-    id: '1',
-    name: 'Production API Key',
-    key: 'sk_live_1234567890abcdef',
-    prefix: 'sk_live_',
-    createdAt: '2024-01-15T10:00:00Z',
-    lastUsedAt: '2024-01-20T15:30:00Z',
-    expiresAt: null,
-    scopes: ['read', 'write', 'delete'],
-    project: 'Main Project',
-    isActive: true,
-    usageCount: 12453,
-    rateLimit: 1000,
-  },
-  {
-    id: '2',
-    name: 'Development Key',
-    key: 'sk_test_abcdef1234567890',
-    prefix: 'sk_test_',
-    createdAt: '2024-01-10T09:00:00Z',
-    lastUsedAt: '2024-01-19T12:00:00Z',
-    expiresAt: '2024-02-10T09:00:00Z',
-    scopes: ['read', 'write'],
-    project: 'Dev Environment',
-    isActive: true,
-    usageCount: 5621,
-    rateLimit: 100,
-  },
-  {
-    id: '3',
-    name: 'CI/CD Pipeline',
-    key: 'sk_ci_xyz9876543210',
-    prefix: 'sk_ci_',
-    createdAt: '2023-12-20T14:00:00Z',
-    lastUsedAt: '2024-01-20T08:00:00Z',
-    expiresAt: null,
-    scopes: ['read'],
-    project: 'DevOps',
-    isActive: true,
-    usageCount: 34521,
-    rateLimit: 500,
-  },
-  {
-    id: '4',
-    name: 'Legacy Integration',
-    key: 'sk_legacy_old123456',
-    prefix: 'sk_legacy_',
-    createdAt: '2023-10-01T10:00:00Z',
-    lastUsedAt: '2023-12-15T10:00:00Z',
-    expiresAt: '2024-01-01T00:00:00Z',
-    scopes: ['read'],
-    project: 'Old System',
-    isActive: false,
-    usageCount: 98234,
-    rateLimit: 100,
-  },
-];
-
 export default function ApiKeysPage() {
   const { user } = useUser();
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>(mockApiKeys);
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedKey, setSelectedKey] = useState<ApiKey | null>(null);
@@ -109,6 +55,49 @@ export default function ApiKeysPage() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all');
+
+  useEffect(() => {
+    async function loadApiKeys() {
+      if (!user?.id) return;
+
+      try {
+        setLoading(true);
+        const result = await getApiKeys(user.id);
+
+        if (result.success && result.data) {
+          setApiKeys(result.data as any);
+        } else {
+          toast.error('Failed to load API keys');
+        }
+      } catch (error) {
+        console.error('Error loading API keys:', error);
+        toast.error('Failed to load API keys');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadApiKeys();
+  }, [user?.id]);
+
+  const handleDeleteKey = async (keyId: string) => {
+    if (!user?.id) return;
+
+    try {
+      const result = await deleteApiKey(keyId, user.id);
+
+      if (result.success) {
+        setApiKeys(prev => prev.filter(k => k.id !== keyId));
+        toast.success('API key deleted successfully');
+        setShowDeleteModal(false);
+      } else {
+        toast.error('Failed to delete API key');
+      }
+    } catch (error) {
+      console.error('Error deleting API key:', error);
+      toast.error('Failed to delete API key');
+    }
+  };
 
   const handleCopyKey = async (key: string, keyId: string) => {
     try {
@@ -140,9 +129,9 @@ export default function ApiKeysPage() {
     return `${prefix}${maskedPart}${visibleEnd}`;
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Never';
-    const date = new Date(dateString);
+  const formatDate = (dateInput: Date | string | null) => {
+    if (!dateInput) return 'Never';
+    const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
 
@@ -175,12 +164,23 @@ export default function ApiKeysPage() {
 
   const filteredKeys = apiKeys.filter(key => {
     const matchesSearch = key.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          key.project.toLowerCase().includes(searchQuery.toLowerCase());
+                          (key.project?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = filterActive === 'all' ||
                           (filterActive === 'active' && key.isActive) ||
                           (filterActive === 'inactive' && !key.isActive);
     return matchesSearch && matchesFilter;
   });
+
+  if (loading) {
+    return (
+      <div className='min-h-[60vh] flex items-center justify-center'>
+        <div className='flex flex-col items-center'>
+          <div className='w-12 h-12 border-4 border-wise-green-primary border-t-transparent rounded-full animate-spin mb-4'></div>
+          <p className='text-wise-gray-600'>Loading API keys...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className='space-y-6'>
@@ -316,7 +316,7 @@ export default function ApiKeysPage() {
                 <div className='mt-4 grid grid-cols-2 md:grid-cols-4 gap-4'>
                   <div>
                     <p className='text-xs text-wise-gray-500'>Project</p>
-                    <p className='text-sm font-medium text-wise-gray-900 mt-1'>{apiKey.project}</p>
+                    <p className='text-sm font-medium text-wise-gray-900 mt-1'>{apiKey.project?.name || 'None'}</p>
                   </div>
                   <div>
                     <p className='text-xs text-wise-gray-500'>Created</p>
