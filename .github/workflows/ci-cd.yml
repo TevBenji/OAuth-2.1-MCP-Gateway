@@ -95,49 +95,99 @@ jobs:
             wrangler.toml
           retention-days: 7
 
-  # Deploy to development
-  deploy-development:
-    name: Deploy to Development
+  # Deploy to Vercel (development)
+  deploy-vercel-development:
+    name: Deploy to Vercel (Development)
     needs: build-and-test
     runs-on: ubuntu-latest
-    environment: development
-    
+    environment: vercel-development
+
     # Only run on develop branch pushes or manual dispatch to development
     if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'development')
-    
+
     steps:
       # Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
-        
-      # Download build artifacts
-      - name: Download build artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: build-artifacts
-          
+
       # Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
-          
+
       # Install dependencies
       - name: Install dependencies
         run: npm ci
-        
+
+      # Install Vercel CLI
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      # Run Neon database migrations
+      - name: Run Neon database migrations
+        run: npm run db:migrate:neon up
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL_DEV }}
+
+      # Deploy to Vercel (preview)
+      - name: Deploy to Vercel (preview)
+        run: vercel --token=${{ secrets.VERCEL_TOKEN }} --yes
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      # Run deployment verification tests
+      - name: Run deployment verification tests (Vercel)
+        run: npm run test:deployment -- --run
+        env:
+          GATEWAY_URL: ${{ secrets.VERCEL_DEVELOPMENT_GATEWAY_URL }}
+          API_KEY: ${{ secrets.DEVELOPMENT_API_KEY }}
+
+  # Deploy to Cloudflare (development)
+  deploy-cloudflare-development:
+    name: Deploy to Cloudflare (Development)
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment: development
+
+    # Only run on develop branch pushes or manual dispatch to development
+    if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'development')
+
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Download build artifacts
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+
       # Setup Cloudflare CLI
       - name: Setup Cloudflare CLI
         run: npm install -g wrangler
-        
+
       # Run database migrations
       - name: Run database migrations
         run: node scripts/migrate.js up development
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          
+
       # Deploy to Cloudflare Workers (development)
       - name: Deploy to Cloudflare Workers (development)
         run: node scripts/deploy.js deploy development
@@ -145,7 +195,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           JWT_SECRET: ${{ secrets.DEVELOPMENT_JWT_SECRET }}
-          
+
       # Run deployment verification tests
       - name: Run deployment verification tests
         run: npm run test:deployment -- --run
@@ -153,49 +203,99 @@ jobs:
           GATEWAY_URL: ${{ secrets.DEVELOPMENT_GATEWAY_URL }}
           API_KEY: ${{ secrets.DEVELOPMENT_API_KEY }}
 
-  # Deploy to staging
-  deploy-staging:
-    name: Deploy to Staging
+  # Deploy to Vercel (staging)
+  deploy-vercel-staging:
+    name: Deploy to Vercel (Staging)
     needs: build-and-test
     runs-on: ubuntu-latest
-    environment: staging
-    
+    environment: vercel-staging
+
     # Only run on main branch pushes or manual dispatch to staging
     if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
-    
+
     steps:
       # Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
-        
-      # Download build artifacts
-      - name: Download build artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: build-artifacts
-          
+
       # Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
-          
+
       # Install dependencies
       - name: Install dependencies
         run: npm ci
-        
+
+      # Install Vercel CLI
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      # Run Neon database migrations
+      - name: Run Neon database migrations
+        run: npm run db:migrate:neon up
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL_STAGING }}
+
+      # Deploy to Vercel (preview)
+      - name: Deploy to Vercel (preview)
+        run: vercel --token=${{ secrets.VERCEL_TOKEN }} --yes
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      # Run deployment verification tests
+      - name: Run deployment verification tests (Vercel)
+        run: npm run test:deployment -- --run
+        env:
+          GATEWAY_URL: ${{ secrets.VERCEL_STAGING_GATEWAY_URL }}
+          API_KEY: ${{ secrets.STAGING_API_KEY }}
+
+  # Deploy to Cloudflare (staging)
+  deploy-cloudflare-staging:
+    name: Deploy to Cloudflare (Staging)
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment: staging
+
+    # Only run on main branch pushes or manual dispatch to staging
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Download build artifacts
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+
       # Setup Cloudflare CLI
       - name: Setup Cloudflare CLI
         run: npm install -g wrangler
-        
+
       # Run database migrations
       - name: Run database migrations
         run: node scripts/migrate.js up staging
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_STAGING }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_STAGING }}
-          
+
       # Deploy infrastructure with Terraform
       - name: Deploy infrastructure with Terraform
         run: |
@@ -208,7 +308,7 @@ jobs:
           TF_VAR_cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_STAGING }}
           TF_VAR_cloudflare_zone_id: ${{ secrets.CLOUDFLARE_ZONE_ID_STAGING }}
           TF_VAR_jwt_secret: ${{ secrets.STAGING_JWT_SECRET }}
-          
+
       # Deploy to Cloudflare Workers (staging)
       - name: Deploy to Cloudflare Workers (staging)
         run: node scripts/deploy.js deploy staging
@@ -216,7 +316,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_STAGING }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_STAGING }}
           JWT_SECRET: ${{ secrets.STAGING_JWT_SECRET }}
-          
+
       # Run deployment verification tests
       - name: Run deployment verification tests
         run: npm run test:deployment -- --run
@@ -224,56 +324,106 @@ jobs:
           GATEWAY_URL: ${{ secrets.STAGING_GATEWAY_URL }}
           API_KEY: ${{ secrets.STAGING_API_KEY }}
 
-  # Deploy to production
-  deploy-production:
-    name: Deploy to Production
-    needs: [deploy-staging]
+  # Deploy to Vercel (production)
+  deploy-vercel-production:
+    name: Deploy to Vercel (Production)
+    needs: [deploy-vercel-staging]
     runs-on: ubuntu-latest
-    environment: production
-    
+    environment: vercel-production
+
     # Only run on manual dispatch to production
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
-    
+
     steps:
       # Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
-        
-      # Download build artifacts
-      - name: Download build artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: build-artifacts
-          
+
       # Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
-          
+
       # Install dependencies
       - name: Install dependencies
         run: npm ci
-        
+
+      # Install Vercel CLI
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      # Run Neon database migrations
+      - name: Run Neon database migrations
+        run: npm run db:migrate:neon up
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL_PRODUCTION }}
+
+      # Deploy to Vercel (production)
+      - name: Deploy to Vercel (production)
+        run: vercel --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      # Run deployment verification tests
+      - name: Run deployment verification tests (Vercel)
+        run: npm run test:deployment -- --run
+        env:
+          GATEWAY_URL: ${{ secrets.VERCEL_PRODUCTION_GATEWAY_URL }}
+          API_KEY: ${{ secrets.PRODUCTION_API_KEY }}
+
+  # Deploy to Cloudflare (production)
+  deploy-cloudflare-production:
+    name: Deploy to Cloudflare (Production)
+    needs: [deploy-cloudflare-staging]
+    runs-on: ubuntu-latest
+    environment: production
+
+    # Only run on manual dispatch to production
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+
+    steps:
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Download build artifacts
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+
       # Setup Cloudflare CLI
       - name: Setup Cloudflare CLI
         run: npm install -g wrangler
-        
+
       # Create deployment backup
       - name: Create deployment backup
         run: node scripts/deploy.js backup production
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_PRODUCTION }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_PRODUCTION }}
-          
+
       # Run database migrations
       - name: Run database migrations
         run: node scripts/migrate.js up production
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_PRODUCTION }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_PRODUCTION }}
-          
+
       # Deploy infrastructure with Terraform
       - name: Deploy infrastructure with Terraform
         run: |
@@ -287,7 +437,7 @@ jobs:
           TF_VAR_cloudflare_zone_id: ${{ secrets.CLOUDFLARE_ZONE_ID_PRODUCTION }}
           TF_VAR_jwt_secret: ${{ secrets.PRODUCTION_JWT_SECRET }}
           TF_VAR_notification_email_id: ${{ secrets.NOTIFICATION_EMAIL_ID }}
-          
+
       # Deploy to Cloudflare Workers (production)
       - name: Deploy to Cloudflare Workers (production)
         run: node scripts/deploy.js deploy production
@@ -295,7 +445,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_PRODUCTION }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_PRODUCTION }}
           JWT_SECRET: ${{ secrets.PRODUCTION_JWT_SECRET }}
-          
+
       # Run deployment verification tests
       - name: Run deployment verification tests
         run: npm run test:deployment -- --run

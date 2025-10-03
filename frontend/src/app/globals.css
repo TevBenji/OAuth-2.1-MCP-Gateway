@@ -1,0 +1,427 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Import Inter font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@layer base {
+  :root {
+    /* Wise Design System Colors */
+    --wise-green-bright: 159 232 112;
+    --wise-green-forest: 22 51 0;
+    --wise-green-primary: 29 185 84;
+    --wise-navy: 46 64 87;
+    --wise-gray-50: 249 250 251;
+    --wise-gray-100: 243 244 246;
+    --wise-gray-200: 229 231 235;
+    --wise-gray-300: 209 213 219;
+    --wise-gray-400: 156 163 175;
+    --wise-gray-500: 107 114 128;
+    --wise-gray-600: 75 85 99;
+    --wise-gray-700: 55 65 81;
+    --wise-gray-800: 31 41 55;
+    --wise-gray-900: 17 24 39;
+
+    /* Theme Colors */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 141 73% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 141 73% 42%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 141 73% 42%;
+
+    --radius: 8px;
+
+    /* Spacing Scale */
+    --space-unit: 4px;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 141 73% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 141 73% 42%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 141 73% 42%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family:
+      'Inter',
+      system-ui,
+      -apple-system,
+      sans-serif;
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-semibold tracking-tight;
+  }
+
+  h1 {
+    @apply text-4xl lg:text-5xl;
+  }
+
+  h2 {
+    @apply text-3xl lg:text-4xl;
+  }
+
+  h3 {
+    @apply text-2xl lg:text-3xl;
+  }
+
+  h4 {
+    @apply text-xl lg:text-2xl;
+  }
+
+  h5 {
+    @apply text-lg lg:text-xl;
+  }
+
+  h6 {
+    @apply text-base lg:text-lg;
+  }
+}
+
+@layer components {
+  /* Wise Button Styles */
+  .btn-wise {
+    @apply inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 ease-wise focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-wise-primary {
+    @apply btn-wise bg-wise-green-primary text-white hover:bg-wise-green-700 focus:ring-wise-green-500;
+  }
+
+  .btn-wise-secondary {
+    @apply btn-wise bg-wise-gray-100 text-wise-gray-900 hover:bg-wise-gray-200 focus:ring-wise-gray-500;
+  }
+
+  .btn-wise-outline {
+    @apply btn-wise border-2 border-wise-gray-300 text-wise-gray-700 hover:bg-wise-gray-50 focus:ring-wise-gray-500;
+  }
+
+  /* Wise Card */
+  .card-wise {
+    @apply bg-white rounded-xl border border-wise-gray-200 shadow-wise-card transition-shadow duration-200 hover:shadow-wise-hover;
+  }
+
+  /* Wise Input */
+  .input-wise {
+    @apply w-full rounded-lg border border-wise-gray-300 px-4 py-3 text-base transition-all duration-200 placeholder:text-wise-gray-400 hover:border-wise-gray-400 focus:border-wise-green-primary focus:outline-none focus:ring-2 focus:ring-wise-green-primary/20;
+  }
+
+  /* Wise Label */
+  .label-wise {
+    @apply text-sm font-medium text-wise-gray-700 mb-1;
+  }
+
+  /* Wise Navigation Item */
+  .nav-item-wise {
+    @apply flex items-center px-4 py-3 text-wise-gray-700 rounded-lg transition-all duration-200 hover:bg-wise-gray-50 hover:text-wise-green-primary cursor-pointer;
+  }
+
+  .nav-item-wise-active {
+    @apply bg-wise-green-50 text-wise-green-primary font-medium;
+  }
+
+  /* Wise Badge */
+  .badge-wise {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-medium;
+  }
+
+  .badge-wise-success {
+    @apply badge-wise bg-wise-green-100 text-wise-green-800;
+  }
+
+  .badge-wise-warning {
+    @apply badge-wise bg-yellow-100 text-yellow-800;
+  }
+
+  .badge-wise-error {
+    @apply badge-wise bg-red-100 text-red-800;
+  }
+
+  .badge-wise-info {
+    @apply badge-wise bg-blue-100 text-blue-800;
+  }
+
+  /* Wise Table */
+  .table-wise {
+    @apply w-full border-collapse;
+  }
+
+  .table-wise thead {
+    @apply border-b border-wise-gray-200;
+  }
+
+  .table-wise th {
+    @apply px-4 py-3 text-left text-xs font-medium text-wise-gray-500 uppercase tracking-wider;
+  }
+
+  .table-wise td {
+    @apply px-4 py-4 text-sm text-wise-gray-900;
+  }
+
+  .table-wise tbody tr {
+    @apply border-b border-wise-gray-100 hover:bg-wise-gray-50 transition-colors duration-150;
+  }
+
+  /* Wise Tabs */
+  .tabs-wise {
+    @apply flex space-x-1 border-b border-wise-gray-200;
+  }
+
+  .tab-wise {
+    @apply px-4 py-2 text-sm font-medium text-wise-gray-600 border-b-2 border-transparent transition-all duration-200 hover:text-wise-gray-900 hover:border-wise-gray-300 cursor-pointer;
+  }
+
+  .tab-wise-active {
+    @apply text-wise-green-primary border-wise-green-primary;
+  }
+
+  /* Wise Modal Overlay */
+  .modal-overlay-wise {
+    @apply fixed inset-0 bg-black/40 backdrop-blur-sm animate-fade-in;
+  }
+
+  /* Wise Modal Content */
+  .modal-content-wise {
+    @apply bg-white rounded-2xl shadow-wise-modal animate-scale-in;
+  }
+
+  /* Wise Dropdown */
+  .dropdown-wise {
+    @apply bg-white rounded-xl border border-wise-gray-200 shadow-wise-card py-2;
+  }
+
+  .dropdown-item-wise {
+    @apply px-4 py-2 text-sm text-wise-gray-700 hover:bg-wise-gray-50 hover:text-wise-green-primary transition-colors duration-150 cursor-pointer;
+  }
+
+  /* Wise Switch */
+  .switch-wise {
+    @apply relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-wise-green-primary focus:ring-offset-2;
+  }
+
+  .switch-wise-checked {
+    @apply bg-wise-green-primary;
+  }
+
+  .switch-wise-unchecked {
+    @apply bg-wise-gray-300;
+  }
+
+  /* Wise Progress Bar */
+  .progress-wise {
+    @apply h-2 w-full bg-wise-gray-200 rounded-full overflow-hidden;
+  }
+
+  .progress-bar-wise {
+    @apply h-full bg-wise-green-primary transition-all duration-300 ease-out;
+  }
+
+  /* Wise Skeleton */
+  .skeleton-wise {
+    @apply animate-pulse bg-wise-gray-200 rounded;
+  }
+
+  /* Wise Divider */
+  .divider-wise {
+    @apply border-t border-wise-gray-200;
+  }
+
+  /* Wise List Item */
+  .list-item-wise {
+    @apply flex items-center justify-between p-4 hover:bg-wise-gray-50 transition-colors duration-150 cursor-pointer;
+  }
+
+  /* Wise Alert */
+  .alert-wise {
+    @apply p-4 rounded-lg border;
+  }
+
+  .alert-wise-success {
+    @apply alert-wise bg-wise-green-50 border-wise-green-200 text-wise-green-800;
+  }
+
+  .alert-wise-error {
+    @apply alert-wise bg-red-50 border-red-200 text-red-800;
+  }
+
+  .alert-wise-warning {
+    @apply alert-wise bg-yellow-50 border-yellow-200 text-yellow-800;
+  }
+
+  .alert-wise-info {
+    @apply alert-wise bg-blue-50 border-blue-200 text-blue-800;
+  }
+}
+
+@layer utilities {
+  /* Wise Animations */
+  .animate-wise-fade-in {
+    animation: wise-fade-in 0.3s ease-out;
+  }
+
+  .animate-wise-slide-up {
+    animation: wise-slide-up 0.3s ease-out;
+  }
+
+  .animate-wise-scale {
+    animation: wise-scale 0.2s ease-out;
+  }
+
+  @keyframes wise-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes wise-slide-up {
+    from {
+      transform: translateY(10px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes wise-scale {
+    from {
+      transform: scale(0.95);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  /* Wise Text Utilities */
+  .text-wise-primary {
+    @apply text-wise-green-primary;
+  }
+
+  .text-wise-secondary {
+    @apply text-wise-gray-600;
+  }
+
+  .text-wise-muted {
+    @apply text-wise-gray-400;
+  }
+
+  /* Wise Background Utilities */
+  .bg-wise-gradient {
+    @apply bg-gradient-to-br from-wise-green-bright to-wise-green-primary;
+  }
+
+  .bg-wise-subtle {
+    @apply bg-wise-gray-50;
+  }
+
+  /* Wise Shadow Utilities */
+  .shadow-wise {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .shadow-wise-lg {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+
+  /* Scrollbar Styles */
+  .scrollbar-wise::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-wise::-webkit-scrollbar-track {
+    @apply bg-wise-gray-100 rounded-full;
+  }
+
+  .scrollbar-wise::-webkit-scrollbar-thumb {
+    @apply bg-wise-gray-400 rounded-full;
+  }
+
+  .scrollbar-wise::-webkit-scrollbar-thumb:hover {
+    @apply bg-wise-gray-500;
+  }
+}
+
+/* Custom Wise Loader */
+.loader-wise {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgb(159 232 112 / 0.2);
+  border-top-color: rgb(159 232 112);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

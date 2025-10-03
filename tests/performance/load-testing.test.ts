@@ -13,14 +13,21 @@ import { MCPServerRegistry } from '../../src/services/mcp/registry';
 import { RateLimitService } from '../../src/services/security/rate-limit';
 import { SessionService } from '../../src/services/security/session';
 
-// Performance test configuration
+// Performance test configuration (Requirements: 5.2, 5.4)
 const PERFORMANCE_TARGETS = {
-  TOKEN_VALIDATION_MAX_MS: 10,
+  TOKEN_VALIDATION_MAX_MS: 10, // Sub-10ms token validation requirement
+  TOKEN_VALIDATION_P50_MS: 5,
+  TOKEN_VALIDATION_P95_MS: 8,
+  TOKEN_VALIDATION_P99_MS: 15,
   MCP_PROXY_MAX_MS: 50,
+  MCP_PROXY_P50_MS: 20,
+  MCP_PROXY_P95_MS: 40,
+  MCP_PROXY_P99_MS: 80,
   CONCURRENT_REQUESTS: 1000,
   SUCCESS_RATE_MIN: 99.0, // 99% success rate minimum
   P95_LATENCY_MAX_MS: 25,
-  P99_LATENCY_MAX_MS: 100
+  P99_LATENCY_MAX_MS: 100,
+  MIN_THROUGHPUT_RPS: 1000 // Minimum 1000 requests per second
 };
 
 describe('Load Testing and Performance', () => {
@@ -92,17 +99,28 @@ describe('Load Testing and Performance', () => {
         measurements.push(endTime - startTime);
       }
 
+      // Calculate comprehensive latency percentiles
+      const sortedMeasurements = [...measurements].sort((a, b) => a - b);
       const avgLatency = measurements.reduce((a, b) => a + b, 0) / measurements.length;
-      const p95Latency = measurements.sort((a, b) => a - b)[Math.floor(measurements.length * 0.95)];
+      const p50Latency = sortedMeasurements[Math.floor(measurements.length * 0.50)];
+      const p95Latency = sortedMeasurements[Math.floor(measurements.length * 0.95)];
+      const p99Latency = sortedMeasurements[Math.floor(measurements.length * 0.99)];
       const maxLatency = Math.max(...measurements);
+      const minLatency = Math.min(...measurements);
 
-      console.log(`Token validation performance:
-        Average: ${avgLatency.toFixed(2)}ms
-        P95: ${p95Latency.toFixed(2)}ms
+      console.log(`Token validation performance (${iterations} iterations):
+        Min: ${minLatency.toFixed(2)}ms
+        Average: ${avgLatency.toFixed(2)}ms (target: <${PERFORMANCE_TARGETS.TOKEN_VALIDATION_MAX_MS}ms)
+        P50: ${p50Latency.toFixed(2)}ms (target: <${PERFORMANCE_TARGETS.TOKEN_VALIDATION_P50_MS}ms)
+        P95: ${p95Latency.toFixed(2)}ms (target: <${PERFORMANCE_TARGETS.TOKEN_VALIDATION_P95_MS}ms)
+        P99: ${p99Latency.toFixed(2)}ms (target: <${PERFORMANCE_TARGETS.TOKEN_VALIDATION_P99_MS}ms)
         Max: ${maxLatency.toFixed(2)}ms`);
 
+      // Verify all performance targets
       expect(avgLatency).toBeLessThan(PERFORMANCE_TARGETS.TOKEN_VALIDATION_MAX_MS);
-      expect(p95Latency).toBeLessThan(PERFORMANCE_TARGETS.P95_LATENCY_MAX_MS);
+      expect(p50Latency).toBeLessThan(PERFORMANCE_TARGETS.TOKEN_VALIDATION_P50_MS);
+      expect(p95Latency).toBeLessThan(PERFORMANCE_TARGETS.TOKEN_VALIDATION_P95_MS);
+      expect(p99Latency).toBeLessThan(PERFORMANCE_TARGETS.TOKEN_VALIDATION_P99_MS);
     });
 
     it('should maintain performance with concurrent token validations', async () => {
@@ -188,17 +206,28 @@ describe('Load Testing and Performance', () => {
         expect(response.status).toBe(200);
       }
 
+      // Calculate comprehensive latency percentiles
+      const sortedMeasurements = [...measurements].sort((a, b) => a - b);
       const avgLatency = measurements.reduce((a, b) => a + b, 0) / measurements.length;
-      const p95Latency = measurements.sort((a, b) => a - b)[Math.floor(measurements.length * 0.95)];
+      const p50Latency = sortedMeasurements[Math.floor(measurements.length * 0.50)];
+      const p95Latency = sortedMeasurements[Math.floor(measurements.length * 0.95)];
+      const p99Latency = sortedMeasurements[Math.floor(measurements.length * 0.99)];
       const maxLatency = Math.max(...measurements);
+      const minLatency = Math.min(...measurements);
 
-      console.log(`MCP proxy performance:
-        Average: ${avgLatency.toFixed(2)}ms
-        P95: ${p95Latency.toFixed(2)}ms
+      console.log(`MCP proxy performance (${iterations} iterations):
+        Min: ${minLatency.toFixed(2)}ms
+        Average: ${avgLatency.toFixed(2)}ms (target: <${PERFORMANCE_TARGETS.MCP_PROXY_MAX_MS}ms)
+        P50: ${p50Latency.toFixed(2)}ms (target: <${PERFORMANCE_TARGETS.MCP_PROXY_P50_MS}ms)
+        P95: ${p95Latency.toFixed(2)}ms (target: <${PERFORMANCE_TARGETS.MCP_PROXY_P95_MS}ms)
+        P99: ${p99Latency.toFixed(2)}ms (target: <${PERFORMANCE_TARGETS.MCP_PROXY_P99_MS}ms)
         Max: ${maxLatency.toFixed(2)}ms`);
 
+      // Verify all performance targets
       expect(avgLatency).toBeLessThan(PERFORMANCE_TARGETS.MCP_PROXY_MAX_MS);
-      expect(p95Latency).toBeLessThan(PERFORMANCE_TARGETS.P95_LATENCY_MAX_MS);
+      expect(p50Latency).toBeLessThan(PERFORMANCE_TARGETS.MCP_PROXY_P50_MS);
+      expect(p95Latency).toBeLessThan(PERFORMANCE_TARGETS.MCP_PROXY_P95_MS);
+      expect(p99Latency).toBeLessThan(PERFORMANCE_TARGETS.MCP_PROXY_P99_MS);
     });
 
     it('should handle concurrent MCP requests efficiently', async () => {
@@ -243,14 +272,18 @@ describe('Load Testing and Performance', () => {
 
       const successCount = results.filter(r => r.status === 'fulfilled').length;
       const successRate = (successCount / requests.length) * 100;
+      const throughput = requests.length / (totalTime / 1000); // requests per second
 
       console.log(`Concurrent MCP proxy:
+        Total requests: ${requests.length}
         Total time: ${totalTime.toFixed(2)}ms
         Avg per request: ${avgTimePerRequest.toFixed(2)}ms
-        Success rate: ${successRate.toFixed(1)}%`);
+        Success rate: ${successRate.toFixed(1)}% (target: ≥${PERFORMANCE_TARGETS.SUCCESS_RATE_MIN}%)
+        Throughput: ${throughput.toFixed(2)} req/s (target: ≥${PERFORMANCE_TARGETS.MIN_THROUGHPUT_RPS} req/s)`);
 
       expect(avgTimePerRequest).toBeLessThan(PERFORMANCE_TARGETS.MCP_PROXY_MAX_MS);
       expect(successRate).toBeGreaterThanOrEqual(PERFORMANCE_TARGETS.SUCCESS_RATE_MIN);
+      expect(throughput).toBeGreaterThanOrEqual(PERFORMANCE_TARGETS.MIN_THROUGHPUT_RPS);
     });
   });
 

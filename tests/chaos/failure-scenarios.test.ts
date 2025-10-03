@@ -1,8 +1,10 @@
 /**
  * Chaos Engineering Tests for Failure Scenarios
- * 
- * Tests system behavior under various failure conditions including
- * network failures, database outages, and service degradation.
+ *
+ * Comprehensive chaos engineering tests validating system behavior under
+ * various failure conditions including network failures, database outages,
+ * service degradation, and cascading failures.
+ * Requirements: 5.2, 5.4
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
