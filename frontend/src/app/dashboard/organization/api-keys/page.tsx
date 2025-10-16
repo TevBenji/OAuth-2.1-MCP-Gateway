@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useUser } from '@clerk/nextjs';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../../../../convex/_generated/api';
 import {
   Key,
   Plus,
@@ -24,8 +26,6 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getApiKeys, deleteApiKey } from '@/app/actions';
-import { useEffect } from 'react';
 
 interface ApiKey {
   id: string;
@@ -46,8 +46,6 @@ interface ApiKey {
 
 export default function ApiKeysPage() {
   const { user } = useUser();
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedKey, setSelectedKey] = useState<ApiKey | null>(null);
@@ -56,43 +54,19 @@ export default function ApiKeysPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all');
 
-  useEffect(() => {
-    async function loadApiKeys() {
-      if (!user?.id) return;
+  // Convex queries and mutations
+  const apiKeys = useQuery(api.apiKeys.list, user?.id ? { clerkId: user.id } : 'skip');
+  const deleteApiKeyMutation = useMutation(api.apiKeys.remove);
 
-      try {
-        setLoading(true);
-        const result = await getApiKeys(user.id);
-
-        if (result.success && result.data) {
-          setApiKeys(result.data as any);
-        } else {
-          toast.error('Failed to load API keys');
-        }
-      } catch (error) {
-        console.error('Error loading API keys:', error);
-        toast.error('Failed to load API keys');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadApiKeys();
-  }, [user?.id]);
+  const loading = apiKeys === undefined;
 
   const handleDeleteKey = async (keyId: string) => {
     if (!user?.id) return;
 
     try {
-      const result = await deleteApiKey(keyId, user.id);
-
-      if (result.success) {
-        setApiKeys(prev => prev.filter(k => k.id !== keyId));
-        toast.success('API key deleted successfully');
-        setShowDeleteModal(false);
-      } else {
-        toast.error('Failed to delete API key');
-      }
+      await deleteApiKeyMutation({ keyId: keyId as any, clerkId: user.id });
+      toast.success('API key deleted successfully');
+      setShowDeleteModal(false);
     } catch (error) {
       console.error('Error deleting API key:', error);
       toast.error('Failed to delete API key');
@@ -162,7 +136,7 @@ export default function ApiKeysPage() {
     }
   };
 
-  const filteredKeys = apiKeys.filter(key => {
+  const filteredKeys = (apiKeys || []).filter(key => {
     const matchesSearch = key.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (key.project?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = filterActive === 'all' ||
@@ -235,7 +209,7 @@ export default function ApiKeysPage() {
                 : 'text-wise-gray-600 hover:bg-wise-gray-50'
             }`}
           >
-            All Keys ({apiKeys.length})
+            All Keys ({(apiKeys || []).length})
           </button>
           <button
             onClick={() => setFilterActive('active')}
@@ -245,7 +219,7 @@ export default function ApiKeysPage() {
                 : 'text-wise-gray-600 hover:bg-wise-gray-50'
             }`}
           >
-            Active ({apiKeys.filter(k => k.isActive).length})
+            Active ({(apiKeys || []).filter(k => k.isActive).length})
           </button>
           <button
             onClick={() => setFilterActive('inactive')}
@@ -255,7 +229,7 @@ export default function ApiKeysPage() {
                 : 'text-wise-gray-600 hover:bg-wise-gray-50'
             }`}
           >
-            Inactive ({apiKeys.filter(k => !k.isActive).length})
+            Inactive ({(apiKeys || []).filter(k => !k.isActive).length})
           </button>
         </div>
       </div>
@@ -409,19 +383,19 @@ export default function ApiKeysPage() {
           <div>
             <p className='text-sm text-wise-gray-600'>Total Active Keys</p>
             <p className='text-2xl font-bold text-wise-gray-900 mt-1'>
-              {apiKeys.filter(k => k.isActive).length}
+              {(apiKeys || []).filter(k => k.isActive).length}
             </p>
           </div>
           <div>
             <p className='text-sm text-wise-gray-600'>Total API Calls (30 days)</p>
             <p className='text-2xl font-bold text-wise-gray-900 mt-1'>
-              {apiKeys.reduce((sum, key) => sum + key.usageCount, 0).toLocaleString()}
+              {(apiKeys || []).reduce((sum, key) => sum + key.usageCount, 0).toLocaleString()}
             </p>
           </div>
           <div>
             <p className='text-sm text-wise-gray-600'>Average Rate Limit</p>
             <p className='text-2xl font-bold text-wise-gray-900 mt-1'>
-              {Math.round(apiKeys.reduce((sum, key) => sum + key.rateLimit, 0) / apiKeys.length)}/min
+              {(apiKeys || []).length > 0 ? Math.round((apiKeys || []).reduce((sum, key) => sum + key.rateLimit, 0) / (apiKeys || []).length) : 0}/min
             </p>
           </div>
         </div>

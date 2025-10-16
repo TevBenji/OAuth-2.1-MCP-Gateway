@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useUser } from '@clerk/nextjs';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../../../../convex/_generated/api';
 import {
   FolderOpen,
   Plus,
@@ -16,7 +18,6 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getProjects, createProject, updateProject, deleteProject } from '@/app/actions';
 
 interface Project {
   id: string;
@@ -30,8 +31,6 @@ interface Project {
 
 export default function ProjectsPage() {
   const { user } = useUser();
-  const [loading, setLoading] = useState(true);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -42,29 +41,13 @@ export default function ProjectsPage() {
   });
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadProjects();
-  }, [user?.id]);
+  // Convex queries and mutations
+  const projects = useQuery(api.projects.list, user?.id ? { clerkId: user.id } : 'skip');
+  const createProjectMutation = useMutation(api.projects.create);
+  const updateProjectMutation = useMutation(api.projects.update);
+  const deleteProjectMutation = useMutation(api.projects.remove);
 
-  async function loadProjects() {
-    if (!user?.id) return;
-
-    try {
-      setLoading(true);
-      const result = await getProjects(user.id);
-
-      if (result.success) {
-        setProjects(result.data as any);
-      } else {
-        toast.error('Failed to load projects');
-      }
-    } catch (error) {
-      console.error('Error loading projects:', error);
-      toast.error('Failed to load projects');
-    } finally {
-      setLoading(false);
-    }
-  }
+  const loading = projects === undefined;
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,20 +55,14 @@ export default function ProjectsPage() {
 
     try {
       setSaving(true);
-      const result = await createProject({
-        userId: user.id,
+      await createProjectMutation({
+        clerkId: user.id,
         name: formData.name,
         description: formData.description,
       });
-
-      if (result.success) {
-        toast.success('Project created successfully');
-        setShowCreateModal(false);
-        setFormData({ name: '', description: '' });
-        loadProjects();
-      } else {
-        toast.error(result.error || 'Failed to create project');
-      }
+      toast.success('Project created successfully');
+      setShowCreateModal(false);
+      setFormData({ name: '', description: '' });
     } catch (error) {
       console.error('Error creating project:', error);
       toast.error('Failed to create project');
@@ -100,21 +77,15 @@ export default function ProjectsPage() {
 
     try {
       setSaving(true);
-      const result = await updateProject({
-        projectId: selectedProject.id,
+      await updateProjectMutation({
+        projectId: selectedProject.id as any,
         name: formData.name,
         description: formData.description,
       });
-
-      if (result.success) {
-        toast.success('Project updated successfully');
-        setShowEditModal(false);
-        setSelectedProject(null);
-        setFormData({ name: '', description: '' });
-        loadProjects();
-      } else {
-        toast.error(result.error || 'Failed to update project');
-      }
+      toast.success('Project updated successfully');
+      setShowEditModal(false);
+      setSelectedProject(null);
+      setFormData({ name: '', description: '' });
     } catch (error) {
       console.error('Error updating project:', error);
       toast.error('Failed to update project');
@@ -128,16 +99,10 @@ export default function ProjectsPage() {
 
     try {
       setSaving(true);
-      const result = await deleteProject(selectedProject.id);
-
-      if (result.success) {
-        toast.success('Project deleted successfully');
-        setShowDeleteModal(false);
-        setSelectedProject(null);
-        loadProjects();
-      } else {
-        toast.error(result.error || 'Failed to delete project');
-      }
+      await deleteProjectMutation({ projectId: selectedProject.id as any });
+      toast.success('Project deleted successfully');
+      setShowDeleteModal(false);
+      setSelectedProject(null);
     } catch (error) {
       console.error('Error deleting project:', error);
       toast.error('Failed to delete project');
@@ -191,7 +156,7 @@ export default function ProjectsPage() {
       </div>
 
       {/* Projects Grid */}
-      {projects.length > 0 ? (
+      {projects && projects.length > 0 ? (
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
           {projects.map((project) => (
             <div key={project.id} className='card-wise p-6'>

@@ -33,7 +33,6 @@
       "@/store/*": ["./src/store/*"]
     },
     "baseUrl": ".",
-    "types": ["node"],
     "strictNullChecks": true,
     "strictFunctionTypes": true,
     "strictBindCallApply": true,

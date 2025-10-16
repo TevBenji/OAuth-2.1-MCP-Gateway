@@ -4,7 +4,8 @@ import { useAuth, UserButton, useUser } from '@clerk/nextjs';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { getUserSubscription } from '@/app/actions';
+import { useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import {
   Building2,
   Settings,
@@ -68,6 +69,31 @@ const navigation: { section: string; items: NavItem[] }[] = [
     ],
   },
   {
+    section: 'Gateway',
+    items: [
+      {
+        label: 'How It Works',
+        href: '/dashboard/gateway-info',
+        icon: Shield,
+      },
+      {
+        label: 'Gateway Settings',
+        href: '/dashboard/gateway-settings',
+        icon: Settings,
+      },
+    ],
+  },
+  {
+    section: 'Analytics',
+    items: [
+      {
+        label: 'Dashboard',
+        href: '/dashboard/analytics',
+        icon: BarChart3,
+      },
+    ],
+  },
+  {
     section: 'Resources',
     items: [
       {
@@ -102,12 +128,12 @@ const navigation: { section: string; items: NavItem[] }[] = [
       },
       {
         label: 'Invoice',
-        href: '/dashboard/billing/invoices',
+        href: '/dashboard/billing/invoice',
         icon: Receipt,
       },
       {
         label: 'Voucher',
-        href: '/dashboard/billing/vouchers',
+        href: '/dashboard/billing/voucher',
         icon: Ticket,
       },
       {
@@ -133,6 +159,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     apiCallLimit: number;
   } | null>(null);
 
+  // Convex subscription query
+  const subscriptionData = useQuery(
+    api.users.getSubscription,
+    user?.id ? { clerkId: user.id } : 'skip'
+  );
+
   useEffect(() => {
     // Redirect to sign-in if not authenticated
     if (isLoaded && !userId) {
@@ -141,25 +173,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [isLoaded, userId, router]);
 
   useEffect(() => {
-    async function loadSubscription() {
-      if (!user?.id) return;
-
-      try {
-        const result = await getUserSubscription(user.id);
-        if (result.success && result.data) {
-          setSubscription(result.data as any);
-        }
-      } catch (error) {
-        console.error('Error loading subscription:', error);
-      }
+    if (subscriptionData) {
+      setSubscription(subscriptionData);
     }
-
-    loadSubscription();
-  }, [user?.id]);
+  }, [subscriptionData]);
 
   const toggleSection = (section: string) => {
-    setExpandedSections((prev) =>
-      prev.includes(section) ? prev.filter((s) => s !== section) : [...prev, section]
+    setExpandedSections(prev =>
+      prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
     );
   };
 
@@ -170,16 +191,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (!isLoaded || !userId) {
     return (
-      <div className='min-h-screen flex items-center justify-center bg-wise-gray-50'>
-        <div className='loader-wise'></div>
+      <div
+        className='min-h-screen flex items-center justify-center bg-wise-gray-50'
+        suppressHydrationWarning
+      >
+        <div className='loader-wise' suppressHydrationWarning></div>
       </div>
     );
   }
 
   return (
-    <div className='min-h-screen bg-wise-gray-50'>
+    <div className='min-h-screen bg-wise-gray-50' suppressHydrationWarning>
       {/* Top Navigation Bar */}
-      <header className='fixed top-0 w-full h-16 bg-white border-b border-wise-gray-200 z-40'>
+      <header className='fixed top-0 w-full h-16 bg-white border-b border-wise-gray-200 z-40' suppressHydrationWarning>
         <div className='flex items-center justify-between h-full px-4 lg:px-6'>
           <div className='flex items-center space-x-4'>
             <button
@@ -207,7 +231,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   type='text'
                   placeholder='Search...'
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={e => setSearchQuery(e.target.value)}
                   className='pl-10 pr-4 py-2 w-64 bg-wise-gray-50 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-wise-green-primary/20 focus:bg-white'
                 />
               </div>
@@ -244,12 +268,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </header>
 
-      <div className='flex pt-16'>
+      <div className='flex pt-16' suppressHydrationWarning>
         {/* Sidebar */}
         <aside
           className={`fixed lg:static inset-y-0 left-0 z-30 w-64 bg-white border-r border-wise-gray-200 transform transition-transform duration-300 lg:translate-x-0 ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
+          suppressHydrationWarning
         >
           <div className='h-full overflow-y-auto pt-16 lg:pt-0'>
             <nav className='p-4 space-y-6'>
@@ -267,7 +292,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </Link>
 
               {/* Navigation Sections */}
-              {navigation.map((section) => (
+              {navigation.map(section => (
                 <div key={section.section}>
                   <button
                     onClick={() => toggleSection(section.section)}
@@ -283,7 +308,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                   {expandedSections.includes(section.section) && (
                     <div className='mt-2 space-y-1'>
-                      {section.items.map((item) => {
+                      {section.items.map(item => {
                         const Icon = item.icon;
                         const active = isActive(item.href);
 
@@ -370,7 +395,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <div
                           className='h-full bg-wise-green-primary rounded-full transition-all duration-300'
                           style={{
-                            width: `${Math.min(100, (subscription.apiCallsUsed / subscription.apiCallLimit) * 100)}%`
+                            width: `${Math.min(100, (subscription.apiCallsUsed / subscription.apiCallLimit) * 100)}%`,
                           }}
                         />
                       </div>
@@ -402,8 +427,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}
 
         {/* Main Content */}
-        <main className='flex-1 p-6 lg:p-8 overflow-y-auto'>
-          <div className='max-w-7xl mx-auto'>{children}</div>
+        <main className='flex-1 p-6 lg:p-8 overflow-y-auto' suppressHydrationWarning>
+          <div className='max-w-7xl mx-auto' suppressHydrationWarning>{children}</div>
         </main>
       </div>
     </div>

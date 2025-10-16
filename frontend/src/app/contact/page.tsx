@@ -5,8 +5,6 @@ import { useState } from 'react';
 import {
   Shield,
   Mail,
-  Phone,
-  MapPin,
   Send,
   Check,
   AlertCircle,

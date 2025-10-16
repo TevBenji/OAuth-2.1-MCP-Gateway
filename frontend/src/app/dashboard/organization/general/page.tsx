@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../../../../convex/_generated/api';
 import { Building2, Save, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { getOrganization, createOrganization, updateOrganization } from '@/app/actions';
 
 interface Organization {
   id: string;
@@ -18,41 +19,30 @@ interface Organization {
 
 export default function OrganizationGeneralPage() {
   const { user } = useUser();
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [organization, setOrganization] = useState<Organization | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
     description: '',
   });
 
+  // Convex queries and mutations
+  const organizationData = useQuery(api.organizations.get, user?.id ? { clerkId: user.id } : 'skip');
+  const createOrganizationMutation = useMutation(api.organizations.create);
+  const updateOrganizationMutation = useMutation(api.organizations.update);
+
+  const loading = organizationData === undefined;
+  const organization = organizationData;
+
   useEffect(() => {
-    async function loadOrganization() {
-      if (!user?.id) return;
-
-      try {
-        setLoading(true);
-        const result = await getOrganization(user.id);
-
-        if (result.success && result.data) {
-          setOrganization(result.data as any);
-          setFormData({
-            name: result.data.name || '',
-            slug: result.data.slug || '',
-            description: result.data.description || '',
-          });
-        }
-      } catch (error) {
-        console.error('Error loading organization:', error);
-        toast.error('Failed to load organization');
-      } finally {
-        setLoading(false);
-      }
+    if (organizationData) {
+      setFormData({
+        name: organizationData.name || '',
+        slug: organizationData.slug || '',
+        description: organizationData.description || '',
+      });
     }
-
-    loadOrganization();
-  }, [user?.id]);
+  }, [organizationData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,34 +54,22 @@ export default function OrganizationGeneralPage() {
 
       if (organization) {
         // Update existing organization
-        const result = await updateOrganization({
-          userId: user.id,
-          organizationId: organization.id,
+        await updateOrganizationMutation({
+          clerkId: user.id,
+          organizationId: organization._id,
           name: formData.name,
           description: formData.description,
         });
-
-        if (result.success) {
-          toast.success('Organization updated successfully');
-          setOrganization(result.data as any);
-        } else {
-          toast.error(result.error || 'Failed to update organization');
-        }
+        toast.success('Organization updated successfully');
       } else {
         // Create new organization
-        const result = await createOrganization({
-          userId: user.id,
+        await createOrganizationMutation({
+          clerkId: user.id,
           name: formData.name,
           slug: formData.slug,
           description: formData.description,
         });
-
-        if (result.success) {
-          toast.success('Organization created successfully');
-          setOrganization(result.data as any);
-        } else {
-          toast.error(result.error || 'Failed to create organization');
-        }
+        toast.success('Organization created successfully');
       }
     } catch (error) {
       console.error('Error saving organization:', error);

@@ -3,6 +3,10 @@ import { Inter } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
 import './globals.css';
 import { Toaster } from 'sonner';
+import { ConvexClientProvider } from '@/providers/ConvexClientProvider';
+import { HydrationBoundary } from '@/components/ui/HydrationBoundary';
+import { HydrationErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { HydrationInitializer } from '@/components/ui/HydrationInitializer';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -215,22 +219,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       }}
     >
       <html lang='en' className={`${inter.variable} font-sans`}>
-        <body className='min-h-screen bg-white text-wise-gray-900 antialiased'>
-          {children}
-          <Toaster
-            position='bottom-right'
-            toastOptions={{
-              style: {
-                background: '#ffffff',
-                color: '#163300',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
-              },
-              className: 'wise-toast',
-              duration: 4000,
-            }}
-          />
+        <body
+          className='min-h-screen bg-white text-wise-gray-900 antialiased'
+          suppressHydrationWarning
+        >
+          <HydrationErrorBoundary>
+            <HydrationBoundary>
+              <HydrationInitializer />
+              <ConvexClientProvider>{children}</ConvexClientProvider>
+              <Toaster
+                position='bottom-right'
+                toastOptions={{
+                  style: {
+                    background: '#ffffff',
+                    color: '#163300',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
+                  },
+                  className: 'wise-toast',
+                  duration: 4000,
+                }}
+              />
+            </HydrationBoundary>
+          </HydrationErrorBoundary>
         </body>
       </html>
     </ClerkProvider>
