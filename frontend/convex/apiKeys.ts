@@ -101,7 +101,11 @@ export const create = mutation({
       updatedAt: now,
     });
 
-    return keyId;
+    // Return the full key object so it can be displayed to the user once
+    return {
+      id: keyId,
+      key: apiKey,
+    };
   },
 });
 

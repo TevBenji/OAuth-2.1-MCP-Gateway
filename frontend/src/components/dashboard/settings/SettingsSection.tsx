@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 interface SettingsSectionProps {
   title: string;

@@ -1,318 +1,250 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useUser } from '@clerk/nextjs';
-import { useQuery, useMutation } from 'convex/react';
-import { api } from '../../../../../convex/_generated/api';
 import { SettingsSection, SettingsItem, SettingsGroup } from '@/components/dashboard/settings/SettingsSection';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/Badge';
 import {
   Shield,
   Key,
   Globe,
-  Zap,
   Lock,
-  Users,
   Server,
   CheckCircle,
-  AlertCircle,
-  Settings,
-  ToggleLeft,
-  ToggleRight,
   Copy,
   ExternalLink,
-  RefreshCw,
-  Eye,
-  EyeOff,
-  Save,
-  Loader2
+  Info,
+  Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface GatewaySettings {
-  oauthEnabled: boolean;
-  pkceRequired: boolean;
-  tokenExpiry: number;
-  refreshExpiry: number;
-  allowedOrigins: string[];
-  maxSessions: number;
-  auditLogging: boolean;
-  riskAssessment: boolean;
-  tenantIsolation: boolean;
-  resourceIndicators: boolean;
-  dynamicRegistration: boolean;
-}
-
 export default function GatewaySettingsPage() {
-  const { user } = useUser();
-  const [loading, setLoading] = useState(false);
-  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
-  const [settings, setSettings] = useState<GatewaySettings>({
-    oauthEnabled: true,
-    pkceRequired: true,
-    tokenExpiry: 3600,
-    refreshExpiry: 86400 * 30,
-    allowedOrigins: ['http://localhost:3000', 'https://claude.ai', 'https://chatgpt.com'],
-    maxSessions: 10,
-    auditLogging: true,
-    riskAssessment: true,
-    tenantIsolation: true,
-    resourceIndicators: true,
-    dynamicRegistration: true,
-  });
-
-  // Mock data - in production, these would come from your backend
-  const endpoints = [
-    { method: 'GET', path: '/.well-known/oauth-authorization-server', description: 'OAuth 2.1 discovery' },
-    { method: 'GET', path: '/authorize', description: 'Authorization endpoint' },
-    { method: 'POST', path: '/token', description: 'Token endpoint' },
-    { method: 'POST', path: '/register', description: 'Client registration' },
-    { method: 'GET', path: '/mcp/:serverId/*', description: 'MCP proxy endpoint' },
-  ];
-
-  const recentActivity = [
-    { id: 1, action: 'Token issued', time: '2 minutes ago', status: 'success' },
-    { id: 2, action: 'Client registered', time: '15 minutes ago', status: 'success' },
-    { id: 3, action: 'PKCE validation failed', time: '1 hour ago', status: 'warning' },
-    { id: 4, action: 'Rate limit exceeded', time: '3 hours ago', status: 'error' },
-  ];
-
-  const handleToggleSetting = (key: keyof GatewaySettings) => {
-    setSettings(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
-  };
-
-  const handleSaveSettings = async () => {
-    setLoading(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success('Gateway settings saved successfully');
-    } catch (error) {
-      toast.error('Failed to save settings');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success('Copied to clipboard');
   };
 
-  const toggleSecretVisibility = (key: string) => {
-    setShowSecrets(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
+  // OAuth 2.1 endpoints from backend
+  const endpoints = [
+    {
+      method: 'GET',
+      path: '/.well-known/oauth-authorization-server',
+      description: 'OAuth 2.1 Server Metadata (RFC 8414)'
+    },
+    {
+      method: 'GET',
+      path: '/authorize',
+      description: 'Authorization Endpoint (PKCE required)'
+    },
+    {
+      method: 'POST',
+      path: '/token',
+      description: 'Token Endpoint (authorization_code, refresh_token grants)'
+    },
+    {
+      method: 'POST',
+      path: '/register',
+      description: 'Dynamic Client Registration (RFC 7591)'
+    },
+    {
+      method: 'ALL',
+      path: '/mcp/:serverId/*',
+      description: 'MCP Proxy by Server ID (Bearer token required)'
+    },
+    {
+      method: 'ALL',
+      path: '/mcp/resource/*',
+      description: 'MCP Proxy by Resource Identifier (RFC 8707)'
+    },
+  ];
+
+  // Gateway features (read-only, from backend implementation)
+  const features = {
+    oauth: [
+      { name: 'OAuth 2.1 Compliance', enabled: true, description: 'Full OAuth 2.1 authorization server' },
+      { name: 'PKCE Required', enabled: true, description: 'Proof Key for Code Exchange (RFC 7636) mandatory for all flows' },
+      { name: 'Dynamic Client Registration', enabled: true, description: 'RFC 7591 client registration support' },
+      { name: 'Server Metadata Discovery', enabled: true, description: 'RFC 8414 .well-known endpoint' },
+    ],
+    security: [
+      { name: 'Multi-Tenant Isolation', enabled: true, description: 'Complete tenant data isolation' },
+      { name: 'Audit Logging', enabled: true, description: 'Comprehensive compliance and security logging' },
+      { name: 'Risk-Based Authentication', enabled: true, description: 'Dynamic risk assessment and step-up auth' },
+      { name: 'Rate Limiting', enabled: true, description: 'Per-IP and per-user rate limiting' },
+    ],
+    advanced: [
+      { name: 'Resource Indicators', enabled: true, description: 'RFC 8707 audience-specific tokens' },
+      { name: 'Refresh Token Rotation', enabled: true, description: 'Automatic token rotation on refresh' },
+      { name: 'JWT Bearer Tokens', enabled: true, description: 'RS256/HS256 signed tokens with claims' },
+      { name: 'MCP Gateway Proxy', enabled: true, description: 'Authenticated MCP server proxying' },
+    ],
   };
+
+  // Token configuration (read-only, from backend)
+  const tokenConfig = [
+    { setting: 'Access Token Expiry', value: '1 hour (3600s)', description: 'JWT access token lifetime' },
+    { setting: 'Refresh Token Expiry', value: '30 days (2592000s)', description: 'Refresh token lifetime' },
+    { setting: 'Authorization Code Expiry', value: '5 minutes (300s)', description: 'Auth code validity period' },
+    { setting: 'Token Algorithm', value: 'RS256 / HS256', description: 'JWT signing algorithms supported' },
+  ];
+
+  // Supported scopes (from backend implementation)
+  const scopes = [
+    { scope: 'mcp:tools:read', description: 'Read MCP tools and capabilities' },
+    { scope: 'mcp:tools:write', description: 'Execute MCP tools' },
+    { scope: 'mcp:resources:read', description: 'Read MCP resources' },
+    { scope: 'mcp:resources:write', description: 'Write MCP resources' },
+  ];
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-wise-gray-900">Gateway Settings</h1>
+          <h1 className="text-3xl font-bold text-wise-gray-900">Gateway Configuration</h1>
           <p className="text-wise-gray-600 mt-1">
-            Configure OAuth 2.1 MCP Gateway authentication and security settings
+            OAuth 2.1 MCP Gateway capabilities and endpoint reference
           </p>
         </div>
-        <Button
-          onClick={handleSaveSettings}
-          loading={loading}
-          icon={<Save className="w-4 h-4" />}
-        >
-          Save Settings
-        </Button>
+        <div className="flex items-center space-x-2 px-4 py-2 bg-wise-green-50 rounded-lg">
+          <CheckCircle className="w-5 h-5 text-wise-green-primary" />
+          <span className="text-sm font-medium text-wise-green-primary">All Systems Operational</span>
+        </div>
       </div>
 
-      {/* OAuth Configuration */}
+      {/* Info Notice */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start">
+          <Info className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+          <div className="flex-1">
+            <h3 className="text-sm font-medium text-blue-900">Read-Only Configuration</h3>
+            <p className="text-sm text-blue-700 mt-1">
+              This gateway is a serverless OAuth 2.1 authorization server. Configuration is managed through infrastructure-as-code and environment variables. Contact your administrator for changes.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* OAuth 2.1 Features */}
       <SettingsSection
-        title="OAuth Configuration"
-        description="Configure OAuth 2.1 authentication settings"
+        title="OAuth 2.1 Features"
+        description="Authorization server capabilities and compliance"
         icon={<Shield className="w-5 h-5 text-wise-green-primary" />}
       >
         <SettingsGroup>
-          <SettingsItem
-            title="Enable OAuth"
-            description="Enable OAuth 2.1 authentication for MCP requests"
-          >
-            <button
-              onClick={() => handleToggleSetting('oauthEnabled')}
-              className="text-wise-green-primary hover:text-wise-green-600"
+          {features.oauth.map((feature) => (
+            <SettingsItem
+              key={feature.name}
+              title={feature.name}
+              description={feature.description}
             >
-              {settings.oauthEnabled ? (
-                <ToggleRight className="w-8 h-8" />
-              ) : (
-                <ToggleLeft className="w-8 h-8 text-gray-400" />
-              )}
-            </button>
-          </SettingsItem>
-
-          <SettingsItem
-            title="Require PKCE"
-            description="Enforce PKCE (Proof Key for Code Exchange) for all OAuth flows"
-          >
-            <button
-              onClick={() => handleToggleSetting('pkceRequired')}
-              className="text-wise-green-primary hover:text-wise-green-600"
-            >
-              {settings.pkceRequired ? (
-                <ToggleRight className="w-8 h-8" />
-              ) : (
-                <ToggleLeft className="w-8 h-8 text-gray-400" />
-              )}
-            </button>
-          </SettingsItem>
-
-          <SettingsItem
-            title="Access Token Expiry"
-            description="Access token lifetime in seconds"
-          >
-            <select
-              value={settings.tokenExpiry}
-              onChange={(e) => setSettings(prev => ({ ...prev, tokenExpiry: Number(e.target.value) }))}
-              className="input-wise w-32"
-            >
-              <option value={1800}>30 minutes</option>
-              <option value={3600}>1 hour</option>
-              <option value={7200}>2 hours</option>
-              <option value={14400}>4 hours</option>
-            </select>
-          </SettingsItem>
-
-          <SettingsItem
-            title="Refresh Token Expiry"
-            description="Refresh token lifetime in seconds"
-          >
-            <select
-              value={settings.refreshExpiry}
-              onChange={(e) => setSettings(prev => ({ ...prev, refreshExpiry: Number(e.target.value) }))}
-              className="input-wise w-32"
-            >
-              <option value={604800}>7 days</option>
-              <option value={2592000}>30 days</option>
-              <option value={7776000}>90 days</option>
-            </select>
-          </SettingsItem>
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 text-wise-green-primary" />
+              </div>
+            </SettingsItem>
+          ))}
         </SettingsGroup>
       </SettingsSection>
 
-      {/* Security Settings */}
+      {/* Security Features */}
       <SettingsSection
-        title="Security Settings"
-        description="Configure security and compliance features"
+        title="Security & Compliance"
+        description="Built-in security measures and compliance features"
         icon={<Lock className="w-5 h-5 text-wise-green-primary" />}
       >
         <SettingsGroup>
-          <SettingsItem
-            title="Tenant Isolation"
-            description="Enable multi-tenant tenant isolation"
-          >
-            <button
-              onClick={() => handleToggleSetting('tenantIsolation')}
-              className="text-wise-green-primary hover:text-wise-green-600"
+          {features.security.map((feature) => (
+            <SettingsItem
+              key={feature.name}
+              title={feature.name}
+              description={feature.description}
             >
-              {settings.tenantIsolation ? (
-                <ToggleRight className="w-8 h-8" />
-              ) : (
-                <ToggleLeft className="w-8 h-8 text-gray-400" />
-              )}
-            </button>
-          </SettingsItem>
-
-          <SettingsItem
-            title="Audit Logging"
-            description="Enable comprehensive audit logging for compliance"
-          >
-            <button
-              onClick={() => handleToggleSetting('auditLogging')}
-              className="text-wise-green-primary hover:text-wise-green-600"
-            >
-              {settings.auditLogging ? (
-                <ToggleRight className="w-8 h-8" />
-              ) : (
-                <ToggleLeft className="w-8 h-8 text-gray-400" />
-              )}
-            </button>
-          </SettingsItem>
-
-          <SettingsItem
-            title="Risk Assessment"
-            description="Enable risk-based authentication scoring"
-          >
-            <button
-              onClick={() => handleToggleSetting('riskAssessment')}
-              className="text-wise-green-primary hover:text-wise-green-600"
-            >
-              {settings.riskAssessment ? (
-                <ToggleRight className="w-8 h-8" />
-              ) : (
-                <ToggleLeft className="w-8 h-8 text-gray-400" />
-              )}
-            </button>
-          </SettingsItem>
-
-          <SettingsItem
-            title="Max Concurrent Sessions"
-            description="Maximum allowed sessions per user"
-          >
-            <input
-              type="number"
-              value={settings.maxSessions}
-              onChange={(e) => setSettings(prev => ({ ...prev, maxSessions: Number(e.target.value) }))}
-              className="input-wise w-24"
-              min="1"
-              max="100"
-            />
-          </SettingsItem>
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 text-wise-green-primary" />
+              </div>
+            </SettingsItem>
+          ))}
         </SettingsGroup>
       </SettingsSection>
 
       {/* Advanced Features */}
       <SettingsSection
         title="Advanced Features"
-        description="Configure advanced OAuth 2.1 and MCP features"
-        icon={<Settings className="w-5 h-5 text-wise-green-primary" />}
+        description="Extended OAuth and MCP capabilities"
+        icon={<Zap className="w-5 h-5 text-wise-green-primary" />}
       >
         <SettingsGroup>
-          <SettingsItem
-            title="Resource Indicators"
-            description="Enable RFC 8707 Resource Indicators for audience-specific tokens"
-          >
-            <button
-              onClick={() => handleToggleSetting('resourceIndicators')}
-              className="text-wise-green-primary hover:text-wise-green-600"
+          {features.advanced.map((feature) => (
+            <SettingsItem
+              key={feature.name}
+              title={feature.name}
+              description={feature.description}
             >
-              {settings.resourceIndicators ? (
-                <ToggleRight className="w-8 h-8" />
-              ) : (
-                <ToggleLeft className="w-8 h-8 text-gray-400" />
-              )}
-            </button>
-          </SettingsItem>
-
-          <SettingsItem
-            title="Dynamic Client Registration"
-            description="Enable RFC 7591 Dynamic Client Registration"
-          >
-            <button
-              onClick={() => handleToggleSetting('dynamicRegistration')}
-              className="text-wise-green-primary hover:text-wise-green-600"
-            >
-              {settings.dynamicRegistration ? (
-                <ToggleRight className="w-8 h-8" />
-              ) : (
-                <ToggleLeft className="w-8 h-8 text-gray-400" />
-              )}
-            </button>
-          </SettingsItem>
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 text-wise-green-primary" />
+              </div>
+            </SettingsItem>
+          ))}
         </SettingsGroup>
       </SettingsSection>
+
+      {/* Token Configuration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+              <Key className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <CardTitle className="text-xl">Token Configuration</CardTitle>
+              <p className="text-wise-gray-600 mt-1 text-sm">JWT token lifetimes and signing</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {tokenConfig.map((config) => (
+              <div key={config.setting} className="flex items-center justify-between py-3 border-b border-wise-gray-100 last:border-0">
+                <div className="flex-1">
+                  <p className="font-medium text-wise-gray-900">{config.setting}</p>
+                  <p className="text-sm text-wise-gray-600 mt-1">{config.description}</p>
+                </div>
+                <code className="px-3 py-1 bg-wise-gray-100 rounded-lg text-sm font-mono text-wise-gray-700">
+                  {config.value}
+                </code>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Supported Scopes */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center">
+              <Globe className="w-5 h-5 text-orange-600" />
+            </div>
+            <div>
+              <CardTitle className="text-xl">Supported Scopes</CardTitle>
+              <p className="text-wise-gray-600 mt-1 text-sm">Available OAuth scopes for API keys</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {scopes.map((scopeInfo) => (
+              <div key={scopeInfo.scope} className="flex items-center justify-between p-3 bg-wise-gray-50 rounded-lg">
+                <div className="flex-1">
+                  <code className="text-sm font-mono text-wise-green-primary font-medium">
+                    {scopeInfo.scope}
+                  </code>
+                  <p className="text-sm text-wise-gray-600 mt-1">{scopeInfo.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* API Endpoints */}
       <SettingsSection
@@ -323,7 +255,7 @@ export default function GatewaySettingsPage() {
         <div className="space-y-3">
           {endpoints.map((endpoint, index) => (
             <div key={index} className="flex items-center justify-between py-3 px-4 bg-wise-gray-50 rounded-lg">
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3 flex-1">
                 <Badge variant="secondary" size="sm">
                   {endpoint.method}
                 </Badge>
@@ -334,45 +266,20 @@ export default function GatewaySettingsPage() {
                 <button
                   onClick={() => copyToClipboard(endpoint.path)}
                   className="p-1 hover:bg-wise-gray-200 rounded"
+                  title="Copy endpoint"
                 >
                   <Copy className="w-4 h-4 text-wise-gray-600" />
                 </button>
                 <a
-                  href={`/docs${endpoint.path}`}
+                  href="/docs"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-1 hover:bg-wise-gray-200 rounded"
+                  title="View documentation"
                 >
                   <ExternalLink className="w-4 h-4 text-wise-gray-600" />
                 </a>
               </div>
-            </div>
-          ))}
-        </div>
-      </SettingsSection>
-
-      {/* Recent Activity */}
-      <SettingsSection
-        title="Recent Activity"
-        description="Recent gateway authentication events"
-        icon={<RefreshCw className="w-5 h-5 text-wise-green-primary" />}
-      >
-        <div className="space-y-3">
-          {recentActivity.map((activity) => (
-            <div key={activity.id} className="flex items-center justify-between py-3 border-b border-wise-gray-100 last:border-0">
-              <div className="flex items-center space-x-3">
-                {activity.status === 'success' && (
-                  <CheckCircle className="w-4 h-4 text-wise-green-primary" />
-                )}
-                {activity.status === 'warning' && (
-                  <AlertCircle className="w-4 h-4 text-yellow-500" />
-                )}
-                {activity.status === 'error' && (
-                  <AlertCircle className="w-4 h-4 text-red-500" />
-                )}
-                <span className="text-sm font-medium text-wise-gray-900">{activity.action}</span>
-              </div>
-              <span className="text-sm text-wise-gray-500">{activity.time}</span>
             </div>
           ))}
         </div>
@@ -386,8 +293,8 @@ export default function GatewaySettingsPage() {
               <Zap className="w-5 h-5 text-wise-green-primary" />
             </div>
             <div>
-              <CardTitle className="text-xl">Gateway Status</CardTitle>
-              <p className="text-wise-gray-600 mt-1">Current gateway operational status</p>
+              <CardTitle className="text-xl">Gateway Performance</CardTitle>
+              <p className="text-wise-gray-600 mt-1 text-sm">Current gateway operational metrics</p>
             </div>
           </div>
         </CardHeader>
@@ -396,9 +303,9 @@ export default function GatewaySettingsPage() {
             <div className="text-center">
               <Badge variant="success" className="mb-2">
                 <CheckCircle className="w-3 h-3 mr-1" />
-                Healthy
+                Operational
               </Badge>
-              <p className="text-sm text-wise-gray-600">All systems operational</p>
+              <p className="text-sm text-wise-gray-600">All endpoints available</p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-wise-gray-900">99.99%</p>

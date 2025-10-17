@@ -1,6 +1,7 @@
 'use client';
 
 import React, { Component, ErrorInfo, ReactNode, useState } from 'react';
+import { isHydrationError, analyzeHydrationError } from '@/lib/hydration';
 
 interface Props {
   children: ReactNode;
@@ -19,11 +20,11 @@ export class ErrorBoundary extends Component<Props, State> {
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static override getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Error caught by ErrorBoundary:', error, errorInfo);
 
     // Call custom error handler if provided
@@ -138,14 +139,62 @@ export function useErrorHandler() {
 // Specialized error boundary for hydration errors
 export function HydrationErrorBoundary({ children }: { children: ReactNode }) {
   const handleHydrationError = (error: Error, errorInfo: ErrorInfo) => {
+    // Use hydration utilities for error analysis
+
     // Check if it's a hydration error
-    if (
-      error.message.includes('Hydration') ||
-      error.message.includes('hydration') ||
-      error.message.includes('bis_skin_checked')
-    ) {
-      console.warn('Hydration error caught and ignored:', error.message);
-      return; // Don't report hydration errors
+    if (isHydrationError(error)) {
+      const analysis = analyzeHydrationError(error);
+
+      console.group(
+        `🚫 HydrationErrorBoundary: ${analysis.severity.toUpperCase()} Hydration Error`
+      );
+      console.warn('Error:', error.message);
+      console.warn('Likely Cause:', analysis.likelyCause);
+      if (analysis.suggestions.length > 0) {
+        console.info('Suggestions:', analysis.suggestions);
+      }
+      console.groupEnd();
+
+      // In development, show a more detailed error
+      if (process.env.NODE_ENV === 'development') {
+        // Create a temporary error banner
+        const banner = document.createElement('div');
+        banner.style.cssText = `
+          position: fixed;
+          bottom: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: #dc2626;
+          color: white;
+          padding: 12px 20px;
+          border-radius: 8px;
+          font-family: system-ui, -apple-system, sans-serif;
+          font-size: 14px;
+          z-index: 9999;
+          box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+          max-width: 500px;
+          text-align: center;
+        `;
+        banner.innerHTML = `
+          <strong>Hydration Error Handled</strong><br>
+          <span style="font-size: 12px; opacity: 0.9;">${analysis.likelyCause}</span>
+        `;
+
+        document.body.appendChild(banner);
+        setTimeout(() => {
+          if (banner.parentElement) {
+            banner.style.opacity = '0';
+            banner.style.transition = 'opacity 0.3s ease';
+            setTimeout(() => {
+              if (banner.parentElement) {
+                banner.parentElement.removeChild(banner);
+              }
+            }, 300);
+          }
+        }, 3000);
+      }
+
+      return; // Don't report hydration errors to external services
     }
 
     // Log other errors normally
@@ -155,7 +204,19 @@ export function HydrationErrorBoundary({ children }: { children: ReactNode }) {
   return (
     <ErrorBoundary
       onError={handleHydrationError}
-      fallback={<div style={{ visibility: 'hidden' }}>{children}</div>}
+      fallback={
+        <div
+          style={{
+            visibility: 'hidden',
+            position: 'absolute',
+            top: '-9999px',
+            left: '-9999px',
+          }}
+          suppressHydrationWarning
+        >
+          {children}
+        </div>
+      }
     >
       {children}
     </ErrorBoundary>

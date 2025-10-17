@@ -19,13 +19,31 @@ export const getOrCreate = internalMutation({
     }
 
     const now = Date.now();
+
+    // Create default organization for new user
+    const orgSlug = email.split('@')[0].replace(/[^a-z0-9-]/gi, '-').toLowerCase();
+    const orgId = await ctx.db.insert("organizations", {
+      name: `${name || email.split('@')[0]}'s Organization`,
+      slug: orgSlug + '-' + Date.now(), // Ensure uniqueness
+      description: "Personal workspace",
+      ownerId: null as any, // Will be updated after user creation
+      createdAt: now,
+      updatedAt: now,
+    });
+
     const userId = await ctx.db.insert("users", {
       clerkId,
       email,
       name,
       role: "USER",
+      organizationId: orgId,
       createdAt: now,
       updatedAt: now,
+    });
+
+    // Update organization owner to the newly created user
+    await ctx.db.patch(orgId, {
+      ownerId: userId,
     });
 
     return userId;

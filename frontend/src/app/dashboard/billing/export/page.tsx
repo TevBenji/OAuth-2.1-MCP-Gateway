@@ -44,8 +44,7 @@ export default function ExportPage() {
       setCreating(true);
       await createExportMutation({
         clerkId: user.id,
-        exportType,
-        format: exportFormat,
+        type: `${exportType}_${exportFormat}`, // Combine type and format
       });
       toast.success('Export created successfully! Processing will begin shortly.');
       setShowCreateForm(false);
@@ -76,13 +75,13 @@ export default function ExportPage() {
   };
 
   const handleDownloadExport = (exportRecord: any) => {
-    if (exportRecord.status !== 'COMPLETED' || !exportRecord.downloadUrl) {
+    if (exportRecord.status !== 'COMPLETED' || !exportRecord.fileUrl) {
       toast.error('Export is not ready for download');
       return;
     }
 
     // In production, this would download from the actual URL
-    console.log('Downloading export:', exportRecord.downloadUrl);
+    console.log('Downloading export:', exportRecord.fileUrl);
     toast.success('Download started. In production, this would download the file.');
   };
 
@@ -253,7 +252,7 @@ export default function ExportPage() {
                     <div>
                       <div className='flex items-center space-x-2 mb-2'>
                         <h3 className='font-semibold text-wise-gray-900'>
-                          {exportRecord.exportType.replace('_', ' ')} - {exportRecord.format}
+                          {exportRecord.type}
                         </h3>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center space-x-1 ${getStatusColor(exportRecord.status)}`}>
                           {getStatusIcon(exportRecord.status)}

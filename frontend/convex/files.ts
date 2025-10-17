@@ -60,7 +60,7 @@ export const deleteFile = mutation({
     clerkId: v.string(),
     fileId: v.string(),
   },
-  handler: async (ctx, { clerkId, fileId }) => {
+  handler: async (ctx, { clerkId }) => {
     const user = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
@@ -71,6 +71,7 @@ export const deleteFile = mutation({
     }
 
     // Note: Delete file metadata and storage here
+    // TODO: Implement actual file deletion using fileId when files table is created
 
     return { success: true };
   },

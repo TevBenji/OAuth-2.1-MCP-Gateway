@@ -9,9 +9,16 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Bindings } from './types/bindings';
 import { registerClient } from './handlers/oauth/register';
+import { handleAuthorization } from './handlers/oauth/authorize';
+import { handleToken } from './handlers/oauth/token';
+import { proxyToMCPServer, proxyByResourceIdentifier } from './handlers/mcp/proxy';
 import { healthCheck } from './handlers/admin/health';
 import adminApi from './handlers/admin/api';
 import adminUi from './handlers/admin/ui';
+import { authMiddleware, requireScopes } from './middleware/auth';
+import { rateLimitMiddleware, ipRateLimitMiddleware } from './middleware/rate-limit';
+import { RateLimiter } from './services/security/rate-limiter';
+import { RateLimitStorageKV } from './services/security/rate-limit-storage-kv';
 
 // Define context variables for type safety
 type Variables = {
@@ -73,8 +80,86 @@ app.get('/.well-known/oauth-authorization-server', c => {
   });
 });
 
+// Create rate limiter with KV storage
+const createRateLimiter = (env: any) => {
+  // Handle undefined env for testing
+  if (!env) {
+    // Create a mock storage for testing
+    const mockStorage = {
+      get: async () => null,
+      put: async () => {},
+      delete: async () => {},
+      increment: async () => ({ count: 0, ttl: 0 }),
+    };
+    return new RateLimiter(mockStorage as any);
+  }
+
+  const storage = new RateLimitStorageKV(env.RATE_LIMIT_KV || env.RATE_LIMIT, 'oauth-gateway');
+  return new RateLimiter(storage);
+};
+
+// OAuth 2.1 Authorization Endpoint
+app.post(
+  '/oauth/authorize',
+  (c, next) => ipRateLimitMiddleware(createRateLimiter(c.env))(c, next),
+  handleAuthorization
+);
+app.get(
+  '/oauth/authorize',
+  (c, next) => ipRateLimitMiddleware(createRateLimiter(c.env))(c, next),
+  handleAuthorization
+); // Support GET for compatibility
+
+// OAuth 2.1 Token Endpoint
+app.post(
+  '/oauth/token',
+  (c, next) => ipRateLimitMiddleware(createRateLimiter(c.env))(c, next),
+  handleToken
+);
+
 // OAuth 2.1 Dynamic Client Registration (RFC 7591)
-app.post('/register', registerClient);
+app.post('/oauth/register', registerClient);
+app.post('/register', registerClient); // Legacy compatibility
+
+// OAuth 2.1 Authorization Endpoint
+app.get('/authorize', handleAuthorization);
+
+// MCP Health Check - Public endpoint (must be before protected routes)
+app.get('/mcp/health', c => {
+  return c.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    service: 'mcp-gateway',
+    version: '1.0.0',
+  });
+});
+
+// MCP Gateway Routes - Protected with OAuth authentication and rate limiting
+app.all(
+  '/mcp/:serverId/*',
+  authMiddleware(),
+  requireScopes('mcp:tools:read', 'mcp:resources:read'),
+  (c, next) => rateLimitMiddleware(createRateLimiter(c.env))(c, next),
+  proxyToMCPServer
+); // Proxy by server ID
+
+app.all(
+  '/mcp/resource/*',
+  authMiddleware(),
+  requireScopes('mcp:resources:read', 'mcp:resources:write'),
+  (c, next) => rateLimitMiddleware(createRateLimiter(c.env))(c, next),
+  proxyByResourceIdentifier
+); // Proxy by resource identifier
+
+// OAuth 2.1 Token Endpoint
+app.post('/token', handleToken);
+
+// MCP Gateway Proxy Routes
+// Proxy by server ID: /mcp/:serverId/*
+app.all('/mcp/:serverId/*', proxyToMCPServer);
+
+// Proxy by resource identifier: /mcp/resource/*
+app.all('/mcp/resource/*', proxyByResourceIdentifier);
 
 // Admin API and UI routes
 app.route('/admin/api', adminApi);

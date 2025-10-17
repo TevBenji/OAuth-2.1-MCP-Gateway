@@ -83,8 +83,8 @@ export default clerkMiddleware(async (auth, req) => {
 
   // For users visiting public routes
   if (isPublicRoute(req)) {
-    // If they're signed in and trying to access auth pages, redirect to dashboard
-    if (userId && (pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up'))) {
+    // If they're signed in and trying to access auth pages or homepage, redirect to dashboard
+    if (userId && (pathname === '/' || pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up'))) {
       const dashboardUrl = new URL('/dashboard', req.url);
       return NextResponse.redirect(dashboardUrl);
     }

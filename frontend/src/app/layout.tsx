@@ -1,11 +1,9 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
 import './globals.css';
 import { Toaster } from 'sonner';
 import { ConvexClientProvider } from '@/providers/ConvexClientProvider';
-import { HydrationBoundary } from '@/components/ui/HydrationBoundary';
-import { HydrationErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { HydrationInitializer } from '@/components/ui/HydrationInitializer';
 
 const inter = Inter({
@@ -20,11 +18,6 @@ export const metadata: Metadata = {
     'Enterprise-grade OAuth 2.1 authentication gateway for Model Context Protocol servers. Secure, scalable, and compliant.',
   keywords: 'OAuth 2.1, MCP, Model Context Protocol, Authentication, API Gateway, Security',
   authors: [{ name: 'OAuth MCP Gateway Team' }],
-  viewport: 'width=device-width, initial-scale=1',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#9FE870' },
-    { media: '(prefers-color-scheme: dark)', color: '#163300' },
-  ],
   openGraph: {
     type: 'website',
     locale: 'en_US',
@@ -60,21 +53,18 @@ export const metadata: Metadata = {
     },
   },
   icons: {
-    icon: [
-      { url: '/favicon.ico' },
-      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
-      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-    ],
-    apple: [{ url: '/apple-touch-icon.png' }],
-    other: [
-      {
-        rel: 'mask-icon',
-        url: '/safari-pinned-tab.svg',
-        color: '#9FE870',
-      },
-    ],
+    icon: '/favicon.ico',
   },
   manifest: '/manifest.json',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#9FE870' },
+    { media: '(prefers-color-scheme: dark)', color: '#163300' },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -218,31 +208,69 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         },
       }}
     >
-      <html lang='en' className={`${inter.variable} font-sans`}>
+      <html lang='en' className={`${inter.variable} font-sans`} suppressHydrationWarning>
+        <head>
+          {/* Pre-hydration script to remove browser extension attributes BEFORE React loads */}
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                (function() {
+                  // Remove browser extension attributes immediately
+                  function cleanupExtensionAttributes() {
+                    var attrs = ['bis_skin_checked', 'bis_register', 'data-new-gr-c-s-check-loaded', 'data-gr-ext-installed', 'data-grammarly-shadow-editor'];
+                    attrs.forEach(function(attr) {
+                      var elements = document.querySelectorAll('[' + attr + ']');
+                      elements.forEach(function(el) {
+                        el.removeAttribute(attr);
+                      });
+                    });
+                  }
+
+                  // Run immediately
+                  cleanupExtensionAttributes();
+
+                  // Run again when DOM is loaded
+                  if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', cleanupExtensionAttributes);
+                  }
+
+                  // Run before hydration
+                  window.addEventListener('load', cleanupExtensionAttributes);
+
+                  // Run repeatedly for aggressive extensions (first 2 seconds)
+                  var attempts = 0;
+                  var interval = setInterval(function() {
+                    cleanupExtensionAttributes();
+                    attempts++;
+                    if (attempts >= 10) {
+                      clearInterval(interval);
+                    }
+                  }, 200);
+                })();
+              `,
+            }}
+          />
+        </head>
         <body
           className='min-h-screen bg-white text-wise-gray-900 antialiased'
           suppressHydrationWarning
         >
-          <HydrationErrorBoundary>
-            <HydrationBoundary>
-              <HydrationInitializer />
-              <ConvexClientProvider>{children}</ConvexClientProvider>
-              <Toaster
-                position='bottom-right'
-                toastOptions={{
-                  style: {
-                    background: '#ffffff',
-                    color: '#163300',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
-                  },
-                  className: 'wise-toast',
-                  duration: 4000,
-                }}
-              />
-            </HydrationBoundary>
-          </HydrationErrorBoundary>
+          <HydrationInitializer />
+          <ConvexClientProvider>{children}</ConvexClientProvider>
+          <Toaster
+            position='bottom-right'
+            toastOptions={{
+              style: {
+                background: '#ffffff',
+                color: '#163300',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.12)',
+              },
+              className: 'wise-toast',
+              duration: 4000,
+            }}
+          />
         </body>
       </html>
     </ClerkProvider>

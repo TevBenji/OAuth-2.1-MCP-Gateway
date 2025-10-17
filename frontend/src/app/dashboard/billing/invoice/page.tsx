@@ -17,7 +17,7 @@ import {
   Filter,
 } from 'lucide-react';
 
-type InvoiceStatus = 'PAID' | 'PENDING' | 'OVERDUE' | 'CANCELLED';
+type InvoiceStatus = 'PAID' | 'OPEN' | 'DRAFT' | 'VOID' | 'UNCOLLECTIBLE';
 
 export default function InvoicePage() {
   const { user } = useUser();
@@ -32,12 +32,14 @@ export default function InvoicePage() {
     switch (status) {
       case 'PAID':
         return 'bg-green-100 text-green-700';
-      case 'PENDING':
+      case 'OPEN':
         return 'bg-blue-100 text-blue-700';
-      case 'OVERDUE':
-        return 'bg-red-100 text-red-700';
-      case 'CANCELLED':
+      case 'DRAFT':
         return 'bg-gray-100 text-gray-700';
+      case 'VOID':
+        return 'bg-red-100 text-red-700';
+      case 'UNCOLLECTIBLE':
+        return 'bg-orange-100 text-orange-700';
       default:
         return 'bg-gray-100 text-gray-700';
     }
@@ -47,11 +49,12 @@ export default function InvoicePage() {
     switch (status) {
       case 'PAID':
         return <CheckCircle className='w-4 h-4' />;
-      case 'PENDING':
+      case 'OPEN':
         return <Clock className='w-4 h-4' />;
-      case 'OVERDUE':
-        return <AlertCircle className='w-4 h-4' />;
-      case 'CANCELLED':
+      case 'DRAFT':
+        return <FileText className='w-4 h-4' />;
+      case 'VOID':
+      case 'UNCOLLECTIBLE':
         return <AlertCircle className='w-4 h-4' />;
       default:
         return <FileText className='w-4 h-4' />;
@@ -135,9 +138,10 @@ export default function InvoicePage() {
             >
               <option value='ALL'>All Statuses</option>
               <option value='PAID'>Paid</option>
-              <option value='PENDING'>Pending</option>
-              <option value='OVERDUE'>Overdue</option>
-              <option value='CANCELLED'>Cancelled</option>
+              <option value='OPEN'>Open</option>
+              <option value='DRAFT'>Draft</option>
+              <option value='VOID'>Void</option>
+              <option value='UNCOLLECTIBLE'>Uncollectible</option>
             </select>
           </div>
 
@@ -203,11 +207,11 @@ export default function InvoicePage() {
                           </span>
                         </div>
                       )}
-                      {invoice.description && (
-                        <p className='text-sm text-wise-gray-600 mt-1'>
-                          {invoice.description}
-                        </p>
-                      )}
+                      <div className='flex items-center space-x-2 text-sm text-wise-gray-600'>
+                        <span>
+                          Period: {new Date(invoice.billingPeriodStart).toLocaleDateString()} - {new Date(invoice.billingPeriodEnd).toLocaleDateString()}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -216,7 +220,7 @@ export default function InvoicePage() {
                   <div className='text-right'>
                     <div className='flex items-center space-x-1 text-2xl font-bold text-wise-gray-900'>
                       <DollarSign className='w-5 h-5' />
-                      <span>{(invoice.amount / 100).toFixed(2)}</span>
+                      <span>{(invoice.total / 100).toFixed(2)}</span>
                     </div>
                     {invoice.status === 'PAID' && invoice.paidAt && (
                       <p className='text-xs text-green-600 mt-1'>
@@ -272,15 +276,15 @@ export default function InvoicePage() {
             </p>
           </div>
           <div className='card-wise p-4'>
-            <p className='text-sm text-wise-gray-600 mb-1'>Pending</p>
+            <p className='text-sm text-wise-gray-600 mb-1'>Open</p>
             <p className='text-2xl font-bold text-blue-600'>
-              {invoices.filter((i) => i.status === 'PENDING').length}
+              {invoices.filter((i) => i.status === 'OPEN').length}
             </p>
           </div>
           <div className='card-wise p-4'>
-            <p className='text-sm text-wise-gray-600 mb-1'>Overdue</p>
+            <p className='text-sm text-wise-gray-600 mb-1'>Uncollectible</p>
             <p className='text-2xl font-bold text-red-600'>
-              {invoices.filter((i) => i.status === 'OVERDUE').length}
+              {invoices.filter((i) => i.status === 'UNCOLLECTIBLE').length}
             </p>
           </div>
         </div>

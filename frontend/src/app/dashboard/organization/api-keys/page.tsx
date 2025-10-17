@@ -24,6 +24,9 @@ import {
   Search,
   Calendar,
   ChevronRight,
+  Save,
+  Loader2,
+  Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -53,12 +56,57 @@ export default function ApiKeysPage() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all');
+  const [createdKey, setCreatedKey] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    projectId: '',
+    scopes: ['mcp:tools:read', 'mcp:resources:read'] as string[],
+    rateLimit: 100,
+    expiresAt: '',
+  });
 
   // Convex queries and mutations
   const apiKeys = useQuery(api.apiKeys.list, user?.id ? { clerkId: user.id } : 'skip');
+  const projects = useQuery(api.projects.list, user?.id ? { clerkId: user.id } : 'skip');
+  const createApiKeyMutation = useMutation(api.apiKeys.create);
   const deleteApiKeyMutation = useMutation(api.apiKeys.remove);
 
-  const loading = apiKeys === undefined;
+  const loading = apiKeys === undefined || projects === undefined;
+
+  const handleCreateKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.id) return;
+
+    try {
+      setSaving(true);
+      const result = await createApiKeyMutation({
+        clerkId: user.id,
+        name: formData.name,
+        projectId: formData.projectId ? (formData.projectId as any) : undefined,
+        scopes: formData.scopes,
+        rateLimit: formData.rateLimit,
+        expiresAt: formData.expiresAt ? new Date(formData.expiresAt).getTime() : undefined,
+      });
+
+      // Set the created key to show it to user
+      setCreatedKey(result.key);
+
+      toast.success('API key created successfully! Make sure to copy it now.');
+      setFormData({
+        name: '',
+        projectId: '',
+        scopes: ['mcp:tools:read', 'mcp:resources:read'],
+        rateLimit: 100,
+        expiresAt: '',
+      });
+    } catch (error) {
+      console.error('Error creating API key:', error);
+      toast.error('Failed to create API key');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleDeleteKey = async (keyId: string) => {
     if (!user?.id) return;
@@ -71,6 +119,27 @@ export default function ApiKeysPage() {
       console.error('Error deleting API key:', error);
       toast.error('Failed to delete API key');
     }
+  };
+
+  const toggleScope = (scope: string) => {
+    setFormData(prev => ({
+      ...prev,
+      scopes: prev.scopes.includes(scope)
+        ? prev.scopes.filter(s => s !== scope)
+        : [...prev.scopes, scope],
+    }));
+  };
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+    setCreatedKey(null);
+    setFormData({
+      name: '',
+      projectId: '',
+      scopes: ['mcp:tools:read', 'mcp:resources:read'],
+      rateLimit: 100,
+      expiresAt: '',
+    });
   };
 
   const handleCopyKey = async (key: string, keyId: string) => {
@@ -406,6 +475,205 @@ export default function ApiKeysPage() {
           </button>
         </div>
       </div>
+
+      {/* Create API Key Modal */}
+      {showCreateModal && (
+        <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4'>
+          <div className='bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto'>
+            <div className='flex items-center justify-between mb-6'>
+              <h2 className='text-xl font-semibold text-wise-gray-900'>Create New API Key</h2>
+              <button
+                onClick={closeCreateModal}
+                className='p-1 rounded hover:bg-wise-gray-100'
+                disabled={saving}
+              >
+                <X className='w-5 h-5 text-wise-gray-500' />
+              </button>
+            </div>
+
+            {createdKey ? (
+              <div className='space-y-4'>
+                <div className='bg-wise-green-50 border border-wise-green-200 rounded-lg p-4'>
+                  <div className='flex items-start'>
+                    <Info className='w-5 h-5 text-wise-green-600 mt-0.5 mr-3 flex-shrink-0' />
+                    <div className='flex-1'>
+                      <h3 className='text-sm font-medium text-wise-green-900'>API Key Created Successfully!</h3>
+                      <p className='text-sm text-wise-green-700 mt-1'>
+                        Make sure to copy your API key now. You won't be able to see it again!
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className='block text-sm font-medium text-wise-gray-700 mb-2'>
+                    Your API Key
+                  </label>
+                  <div className='flex items-center space-x-2'>
+                    <code className='flex-1 px-4 py-3 bg-wise-gray-100 rounded-lg text-sm font-mono text-wise-gray-900 break-all'>
+                      {createdKey}
+                    </code>
+                    <button
+                      onClick={() => handleCopyKey(createdKey, 'new')}
+                      className='p-3 rounded-lg hover:bg-wise-gray-100'
+                    >
+                      {copiedKey === 'new' ? (
+                        <Check className='w-5 h-5 text-wise-green-primary' />
+                      ) : (
+                        <Copy className='w-5 h-5 text-wise-gray-600' />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className='flex items-center justify-end pt-4'>
+                  <button
+                    onClick={closeCreateModal}
+                    className='btn-wise-primary px-6 py-2'
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleCreateKey} className='space-y-4'>
+                <div>
+                  <label className='block text-sm font-medium text-wise-gray-700 mb-2'>
+                    API Key Name *
+                  </label>
+                  <input
+                    type='text'
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className='input-wise'
+                    placeholder='My MCP Gateway Key'
+                    required
+                    disabled={saving}
+                  />
+                </div>
+
+                <div>
+                  <label className='block text-sm font-medium text-wise-gray-700 mb-2'>
+                    Project (Optional)
+                  </label>
+                  <select
+                    value={formData.projectId}
+                    onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+                    className='input-wise'
+                    disabled={saving}
+                  >
+                    <option value=''>None</option>
+                    {(projects || []).map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className='block text-sm font-medium text-wise-gray-700 mb-2'>
+                    Scopes *
+                  </label>
+                  <div className='space-y-2'>
+                    {[
+                      { value: 'mcp:tools:read', label: 'Read MCP Tools', description: 'View available tools and capabilities' },
+                      { value: 'mcp:tools:write', label: 'Execute MCP Tools', description: 'Execute tools and perform actions' },
+                      { value: 'mcp:resources:read', label: 'Read MCP Resources', description: 'Access resource data' },
+                      { value: 'mcp:resources:write', label: 'Write MCP Resources', description: 'Create and modify resources' },
+                    ].map((scope) => (
+                      <label
+                        key={scope.value}
+                        className='flex items-start p-3 border border-wise-gray-200 rounded-lg hover:bg-wise-gray-50 cursor-pointer'
+                      >
+                        <input
+                          type='checkbox'
+                          checked={formData.scopes.includes(scope.value)}
+                          onChange={() => toggleScope(scope.value)}
+                          className='mt-1 mr-3'
+                          disabled={saving}
+                        />
+                        <div className='flex-1'>
+                          <div className='font-medium text-wise-gray-900'>{scope.label}</div>
+                          <div className='text-sm text-wise-gray-600'>{scope.description}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className='block text-sm font-medium text-wise-gray-700 mb-2'>
+                    Rate Limit (requests per minute)
+                  </label>
+                  <input
+                    type='number'
+                    value={formData.rateLimit}
+                    onChange={(e) => setFormData({ ...formData, rateLimit: Number(e.target.value) })}
+                    className='input-wise'
+                    min='1'
+                    max='1000'
+                    disabled={saving}
+                  />
+                </div>
+
+                <div>
+                  <label className='block text-sm font-medium text-wise-gray-700 mb-2'>
+                    Expiration Date (Optional)
+                  </label>
+                  <input
+                    type='date'
+                    value={formData.expiresAt}
+                    onChange={(e) => setFormData({ ...formData, expiresAt: e.target.value })}
+                    className='input-wise'
+                    min={new Date().toISOString().split('T')[0]}
+                    disabled={saving}
+                  />
+                </div>
+
+                <div className='bg-blue-50 border border-blue-200 rounded-lg p-4'>
+                  <div className='flex items-start'>
+                    <Info className='w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0' />
+                    <div className='flex-1'>
+                      <p className='text-sm text-blue-700'>
+                        The API key will be shown only once after creation. Make sure to copy and store it securely.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className='flex items-center justify-end space-x-3 pt-4'>
+                  <button
+                    type='button'
+                    onClick={closeCreateModal}
+                    className='px-4 py-2 text-wise-gray-700 hover:bg-wise-gray-50 rounded-lg transition-colors'
+                    disabled={saving}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type='submit'
+                    disabled={saving || formData.scopes.length === 0}
+                    className='btn-wise-primary px-6 py-2 flex items-center'
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className='w-4 h-4 mr-2 animate-spin' />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <Save className='w-4 h-4 mr-2' />
+                        Create API Key
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -71,12 +71,8 @@ export default function VoucherPage() {
     }
   };
 
-  const totalSavings = voucherHistory?.reduce((sum, voucher) => {
-    if (voucher.status === 'REDEEMED' && voucher.amountSaved) {
-      return sum + voucher.amountSaved;
-    }
-    return sum;
-  }, 0) || 0;
+  // Total savings calculation placeholder (would need a voucherUsage table to track actual redemptions)
+  const totalSavings = 0;
 
   if (loading) {
     return (
@@ -212,11 +208,11 @@ export default function VoucherPage() {
                 </div>
 
                 <div className='space-y-2'>
-                  {voucher.expiresAt && (
+                  {voucher.validUntil && (
                     <div className='flex items-center space-x-2 text-sm text-wise-gray-600'>
                       <Calendar className='w-4 h-4' />
                       <span>
-                        Expires: {new Date(voucher.expiresAt).toLocaleDateString()}
+                        Expires: {new Date(voucher.validUntil).toLocaleDateString()}
                       </span>
                     </div>
                   )}
@@ -228,11 +224,11 @@ export default function VoucherPage() {
                       </span>
                     </div>
                   )}
-                  {voucher.minPurchase && (
+                  {voucher.minPurchaseAmount && (
                     <div className='flex items-center space-x-2 text-sm text-wise-gray-600'>
                       <DollarSign className='w-4 h-4' />
                       <span>
-                        Minimum purchase: ${(voucher.minPurchase / 100).toFixed(2)}
+                        Minimum purchase: ${(voucher.minPurchaseAmount / 100).toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -250,68 +246,78 @@ export default function VoucherPage() {
         </div>
       )}
 
-      {/* Voucher History */}
+      {/* Available Vouchers */}
       <div className='card-wise p-6'>
-        <h2 className='text-lg font-semibold text-wise-gray-900 mb-4'>Voucher History</h2>
+        <h2 className='text-lg font-semibold text-wise-gray-900 mb-4'>Available Vouchers</h2>
         {voucherHistory && voucherHistory.length > 0 ? (
           <div className='space-y-3'>
-            {voucherHistory.map((voucher) => (
-              <div
-                key={voucher._id}
-                className='flex items-center justify-between p-4 bg-wise-gray-50 rounded-lg'
-              >
-                <div className='flex items-center space-x-4'>
-                  <div className={`p-2 rounded-lg ${
-                    voucher.status === 'REDEEMED' ? 'bg-green-100' :
-                    voucher.status === 'EXPIRED' ? 'bg-gray-100' : 'bg-red-100'
-                  }`}>
-                    {voucher.status === 'REDEEMED' ? (
-                      <CheckCircle className='w-5 h-5 text-green-600' />
-                    ) : voucher.status === 'EXPIRED' ? (
-                      <Clock className='w-5 h-5 text-gray-600' />
-                    ) : (
-                      <XCircle className='w-5 h-5 text-red-600' />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className='font-semibold text-wise-gray-900'>{voucher.code}</h3>
-                    <p className='text-sm text-wise-gray-600'>
-                      {voucher.description || 'Discount voucher'}
-                    </p>
-                    {voucher.redeemedAt && (
-                      <p className='text-xs text-wise-gray-500 mt-1'>
-                        Redeemed on {new Date(voucher.redeemedAt).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
-                </div>
+            {voucherHistory.map((voucher) => {
+              const now = Date.now();
+              const isExpired = voucher.validUntil && voucher.validUntil < now;
+              const isMaxedOut = voucher.maxUses && voucher.currentUses >= voucher.maxUses;
+              const isAvailable = !isExpired && !isMaxedOut && voucher.isActive;
 
-                <div className='text-right'>
-                  {voucher.status === 'REDEEMED' && voucher.amountSaved ? (
-                    <>
-                      <div className='flex items-center space-x-1 text-lg font-bold text-green-600'>
-                        <DollarSign className='w-4 h-4' />
-                        <span>{(voucher.amountSaved / 100).toFixed(2)}</span>
-                      </div>
-                      <p className='text-xs text-green-600'>Saved</p>
-                    </>
-                  ) : (
-                    <span className={`text-sm font-medium ${
-                      voucher.status === 'REDEEMED' ? 'text-green-600' :
-                      voucher.status === 'EXPIRED' ? 'text-gray-600' : 'text-red-600'
+              return (
+                <div
+                  key={voucher._id}
+                  className='flex items-center justify-between p-4 bg-wise-gray-50 rounded-lg'
+                >
+                  <div className='flex items-center space-x-4'>
+                    <div className={`p-2 rounded-lg ${
+                      isAvailable ? 'bg-green-100' :
+                      isExpired ? 'bg-gray-100' : 'bg-red-100'
                     }`}>
-                      {voucher.status}
-                    </span>
-                  )}
+                      {isAvailable ? (
+                        <CheckCircle className='w-5 h-5 text-green-600' />
+                      ) : isExpired ? (
+                        <Clock className='w-5 h-5 text-gray-600' />
+                      ) : (
+                        <XCircle className='w-5 h-5 text-red-600' />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className='font-semibold text-wise-gray-900'>{voucher.code}</h3>
+                      <p className='text-sm text-wise-gray-600'>
+                        {voucher.description || 'Discount voucher'}
+                      </p>
+                      {voucher.validUntil && (
+                        <p className='text-xs text-wise-gray-500 mt-1'>
+                          Valid until {new Date(voucher.validUntil).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className='text-right'>
+                    <div className='flex items-center space-x-1 text-lg font-bold text-wise-green-primary'>
+                      {voucher.discountType === 'PERCENTAGE' ? (
+                        <>
+                          <Percent className='w-4 h-4' />
+                          <span>{voucher.discountValue}</span>
+                        </>
+                      ) : (
+                        <>
+                          <DollarSign className='w-4 h-4' />
+                          <span>{(voucher.discountValue / 100).toFixed(2)}</span>
+                        </>
+                      )}
+                    </div>
+                    <p className={`text-xs mt-1 ${
+                      isAvailable ? 'text-green-600' :
+                      isExpired ? 'text-gray-600' : 'text-red-600'
+                    }`}>
+                      {isAvailable ? 'Available' : isExpired ? 'Expired' : 'Used up'}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <EmptyState
             icon={Gift}
-            title='No voucher history'
-            description='Your voucher redemption history will appear here'
+            title='No vouchers available'
+            description='Check back later for promotional offers'
           />
         )}
       </div>

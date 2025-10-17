@@ -3,8 +3,8 @@ import { query, mutation } from "./_generated/server";
 
 // Get active vouchers
 export const getActiveVouchers = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { clerkId: v.string() },
+  handler: async (ctx, { clerkId }) => {
     const now = Date.now();
 
     const vouchers = await ctx.db
@@ -84,9 +84,19 @@ export const validateVoucher = query({
 // Apply voucher (increment usage)
 export const applyVoucher = mutation({
   args: {
+    clerkId: v.string(),
     code: v.string(),
   },
-  handler: async (ctx, { code }) => {
+  handler: async (ctx, { clerkId, code }) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
     const voucher = await ctx.db
       .query("vouchers")
       .withIndex("by_code", (q) => q.eq("code", code.toUpperCase()))
@@ -96,9 +106,27 @@ export const applyVoucher = mutation({
       throw new Error("Invalid voucher code");
     }
 
+    const now = Date.now();
+
+    if (!voucher.isActive) {
+      throw new Error("Voucher is no longer active");
+    }
+
+    if (voucher.validFrom > now) {
+      throw new Error("Voucher is not yet valid");
+    }
+
+    if (voucher.validUntil && voucher.validUntil < now) {
+      throw new Error("Voucher has expired");
+    }
+
+    if (voucher.maxUses && voucher.currentUses >= voucher.maxUses) {
+      throw new Error("Voucher has reached maximum uses");
+    }
+
     await ctx.db.patch(voucher._id, {
       currentUses: voucher.currentUses + 1,
-      updatedAt: Date.now(),
+      updatedAt: now,
     });
 
     return voucher._id;

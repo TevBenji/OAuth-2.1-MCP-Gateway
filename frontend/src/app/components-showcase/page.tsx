@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
 import {
   Badge,
   Button,
@@ -16,7 +15,6 @@ import {
   SettingsGroup,
   StatCard,
   DataTable,
-  EmptyState,
 } from '@/components';
 import {
   Code,
@@ -25,32 +23,18 @@ import {
   Zap,
   Shield,
   CheckCircle,
-  AlertCircle,
   XCircle,
-  TrendingUp,
-  TrendingDown,
   Users,
   Activity,
   Settings,
   Globe,
   Server,
-  Key,
-  ArrowRight,
-  Copy,
-  ExternalLink,
+  Clock,
   Download,
   RefreshCw,
-  Eye,
   EyeOff,
-  Save,
-  Loader2,
   Plus,
   Trash2,
-  Edit,
-  Calendar,
-  Clock,
-  Filter,
-  Search,
 } from 'lucide-react';
 
 export default function ComponentsShowcasePage() {
@@ -154,7 +138,7 @@ export default function ComponentsShowcasePage() {
       change: '+12.5%',
       trend: 'up' as const,
       icon: Activity,
-      color: 'green',
+      color: 'green' as const,
     },
     {
       title: 'Success Rate',
@@ -162,7 +146,7 @@ export default function ComponentsShowcasePage() {
       change: '+0.3%',
       trend: 'up' as const,
       icon: Shield,
-      color: 'blue',
+      color: 'blue' as const,
     },
     {
       title: 'Active Users',
@@ -170,7 +154,7 @@ export default function ComponentsShowcasePage() {
       change: '+18.2%',
       trend: 'up' as const,
       icon: Users,
-      color: 'purple',
+      color: 'purple' as const,
     },
     {
       title: 'Avg Response',
@@ -178,7 +162,7 @@ export default function ComponentsShowcasePage() {
       change: '-5.3%',
       trend: 'down' as const,
       icon: Clock,
-      color: 'orange',
+      color: 'orange' as const,
     },
   ];
 
@@ -188,23 +172,6 @@ export default function ComponentsShowcasePage() {
     { id: 'tables', label: 'Tables & Data', icon: Code },
     { id: 'advanced', label: 'Advanced', icon: Zap },
   ];
-
-  const copyCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    // In a real app, you'd show a toast notification here
-  };
-
-  const getButtonCode = (variant: string, size: string, loading: boolean = false) => {
-    return `<Button variant="${variant}" size="${size}" ${loading ? 'loading' : 'icon={<Plus className="w-4 h-4" />'}>
-  ${loading ? 'Loading...' : 'Click me'}
-</Button>`;
-  };
-
-  const getBadgeCode = (variant: string, size: string) => {
-    return `<Badge variant="${variant}" size="${size}">
-  Label
-</Badge>`;
-  };
 
   return (
     <div className="min-h-screen bg-wise-gray-50">
@@ -533,16 +500,18 @@ export default function ComponentsShowcasePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <EmptyState
-                  icon={Server}
-                  title="No MCP Servers Found"
-                  description="Get started by creating your first MCP server configuration."
-                  action={
-                    <Button variant="primary" icon={<Plus className="w-4 h-4" />}>
-                      Create Server
-                    </Button>
-                  }
-                />
+                <div className="text-center py-12">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-wise-gray-100 rounded-full mb-4">
+                    <Server className="w-8 h-8 text-wise-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-medium text-wise-gray-900 mb-2">No MCP Servers Found</h3>
+                  <p className="text-sm text-wise-gray-600 mb-4">
+                    Get started by creating your first MCP server configuration.
+                  </p>
+                  <Button variant="primary" icon={<Plus className="w-4 h-4" />}>
+                    Create Server
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>

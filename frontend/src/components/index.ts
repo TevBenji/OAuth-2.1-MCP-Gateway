@@ -1,6 +1,6 @@
 // UI Components
 export { Badge } from './ui/Badge';
-export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './ui/Card';
+export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './ui/card';
 export { Button } from './ui/Button';
 
 // Dashboard Components
