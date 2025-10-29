@@ -205,7 +205,26 @@ export class JWTService {
       );
 
       const payloadJSON = atob(paddedPayloadB64);
-      return JSON.parse(payloadJSON) as TokenPayload;
+      
+      // Validate the payloadJSON before parsing to prevent prototype pollution
+      if (typeof payloadJSON !== 'string' || !/^[\[\{].*[\]\}]$/.test(payloadJSON.trim())) {
+        console.warn('Invalid JWT payload format');
+        return null;
+      }
+      
+      const parsed = JSON.parse(payloadJSON);
+      
+      // Validate parsed object to prevent prototype pollution
+      if (parsed !== null && typeof parsed === 'object') {
+        // Check for dangerous properties that could lead to prototype pollution
+        if (Object.prototype.hasOwnProperty.call(parsed, '__proto__') || 
+            Object.prototype.hasOwnProperty.call(parsed, 'constructor')) {
+          console.error('Prototype pollution attempt detected in JWT payload');
+          return null;
+        }
+      }
+      
+      return parsed as TokenPayload;
     } catch (error) {
       console.error('Error decoding token:', error);
       return null;

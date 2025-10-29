@@ -342,13 +342,51 @@ export class MCPServerQueries implements MCPServerDatabase {
       name: row.name,
       endpoint_url: row.endpoint_url,
       resource_identifier: row.resource_identifier,
-      required_scopes: JSON.parse(row.required_scopes || '[]'),
+      required_scopes: this.safeJsonParse(row.required_scopes, []),
       health_check_url: row.health_check_url,
       timeout_ms: row.timeout_ms,
       retry_attempts: row.retry_attempts,
       status: row.status,
-      metadata: JSON.parse(row.metadata || '{}'),
+      metadata: this.safeJsonParse(row.metadata, {}),
     };
+  }
+
+  /**
+   * Safely parse JSON with validation to prevent prototype pollution and other vulnerabilities
+   * @param jsonString The JSON string to parse
+   * @param defaultValue The default value to return if parsing fails
+   */
+  private safeJsonParse<T>(jsonString: string | null | undefined, defaultValue: T): T {
+    if (!jsonString) {
+      return defaultValue;
+    }
+
+    try {
+      // First, validate the string to ensure it's a proper JSON array/object
+      if (typeof jsonString !== 'string' || !/^[\[\{].*[\]\}]$/.test(jsonString.trim())) {
+        console.warn('Invalid JSON format detected, returning default value');
+        return defaultValue;
+      }
+
+      // Parse the JSON
+      const parsed = JSON.parse(jsonString);
+
+      // Additional validation to prevent prototype pollution
+      if (parsed !== null && typeof parsed === 'object') {
+        // Check for dangerous properties that could lead to prototype pollution
+        if (Object.prototype.hasOwnProperty.call(parsed, '__proto__') || 
+            Object.prototype.hasOwnProperty.call(parsed, 'constructor')) {
+          console.error('Prototype pollution attempt detected');
+          return defaultValue;
+        }
+      }
+
+      return parsed as T;
+    } catch (error) {
+      console.error('JSON parsing error:', error);
+      return defaultValue;
+    }
+  }
 
     const health: MCPServerHealth = {
       server_id: row.server_id,

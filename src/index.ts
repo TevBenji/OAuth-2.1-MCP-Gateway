@@ -19,6 +19,7 @@ import { authMiddleware, requireScopes } from './middleware/auth';
 import { rateLimitMiddleware, ipRateLimitMiddleware } from './middleware/rate-limit';
 import { RateLimiter } from './services/security/rate-limiter';
 import { RateLimitStorageKV } from './services/security/rate-limit-storage-kv';
+import { createRateLimitStorageDO } from './services/security/rate-limit-storage-do';
 
 // Define context variables for type safety
 type Variables = {
@@ -80,21 +81,36 @@ app.get('/.well-known/oauth-authorization-server', c => {
   });
 });
 
-// Create rate limiter with KV storage
+// Create rate limiter with Durable Objects storage (falls back to KV if DO not available)
 const createRateLimiter = (env: any) => {
   // Handle undefined env for testing
   if (!env) {
     // Create a mock storage for testing
     const mockStorage = {
-      get: async () => null,
+      get: async () => 0,
       put: async () => {},
       delete: async () => {},
-      increment: async () => ({ count: 0, ttl: 0 }),
+      increment: async () => 1,
+      isBlocked: async () => false,
+      block: async () => {},
+      unblock: async () => {},
+      getBlockInfo: async () => null,
+      reset: async () => {},
     };
     return new RateLimiter(mockStorage as any);
   }
 
-  const storage = new RateLimitStorageKV(env.RATE_LIMIT_KV || env.RATE_LIMIT, 'oauth-gateway');
+  // Prefer Durable Objects for atomic consistency, fallback to KV
+  if (env.RATE_LIMIT_DO) {
+    const storage = createRateLimitStorageDO(
+      env.RATE_LIMIT_DO,
+      env.RATE_LIMIT_KV || env.CACHE
+    );
+    return new RateLimiter(storage);
+  }
+
+  // Fallback to KV storage
+  const storage = new RateLimitStorageKV(env.RATE_LIMIT_KV || env.CACHE, 'oauth-gateway');
   return new RateLimiter(storage);
 };
 
@@ -121,8 +137,8 @@ app.post(
 app.post('/oauth/register', registerClient);
 app.post('/register', registerClient); // Legacy compatibility
 
-// OAuth 2.1 Authorization Endpoint
-app.get('/authorize', handleAuthorization);
+// SECURITY FIX: Removed duplicate /authorize route
+// The /oauth/authorize route is already defined above (lines 118-127)
 
 // MCP Health Check - Public endpoint (must be before protected routes)
 app.get('/mcp/health', c => {
@@ -151,15 +167,10 @@ app.all(
   proxyByResourceIdentifier
 ); // Proxy by resource identifier
 
-// OAuth 2.1 Token Endpoint
-app.post('/token', handleToken);
-
-// MCP Gateway Proxy Routes
-// Proxy by server ID: /mcp/:serverId/*
-app.all('/mcp/:serverId/*', proxyToMCPServer);
-
-// Proxy by resource identifier: /mcp/resource/*
-app.all('/mcp/resource/*', proxyByResourceIdentifier);
+// SECURITY FIX: Removed duplicate routes
+// The /token route is already defined above (lines 129-134)
+// The /mcp/:serverId/* route is already defined above (lines 154-160)
+// The /mcp/resource/* route is already defined above (lines 162-168)
 
 // Admin API and UI routes
 app.route('/admin/api', adminApi);

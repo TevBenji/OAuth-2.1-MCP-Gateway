@@ -138,14 +138,19 @@ export class ClientService {
       return null;
     }
     
-    // Parse JSON arrays
-    return {
-      ...result,
-      redirect_uris: JSON.parse(result.redirect_uris as any),
-      grant_types: JSON.parse(result.grant_types as any),
-      response_types: JSON.parse(result.response_types as any),
-      contacts: result.contacts ? JSON.parse(result.contacts as any) : undefined
-    };
+    // Parse JSON arrays with proper error handling to prevent injection attacks
+    try {
+      return {
+        ...result,
+        redirect_uris: result.redirect_uris ? safeJsonParse(result.redirect_uris as any, []) : [],
+        grant_types: result.grant_types ? safeJsonParse(result.grant_types as any, []) : [],
+        response_types: result.response_types ? safeJsonParse(result.response_types as any, []) : [],
+        contacts: result.contacts ? safeJsonParse(result.contacts as any, undefined) : undefined
+      };
+    } catch (error) {
+      console.error('Error parsing client data from database:', error);
+      throw new Error('Invalid client data format in database');
+    }
   }
 
   /**
@@ -249,6 +254,43 @@ export class ClientService {
   private generateClientId(): string {
     const uuid = generateUUID().replace(/-/g, '');
     return `mcp_client_${uuid}`;
+  }
+
+  /**
+   * Safely parse JSON with validation to prevent prototype pollution and other vulnerabilities
+   * @param jsonString The JSON string to parse
+   * @param defaultValue The default value to return if parsing fails
+   */
+  function safeJsonParse<T>(jsonString: string, defaultValue: T): T {
+    if (!jsonString) {
+      return defaultValue;
+    }
+
+    try {
+      // First, validate the string to ensure it's a proper JSON array/object
+      if (typeof jsonString !== 'string' || !/^[\[\{].*[\]\}]$/.test(jsonString.trim())) {
+        console.warn('Invalid JSON format detected, returning default value');
+        return defaultValue;
+      }
+
+      // Parse the JSON
+      const parsed = JSON.parse(jsonString);
+
+      // Additional validation to prevent prototype pollution
+      if (parsed !== null && typeof parsed === 'object') {
+        // Check for dangerous properties that could lead to prototype pollution
+        if (Object.prototype.hasOwnProperty.call(parsed, '__proto__') || 
+            Object.prototype.hasOwnProperty.call(parsed, 'constructor')) {
+          console.error('Prototype pollution attempt detected');
+          return defaultValue;
+        }
+      }
+
+      return parsed as T;
+    } catch (error) {
+      console.error('JSON parsing error:', error);
+      return defaultValue;
+    }
   }
 
   /**

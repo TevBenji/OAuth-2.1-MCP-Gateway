@@ -67,7 +67,37 @@ export async function generatePKCE(): Promise<PKCEChallenge> {
 export const createS256CodeChallenge = sha256;
 
 /**
+ * Constant-time string comparison to prevent timing attacks
+ *
+ * Security: This prevents attackers from using timing differences to guess
+ * the PKCE challenge character by character.
+ */
+export function constantTimeCompare(a: string, b: string): boolean {
+  // If lengths differ, still perform comparison to prevent timing leak
+  const aLen = a.length;
+  const bLen = b.length;
+
+  // Ensure we compare the full length (use the longer string's length)
+  const maxLen = Math.max(aLen, bLen);
+
+  let result = aLen === bLen ? 0 : 1;
+
+  for (let i = 0; i < maxLen; i++) {
+    const aChar = i < aLen ? a.charCodeAt(i) : 0;
+    const bChar = i < bLen ? b.charCodeAt(i) : 0;
+    result |= aChar ^ bChar;
+  }
+
+  return result === 0;
+}
+
+/**
  * Validate PKCE verifier against challenge
+ *
+ * Security Enhancements:
+ * - Uses constant-time comparison to prevent timing attacks
+ * - Validates format before comparison
+ * - Only supports S256 method (most secure)
  */
 export async function validatePKCE(
   codeVerifier: string,
@@ -93,7 +123,9 @@ export async function validatePKCE(
 
   try {
     const expectedChallenge = await sha256(codeVerifier);
-    return expectedChallenge === codeChallenge;
+
+    // SECURITY FIX: Use constant-time comparison to prevent timing attacks
+    return constantTimeCompare(expectedChallenge, codeChallenge);
   } catch {
     return false;
   }

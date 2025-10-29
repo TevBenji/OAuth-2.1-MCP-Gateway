@@ -8,6 +8,7 @@
 import type { Context, Next } from 'hono';
 import { MCPError } from '../errors/mcp-error';
 import { JWTService } from '../services/oauth/jwt';
+import { getJWTService } from '../services/oauth/jwt-factory';
 import type { TokenPayload } from '../types/oauth';
 import type { MCPRequestContext } from '../types/mcp';
 import { RiskService } from '../services/security/risk';
@@ -59,13 +60,13 @@ export function authMiddleware() {
         );
       }
 
-      // Get JWT service configuration from environment
+      // Get JWT service configuration from environment (uses cached factory)
       const env = c.env as Bindings;
-      const jwtService = new JWTService(
-        env.JWT_SECRET,
-        env.JWT_ALGORITHM || 'HS256',
-        env.ISSUER || 'oauth-mcp-gateway'
-      );
+      const jwtService = getJWTService({
+        JWT_SECRET: env.JWT_SECRET,
+        JWT_ALGORITHM: env.JWT_ALGORITHM || 'HS256',
+        JWT_ISSUER: env.ISSUER || 'oauth-mcp-gateway',
+      });
 
       // Verify the token
       let verificationResult;

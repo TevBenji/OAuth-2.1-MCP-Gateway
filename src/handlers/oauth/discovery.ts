@@ -130,10 +130,23 @@ export const getAuthorizationServerMetadata = async (c: Context) => {
     // Set proper content-type header
     c.header('Content-Type', 'application/json; charset=utf-8');
     
-    // Set CORS headers
-    c.header('Access-Control-Allow-Origin', '*');
+    // Set proper CORS headers (avoid wildcards for security-sensitive endpoints)
+    const origin = c.req.header('Origin');
+    if (origin) {
+      const allowedOrigins = process.env.CORS_ORIGINS
+        ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
+        : ['http://localhost:3000', 'https://localhost:3000'];
+      
+      if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+        c.header('Access-Control-Allow-Origin', origin);
+      }
+    } else {
+      // If no Origin header, don't set Access-Control-Allow-Origin to avoid wildcard
+      c.header('Access-Control-Allow-Origin', 'null');
+    }
     c.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
     c.header('Access-Control-Allow-Headers', 'Content-Type');
+    c.header('Vary', 'Origin'); // Important for caching when using origin-based CORS
 
     return c.json(metadata);
   } catch (error) {
@@ -172,10 +185,23 @@ export const getProtectedResourceMetadata = async (c: Context) => {
     // Set proper content-type header
     c.header('Content-Type', 'application/json; charset=utf-8');
     
-    // Set CORS headers
-    c.header('Access-Control-Allow-Origin', '*');
+    // Set proper CORS headers (avoid wildcards for security-sensitive endpoints)
+    const origin = c.req.header('Origin');
+    if (origin) {
+      const allowedOrigins = process.env.CORS_ORIGINS
+        ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
+        : ['http://localhost:3000', 'https://localhost:3000'];
+      
+      if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+        c.header('Access-Control-Allow-Origin', origin);
+      }
+    } else {
+      // If no Origin header, don't set Access-Control-Allow-Origin to avoid wildcard
+      c.header('Access-Control-Allow-Origin', 'null');
+    }
     c.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
     c.header('Access-Control-Allow-Headers', 'Content-Type');
+    c.header('Vary', 'Origin'); // Important for caching when using origin-based CORS
 
     return c.json(metadata);
   } catch (error) {
@@ -188,8 +214,21 @@ export const getProtectedResourceMetadata = async (c: Context) => {
  * CORS preflight handler for discovery endpoints
  */
 export const discoveryPreflight = async (c: Context) => {
-  c.header('Access-Control-Allow-Origin', '*');
+  const origin = c.req.header('Origin');
+  if (origin) {
+    const allowedOrigins = process.env.CORS_ORIGINS
+      ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
+      : ['http://localhost:3000', 'https://localhost:3000'];
+    
+    if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+      c.header('Access-Control-Allow-Origin', origin);
+    }
+  } else {
+    // If no Origin header, don't set Access-Control-Allow-Origin to avoid wildcard
+    c.header('Access-Control-Allow-Origin', 'null');
+  }
   c.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
   c.header('Access-Control-Allow-Headers', 'Content-Type');
+  c.header('Vary', 'Origin'); // Important for caching when using origin-based CORS
   return c.text('', 204);
 };

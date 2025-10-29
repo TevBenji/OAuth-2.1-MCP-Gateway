@@ -20,6 +20,16 @@ binding = "CACHE"
 id = "cache_kv"
 preview_id = "cache_kv_preview"
 
+# Durable Objects for rate limiting
+[[durable_objects.bindings]]
+name = "RATE_LIMIT_DO"
+class_name = "RateLimitCounter"
+script_name = "oauth-mcp-gateway"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["RateLimitCounter"]
+
 # D1 database for persistent storage
 [[d1_databases]]
 binding = "DB"
@@ -49,3 +59,7 @@ JWT_ISSUER = "https://oauth-mcp-gateway-staging.example.com"
 [env.production.vars]
 ENVIRONMENT = "production"
 JWT_ISSUER = "https://oauth-mcp-gateway.example.com"
+
+# Scheduled cron triggers
+[triggers]
+crons = ["0 2 * * *"]  # Daily at 2 AM UTC for session cleanup

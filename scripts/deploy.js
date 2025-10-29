@@ -28,7 +28,8 @@ const environments = {
       ENVIRONMENT: 'staging',
       LOG_LEVEL: 'info',
       DATABASE_URL: process.env.STAGING_DATABASE_URL || 'cloudflare-d1://staging-db',
-      JWT_SECRET: process.env.STAGING_JWT_SECRET || 'staging-jwt-secret-key'
+      // SECURITY FIX: No fallback for JWT_SECRET - deployment will fail if not set
+      JWT_SECRET: process.env.STAGING_JWT_SECRET
     }
   },
   production: {
@@ -38,7 +39,8 @@ const environments = {
       ENVIRONMENT: 'production',
       LOG_LEVEL: 'warn',
       DATABASE_URL: process.env.PRODUCTION_DATABASE_URL || 'cloudflare-d1://production-db',
-      JWT_SECRET: process.env.PRODUCTION_JWT_SECRET || 'production-jwt-secret-key'
+      // SECURITY FIX: No fallback for JWT_SECRET - deployment will fail if not set
+      JWT_SECRET: process.env.PRODUCTION_JWT_SECRET
     }
   }
 };
@@ -65,7 +67,12 @@ async function deployToCloudflare(environment, options = {}) {
     
     // Pre-deployment validation
     await validateDeploymentPrerequisites(environment);
-    
+
+    // SECURITY FIX: Validate JWT_SECRET is set for non-dev environments
+    if (environment !== 'development' && !envConfig.vars.JWT_SECRET) {
+      throw new Error(`JWT_SECRET environment variable is required for ${environment} deployment. Please set ${environment.toUpperCase()}_JWT_SECRET environment variable.`);
+    }
+
     // Set environment variables
     const envVars = { ...envConfig.vars };
     
