@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [x] 1. Set up project foundation and core interface
+- [X] 1. Set up project foundation and core interface
 
   - Create TypeScript project with edge runtime configuration (Cloudflare Workers)
   - Define core TypeScript interfaces for OAuth 2.1, MCP, and multi-tenant components
