@@ -22,7 +22,7 @@ function calculatePercentile(sortedValues: number[], percentile: number): number
   if (sortedValues.length === 0) return 0;
 
   const index = Math.ceil((percentile / 100) * sortedValues.length) - 1;
-  return sortedValues[Math.max(0, index)];
+  return sortedValues[Math.max(0, index)] ?? 0;
 }
 
 /**
@@ -46,8 +46,8 @@ export function calculateMetricsSummary(values: number[]): MetricsSummary {
   return {
     count: values.length,
     avg: values.reduce((sum, val) => sum + val, 0) / values.length,
-    min: sorted[0],
-    max: sorted[sorted.length - 1],
+    min: sorted[0] ?? 0,
+    max: sorted[sorted.length - 1] ?? 0,
     p50: calculatePercentile(sorted, 50),
     p95: calculatePercentile(sorted, 95),
     p99: calculatePercentile(sorted, 99),

@@ -43,6 +43,16 @@ interface NavItem {
 
 const navigation: { section: string; items: NavItem[] }[] = [
   {
+    section: 'Getting Started',
+    items: [
+      {
+        label: 'Onboarding Guide',
+        href: '/onboarding',
+        icon: Plus,
+      },
+    ],
+  },
+  {
     section: 'Organization',
     items: [
       {
@@ -151,7 +161,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<string[]>(['Organization', 'Billing']);
+  const [expandedSections, setExpandedSections] = useState<string[]>(['Getting Started', 'Organization', 'Billing']);
   const [searchQuery, setSearchQuery] = useState('');
   const [subscription, setSubscription] = useState<{
     plan: string;

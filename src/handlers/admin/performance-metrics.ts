@@ -6,7 +6,7 @@
  */
 
 import type { Context } from 'hono';
-import { getPerformanceMetrics } from '../../middleware/performance';
+import { getPerformanceMetrics as fetchMetrics } from '../../middleware/performance';
 import {
   calculateMetricsSummary,
   groupByEndpoint,
@@ -21,9 +21,9 @@ import {
  */
 export async function getPerformanceMetrics(c: Context) {
   const format = c.req.query('format') || 'json';
-  const metrics = getPerformanceMetrics();
+  const rawMetrics = fetchMetrics();
 
-  if (metrics.length === 0) {
+  if (rawMetrics.length === 0) {
     return c.json({
       message: 'No metrics collected yet',
       count: 0,
@@ -31,20 +31,20 @@ export async function getPerformanceMetrics(c: Context) {
   }
 
   // Calculate overall statistics
-  const requestDurations = metrics.map(m => m.requestDuration);
+  const requestDurations = rawMetrics.map(m => m.duration);
   const overallStats = calculateMetricsSummary(requestDurations);
 
   // Group by endpoint
-  const grouped = groupByEndpoint(metrics);
+  const grouped = groupByEndpoint(rawMetrics.map(m => ({ endpoint: m.name, duration: m.duration, timestamp: Date.now() })));
   const endpointStats: Record<string, any> = {};
 
   for (const [endpoint, endpointMetrics] of grouped) {
-    const durations = endpointMetrics.map((m: any) => m.requestDuration);
+    const durations = endpointMetrics.map((m: any) => m.duration);
     endpointStats[endpoint] = calculateMetricsSummary(durations);
   }
 
   // Calculate request rate (last minute)
-  const requestRate = calculateRate(metrics, 60000);
+  const requestRate = calculateRate(rawMetrics.map(m => ({ timestamp: Date.now() })), 60000);
 
   const response = {
     overall: overallStats,

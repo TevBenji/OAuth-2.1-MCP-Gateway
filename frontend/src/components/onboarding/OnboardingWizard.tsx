@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
+import { useUser } from '@clerk/nextjs';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { ProgressBar, Step } from './ProgressBar';
 import { WelcomeStep } from './WelcomeStep';
 import { ClientRegistrationStep, ClientData } from './ClientRegistrationStep';
@@ -26,10 +29,12 @@ interface OnboardingData {
 }
 
 export function OnboardingWizard() {
+  const { user } = useUser();
   const [currentStep, setCurrentStep] = useState(1);
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+  const completeOnboardingMutation = useMutation(api.users.completeOnboarding);
 
   const handleWelcomeNext = () => {
     setCurrentStep(2);
@@ -118,11 +123,10 @@ export function OnboardingWizard() {
   const handleFinish = async () => {
     setIsSubmitting(true);
     try {
-      // TODO: Mark onboarding as complete
-      // await fetch('/api/user/onboarding-complete', { method: 'POST' });
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Mark onboarding as complete in Convex
+      if (user?.id) {
+        await completeOnboardingMutation({ clerkId: user.id });
+      }
 
       // Redirect to dashboard
       router.push('/dashboard');

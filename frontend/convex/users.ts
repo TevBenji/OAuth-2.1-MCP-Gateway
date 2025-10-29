@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, internalMutation } from "./_generated/server";
+import { query, internalMutation, mutation } from "./_generated/server";
 
 // Helper to get or create user
 export const getOrCreate = internalMutation({
@@ -160,6 +160,56 @@ export const getSubscription = query({
       plan: subscription.plan,
       apiCallsUsed: subscription.apiCallsUsed,
       apiCallLimit: subscription.apiCallLimit,
+    };
+  },
+});
+
+// Check onboarding status
+export const getOnboardingStatus = query({
+  args: { clerkId: v.string() },
+  handler: async (ctx, { clerkId }) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    if (!user) {
+      return {
+        completed: false,
+        completedAt: null,
+      };
+    }
+
+    return {
+      completed: user.onboardingCompleted || false,
+      completedAt: user.onboardingCompletedAt || null,
+    };
+  },
+});
+
+// Mark onboarding as complete
+export const completeOnboarding = mutation({
+  args: { clerkId: v.string() },
+  handler: async (ctx, { clerkId }) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    if (!user) {
+      return null;
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(user._id, {
+      onboardingCompleted: true,
+      onboardingCompletedAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      completed: true,
+      completedAt: now,
     };
   },
 });

@@ -119,11 +119,11 @@ export class D1RefreshTokenStorage implements RefreshTokenStorage {
           .bind(tokenHash, this.tenantId),
       ]);
 
-      const result = results[0].results[0] as any;
-
-      if (!result) {
+      const firstResult = results[0];
+      if (!firstResult || !firstResult.results || !firstResult.results[0]) {
         return null;
       }
+      const result = firstResult.results[0] as any;
 
       // Security: Check if token was revoked
       if (result.revoked_at) {

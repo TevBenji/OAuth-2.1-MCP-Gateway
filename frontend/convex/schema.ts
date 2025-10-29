@@ -11,6 +11,8 @@ export default defineSchema({
     role: v.union(v.literal("USER"), v.literal("ADMIN"), v.literal("SUPER_ADMIN")),
     organizationId: v.optional(v.id("organizations")),
     lastActiveAt: v.optional(v.number()),
+    onboardingCompleted: v.optional(v.boolean()),
+    onboardingCompletedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

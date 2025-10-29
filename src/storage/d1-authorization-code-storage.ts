@@ -153,11 +153,11 @@ export class D1AuthorizationCodeStorage implements AuthorizationCodeStorage {
       ]);
 
       // Extract result from first query
-      const result = results[0].results[0] as any;
-
-      if (!result) {
+      const firstResult = results[0];
+      if (!firstResult || !firstResult.results || !firstResult.results[0]) {
         return null;
       }
+      const result = firstResult.results[0] as any;
 
       // Security: Check if code was already used
       if (result.used_at) {

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -27,6 +28,8 @@ import {
   Server,
   Database,
   CreditCard,
+  Sparkles,
+  X,
 } from 'lucide-react';
 import {
   LineChart,
@@ -67,6 +70,8 @@ interface DashboardData {
 export default function DashboardPage() {
   const { user } = useUser();
   const [timeRange, setTimeRange] = useState('7d');
+  const [showOnboardingPrompt, setShowOnboardingPrompt] = useState(true);
+  const { isCompleted: onboardingCompleted, isLoading: onboardingLoading } = useOnboarding();
 
   // Convex queries
   const dashboardStats = useQuery(api.users.getDashboard, user?.id ? { clerkId: user.id } : 'skip');
@@ -212,6 +217,42 @@ export default function DashboardPage() {
 
   return (
     <div className='space-y-6'>
+      {/* Onboarding Prompt - Show for new users who haven't completed onboarding */}
+      {!onboardingLoading && !onboardingCompleted && showOnboardingPrompt && (
+        <div className='bg-gradient-to-r from-wise-green-50 to-wise-green-100/50 border border-wise-green-200 rounded-lg p-6 shadow-sm' suppressHydrationWarning>
+          <div className='flex items-start justify-between'>
+            <div className='flex items-start space-x-4'>
+              <div className='p-2 bg-wise-green-primary/10 rounded-lg mt-1'>
+                <Sparkles className='w-5 h-5 text-wise-green-primary' />
+              </div>
+              <div>
+                <h3 className='text-lg font-semibold text-wise-gray-900' suppressHydrationWarning>
+                  Welcome to OAuth 2.1 MCP Gateway!
+                </h3>
+                <p className='text-sm text-wise-gray-700 mt-1' suppressHydrationWarning>
+                  Complete our quick setup guide to configure your first OAuth client and MCP server.
+                  It takes about 5 minutes.
+                </p>
+                <Link
+                  href='/onboarding'
+                  className='inline-block mt-3 btn-wise-primary px-6 py-2 text-sm'
+                  suppressHydrationWarning
+                >
+                  Start Setup Guide
+                </Link>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowOnboardingPrompt(false)}
+              className='p-1 rounded-lg hover:bg-white/50 transition-colors'
+              aria-label='Dismiss'
+            >
+              <X className='w-5 h-5 text-wise-gray-500' />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className='flex flex-col md:flex-row md:items-center md:justify-between'>
         <div>
