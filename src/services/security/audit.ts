@@ -1,4 +1,4 @@
-import { AuditLogEntry, AuditLogOptions, AuditEventType, AuditLogQuery, AuditLogQueryResult, RetentionPolicy, ComplianceTag } from '../../types/audit';
+import { AuditLogEntry, AuditLogOptions, AuditEventType, AuditLogQuery, AuditLogQueryResult, RetentionPolicy, ComplianceTag, LogEventParams } from '../../types/audit';
 import { D1Database } from '@cloudflare/workers-types';
 
 /**
@@ -137,6 +137,34 @@ export class AuditService {
     }
 
     return logEntry.id;
+  }
+
+  /**
+   * Log an event using the simplified parameters format
+   * This method is used by admin handlers for easier logging
+   */
+  async logEvent(params: LogEventParams): Promise<string> {
+    // Convert the simplified parameters to the full audit log entry format
+    const event: AuditEventType = params.event_type as AuditEventType;
+    const success = params.outcome === 'success';
+    
+    // Map the simplified parameters to the full audit log options
+    const options: AuditLogOptions = {
+      userId: params.user_id,
+      ipAddress: params.ip_address,
+      userAgent: params.user_agent,
+      details: params.details,
+      source: 'gateway', // Default source
+      severity: success ? 'low' : 'high' // Default severity based on outcome
+    };
+
+    return await this.createLogEntry(
+      params.tenant_id,
+      event,
+      params.action,
+      success,
+      options
+    );
   }
 
   /**

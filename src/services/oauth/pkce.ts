@@ -133,6 +133,14 @@ export async function validatePKCE(
 
 /**
  * Validate code verifier format according to RFC 7636
+ * @deprecated Use isValidCodeVerifier instead
+ */
+export function validateCodeVerifier(codeVerifier: string): boolean {
+  return isValidCodeVerifier(codeVerifier);
+}
+
+/**
+ * Validate code verifier format according to RFC 7636
  */
 export function isValidCodeVerifier(codeVerifier: string): boolean {
   // Must be 43-128 characters long
@@ -186,5 +194,36 @@ export class InMemoryPKCEStorage {
         this.storage.delete(code);
       }
     }
+  }
+}
+
+/**
+ * PKCE Service class for more organized access to PKCE functionality
+ */
+export class PKCEService {
+  private storage: InMemoryPKCEStorage;
+
+  constructor(storage?: InMemoryPKCEStorage) {
+    this.storage = storage || new InMemoryPKCEStorage();
+  }
+
+  async generateChallenge(): Promise<{ codeVerifier: string; codeChallenge: string }> {
+    const pkce = await generatePKCE();
+    return {
+      codeVerifier: pkce.code_verifier,
+      codeChallenge: pkce.code_challenge
+    };
+  }
+
+  async verifyChallenge(codeVerifier: string, codeChallenge: string, method: string = 'S256'): Promise<boolean> {
+    return await validatePKCE(codeVerifier, codeChallenge, method);
+  }
+
+  isValidCodeVerifier(codeVerifier: string): boolean {
+    return isValidCodeVerifier(codeVerifier);
+  }
+
+  isValidCodeChallenge(codeChallenge: string): boolean {
+    return isValidCodeChallenge(codeChallenge);
   }
 }

@@ -119,6 +119,20 @@ export interface AuditLogOptions {
   source?: 'gateway' | 'mcp-server' | 'client' | 'system';
 }
 
+// Parameters for the logEvent method (used by admin handlers)
+export interface LogEventParams {
+  tenant_id: string;
+  user_id?: string;
+  event_type: string;
+  resource_type: string;
+  resource_id: string;
+  action: string;
+  outcome: 'success' | 'failure';
+  ip_address?: string;
+  user_agent?: string;
+  details?: Record<string, any>;
+}
+
 // Query parameters for audit log search
 export interface AuditLogQuery {
   tenantId: string;
@@ -158,3 +172,17 @@ export interface RetentionPolicy {
 
 // Alias for backward compatibility with database schema
 export type AuditLog = AuditLogEntry;
+
+// Parameters for the logEvent method (used by admin handlers)
+export interface LogEventParams {
+  tenant_id: string;
+  user_id?: string;
+  event_type: string;
+  resource_type: string;
+  resource_id: string;
+  action: string;
+  outcome: 'success' | 'failure';
+  ip_address?: string;
+  user_agent?: string;
+  details?: Record<string, any>;
+}

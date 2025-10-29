@@ -65,8 +65,47 @@ export async function proxyToMCPServer(c: Context) {
     // Add performance header
     c.header('X-Gateway-Latency-Ms', proxyResponse.latency_ms.toString());
 
-    // Return response
-    return c.json(proxyResponse.body, proxyResponse.status);
+    // Return response based on body type
+    if (proxyResponse.body instanceof ArrayBuffer) {
+      // Set headers manually before returning the body
+      Object.entries({
+        ...proxyResponse.headers,
+        'Content-Type': proxyResponse.headers['content-type'] || 'application/octet-stream'
+      }).forEach(([key, value]) => {
+        c.header(key, value);
+      });
+      return c.body(proxyResponse.body, proxyResponse.status);
+    } else if (typeof proxyResponse.body === 'string') {
+      // Try to parse as JSON for proper response handling, otherwise return as text
+      try {
+        const parsedBody = JSON.parse(proxyResponse.body);
+        return c.json(parsedBody, proxyResponse.status);
+      } catch {
+        // If not valid JSON, set headers and return as text
+        Object.entries({
+          ...proxyResponse.headers,
+          'Content-Type': proxyResponse.headers['content-type'] || 'text/plain'
+        }).forEach(([key, value]) => {
+          c.header(key, value);
+        });
+        return c.body(proxyResponse.body, proxyResponse.status);
+      }
+    } else if (proxyResponse.body) {
+      // For other body types (like ReadableStream), set headers and return the body
+      Object.entries({
+        ...proxyResponse.headers,
+        'Content-Type': proxyResponse.headers['content-type'] || 'application/octet-stream'
+      }).forEach(([key, value]) => {
+        c.header(key, value);
+      });
+      return c.body(proxyResponse.body, proxyResponse.status);
+    } else {
+      // No body - set headers and return null body
+      Object.entries(proxyResponse.headers).forEach(([key, value]) => {
+        c.header(key, value);
+      });
+      return c.body(null, proxyResponse.status);
+    }
   } catch (error) {
     return handleProxyError(c, error);
   }
@@ -135,8 +174,47 @@ export async function proxyByResourceIdentifier(c: Context) {
     // Add performance header
     c.header('X-Gateway-Latency-Ms', proxyResponse.latency_ms.toString());
 
-    // Return response
-    return c.json(proxyResponse.body, proxyResponse.status);
+    // Return response based on body type
+    if (proxyResponse.body instanceof ArrayBuffer) {
+      // Set headers manually before returning the body
+      Object.entries({
+        ...proxyResponse.headers,
+        'Content-Type': proxyResponse.headers['content-type'] || 'application/octet-stream'
+      }).forEach(([key, value]) => {
+        c.header(key, value);
+      });
+      return c.body(proxyResponse.body, proxyResponse.status);
+    } else if (typeof proxyResponse.body === 'string') {
+      // Try to parse as JSON for proper response handling, otherwise return as text
+      try {
+        const parsedBody = JSON.parse(proxyResponse.body);
+        return c.json(parsedBody, proxyResponse.status);
+      } catch {
+        // If not valid JSON, set headers and return as text
+        Object.entries({
+          ...proxyResponse.headers,
+          'Content-Type': proxyResponse.headers['content-type'] || 'text/plain'
+        }).forEach(([key, value]) => {
+          c.header(key, value);
+        });
+        return c.body(proxyResponse.body, proxyResponse.status);
+      }
+    } else if (proxyResponse.body) {
+      // For other body types (like ReadableStream), set headers and return the body
+      Object.entries({
+        ...proxyResponse.headers,
+        'Content-Type': proxyResponse.headers['content-type'] || 'application/octet-stream'
+      }).forEach(([key, value]) => {
+        c.header(key, value);
+      });
+      return c.body(proxyResponse.body, proxyResponse.status);
+    } else {
+      // No body - set headers and return null body
+      Object.entries(proxyResponse.headers).forEach(([key, value]) => {
+        c.header(key, value);
+      });
+      return c.body(null, proxyResponse.status);
+    }
   } catch (error) {
     return handleProxyError(c, error);
   }

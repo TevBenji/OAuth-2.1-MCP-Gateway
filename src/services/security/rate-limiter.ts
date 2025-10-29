@@ -348,3 +348,11 @@ export class RateLimiter {
     };
   }
 }
+
+// Factory function to create a rate limiter instance from environment bindings
+export function createRateLimiter(env: any): RateLimiter {
+  // This would need to be implemented based on how the storage is configured
+  // For now, we'll create a default instance with a default storage implementation
+  // In a real implementation, this would use the appropriate storage based on the environment
+  throw new Error('createRateLimiter not fully implemented - storage needs to be configured based on environment');
+}
