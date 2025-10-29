@@ -53,7 +53,7 @@ export class Container {
     const entry = this.services.get(name);
 
     if (!entry) {
-      throw new Error(\`Service '\${name}' not registered\`);
+      throw new Error(`Service '${name}' not registered`);
     }
 
     // Return cached instance if singleton

@@ -1,34 +1,26 @@
 import { HTTPException } from 'hono/http-exception';
 import { v4 as uuidv4 } from 'uuid';
-// In-memory implementation for development/testing
-class InMemoryAuthorizationCodeStorage {
-    codes = new Map();
-    async storeCode(code, clientId, redirectUri, userId, scopes, expiresAt) {
-        this.codes.set(code, { clientId, redirectUri, userId, scopes, expiresAt });
-    }
-    async retrieveAndDeleteCode(code) {
-        const data = this.codes.get(code);
-        if (!data) {
-            return null;
-        }
-        // Check if code is expired
-        if (data.expiresAt < Date.now()) {
-            this.codes.delete(code);
-            return null;
-        }
-        // Remove and return the code data
-        this.codes.delete(code);
-        return data;
-    }
-}
-// Storage instances
-const codeStorage = new InMemoryAuthorizationCodeStorage();
+import { D1AuthorizationCodeStorage } from '../../storage/d1-authorization-code-storage';
+import { createInvalidRequestError, createUnsupportedResponseTypeError, createInvalidPKCEError, } from '../../utils/enhanced-errors';
 /**
  * GET /authorize endpoint - OAuth 2.1 authorization endpoint
  * Handles authorization requests and enforces PKCE
+ *
+ * Security Enhancements:
+ * - Uses D1 database for authorization code storage
+ * - Persists PKCE challenge for validation during token exchange
+ * - Atomic operations prevent race conditions
  */
 export const handleAuthorization = async (c) => {
     try {
+        // Initialize D1 storage (production-ready)
+        const db = c.env?.DB;
+        const tenantId = c.env?.TENANT_ID || 'default-tenant';
+        if (!db) {
+            console.error('D1 database not configured');
+            throw new HTTPException(500, { message: 'Database configuration error' });
+        }
+        const codeStorage = new D1AuthorizationCodeStorage(db, tenantId);
         // Extract query parameters
         const request = {
             response_type: c.req.query('response_type') || '',
@@ -41,48 +33,78 @@ export const handleAuthorization = async (c) => {
         };
         // Validate required parameters
         if (!request.response_type) {
-            return c.redirect(`${request.redirect_uri}?error=invalid_request&error_description=Missing response_type parameter`);
+            const error = createInvalidRequestError('Missing response_type parameter', request.state);
+            const errorParams = new URLSearchParams(error.toOAuthResponse());
+            return c.redirect(`${request.redirect_uri}?${errorParams.toString()}`);
         }
         if (request.response_type !== 'code') {
-            return c.redirect(`${request.redirect_uri}?error=unsupported_response_type&error_description=Only code response type is supported`);
+            const error = createUnsupportedResponseTypeError(request.response_type, request.state);
+            const errorParams = new URLSearchParams(error.toOAuthResponse());
+            return c.redirect(`${request.redirect_uri}?${errorParams.toString()}`);
         }
         if (!request.client_id) {
-            return c.redirect(`${request.redirect_uri}?error=invalid_request&error_description=Missing client_id parameter`);
+            const error = createInvalidRequestError('Missing client_id parameter', request.state);
+            const errorParams = new URLSearchParams(error.toOAuthResponse());
+            return c.redirect(`${request.redirect_uri}?${errorParams.toString()}`);
         }
         if (!request.redirect_uri) {
-            return c.redirect(`${request.redirect_uri || 'about:blank'}?error=invalid_request&error_description=Missing redirect_uri parameter`);
+            const error = createInvalidRequestError('Missing redirect_uri parameter', request.state);
+            const errorParams = new URLSearchParams(error.toOAuthResponse());
+            return c.redirect(`${request.redirect_uri || 'about:blank'}?${errorParams.toString()}`);
         }
         // Validate PKCE parameters (required for public clients)
         if (!request.code_challenge) {
-            return c.redirect(`${request.redirect_uri}?error=invalid_request&error_description=code_challenge parameter is required for PKCE`);
+            const error = createInvalidPKCEError('code_challenge parameter is required', request.state);
+            const errorParams = new URLSearchParams(error.toOAuthResponse());
+            return c.redirect(`${request.redirect_uri}?${errorParams.toString()}`);
         }
         if (!request.code_challenge_method || !['S256', 'plain'].includes(request.code_challenge_method)) {
-            return c.redirect(`${request.redirect_uri}?error=invalid_request&error_description=code_challenge_method must be S256 or plain`);
+            const error = createInvalidPKCEError('code_challenge_method must be S256 (recommended) or plain', request.state);
+            const errorParams = new URLSearchParams(error.toOAuthResponse());
+            return c.redirect(`${request.redirect_uri}?${errorParams.toString()}`);
         }
         // Validate state parameter for CSRF protection
         if (!request.state) {
-            return c.redirect(`${request.redirect_uri}?error=invalid_request&error_description=state parameter is required for CSRF protection`);
+            const error = createInvalidRequestError('state parameter is required for CSRF protection', request.state);
+            const errorParams = new URLSearchParams(error.toOAuthResponse());
+            return c.redirect(`${request.redirect_uri}?${errorParams.toString()}`);
         }
         // For demo purposes, we'll simulate user authentication and consent
         // In a real implementation, this would involve user login and consent UI
         const userId = 'demo-user-id'; // This would come from actual authentication
-        // Verify that the PKCE challenge was previously stored (in a real implementation)
-        // For now, we just validate it's present and has the right format
-        if (!request.code_challenge) {
-            return c.redirect(`${request.redirect_uri}?error=invalid_request&error_description=Invalid or missing code challenge`);
+        // SECURITY FIX: Regenerate session ID after successful authentication
+        // This prevents session fixation attacks
+        const sessionId = c.req.header('X-Session-ID') || c.req.header('Cookie')?.match(/session_id=([^;]+)/)?.[1];
+        if (sessionId && c.env?.SESSION_KV) {
+            try {
+                const { SessionStorageKV } = await import('../../services/security/session-storage-kv');
+                const sessionStorage = new SessionStorageKV(c.env.SESSION_KV);
+                const newSessionId = await sessionStorage.regenerateSessionOnAuth(sessionId);
+                // Set new session ID in response cookie
+                c.header('Set-Cookie', `session_id=${newSessionId}; HttpOnly; Secure; SameSite=Strict; Path=/`);
+            }
+            catch (error) {
+                console.warn('Failed to regenerate session:', error);
+                // Continue with authorization - session regeneration failure is not critical
+            }
         }
         // Validate code challenge format (base64url encoded)
         const codeChallengeRegex = /^[A-Za-z0-9_-]+$/;
         if (!codeChallengeRegex.test(request.code_challenge)) {
-            return c.redirect(`${request.redirect_uri}?error=invalid_request&error_description=Invalid code challenge format`);
+            const error = createInvalidPKCEError('code_challenge must be base64url encoded (A-Za-z0-9_-)', request.state);
+            const errorParams = new URLSearchParams(error.toOAuthResponse());
+            return c.redirect(`${request.redirect_uri}?${errorParams.toString()}`);
         }
         // Generate authorization code
         const authorizationCode = `auth_${uuidv4().replace(/-/g, '')}`;
         const codeExpiryTime = Date.now() + (5 * 60 * 1000); // 5 minutes expiry
         // Parse scopes
         const scopes = request.scope ? request.scope.split(' ') : [];
-        // Store the authorization code
-        await codeStorage.storeCode(authorizationCode, request.client_id, request.redirect_uri, userId, scopes, codeExpiryTime);
+        // SECURITY FIX: Store the authorization code WITH PKCE challenge
+        // This ensures the code_challenge is persisted for validation during token exchange
+        await codeStorage.storeCode(authorizationCode, request.client_id, request.redirect_uri, userId, scopes, codeExpiryTime, request.code_challenge, // CRITICAL: Store PKCE challenge
+        request.code_challenge_method // CRITICAL: Store challenge method
+        );
         // Build the redirect URL with authorization code and state
         const redirectUrl = new URL(request.redirect_uri);
         redirectUrl.searchParams.set('code', authorizationCode);

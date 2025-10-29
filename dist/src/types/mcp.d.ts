@@ -18,29 +18,29 @@ export declare const MCPServerConfigSchema: z.ZodObject<{
     status: z.ZodDefault<z.ZodEnum<["active", "inactive", "maintenance"]>>;
     metadata: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodAny>>;
 }, "strip", z.ZodTypeAny, {
-    status: "active" | "inactive" | "maintenance";
     tenant_id: string;
     name: string;
     endpoint_url: string;
     resource_identifier: string;
+    status: "active" | "inactive" | "maintenance";
     required_scopes: string[];
     timeout_ms: number;
     retry_attempts: number;
-    metadata?: Record<string, any> | undefined;
     server_id?: string | undefined;
     health_check_url?: string | undefined;
+    metadata?: Record<string, any> | undefined;
 }, {
     tenant_id: string;
     name: string;
     endpoint_url: string;
     resource_identifier: string;
-    status?: "active" | "inactive" | "maintenance" | undefined;
-    metadata?: Record<string, any> | undefined;
     server_id?: string | undefined;
+    status?: "active" | "inactive" | "maintenance" | undefined;
     required_scopes?: string[] | undefined;
     health_check_url?: string | undefined;
     timeout_ms?: number | undefined;
     retry_attempts?: number | undefined;
+    metadata?: Record<string, any> | undefined;
 }>;
 export type MCPServerConfig = z.infer<typeof MCPServerConfigSchema>;
 export interface MCPRequestContext {
@@ -122,14 +122,14 @@ export declare const MCPRequestValidationSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     path: string;
     method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
-    query?: Record<string, string> | undefined;
     headers?: Record<string, string> | undefined;
+    query?: Record<string, string> | undefined;
     body?: any;
 }, {
     path: string;
     method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
-    query?: Record<string, string> | undefined;
     headers?: Record<string, string> | undefined;
+    query?: Record<string, string> | undefined;
     body?: any;
 }>;
 export type MCPRequestValidation = z.infer<typeof MCPRequestValidationSchema>;

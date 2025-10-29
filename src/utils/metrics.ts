@@ -100,13 +100,13 @@ export function formatPrometheusMetrics(metrics: any): string {
   // Add metric values (simplified histogram)
   for (const [endpoint, summary] of Object.entries(metrics)) {
     const m = summary as MetricsSummary;
-    const labels = \`endpoint="\${endpoint}"\`;
+    const labels = `endpoint="${endpoint}"`;
 
-    lines.push(\`http_request_duration_seconds{quantile="0.5",\${labels}} \${m.p50 / 1000}\`);
-    lines.push(\`http_request_duration_seconds{quantile="0.95",\${labels}} \${m.p95 / 1000}\`);
-    lines.push(\`http_request_duration_seconds{quantile="0.99",\${labels}} \${m.p99 / 1000}\`);
-    lines.push(\`http_request_duration_seconds_count{\${labels}} \${m.count}\`);
-    lines.push(\`http_request_duration_seconds_sum{\${labels}} \${(m.avg * m.count) / 1000}\`);
+    lines.push(`http_request_duration_seconds{quantile="0.5",${labels}} ${m.p50 / 1000}`);
+    lines.push(`http_request_duration_seconds{quantile="0.95",${labels}} ${m.p95 / 1000}`);
+    lines.push(`http_request_duration_seconds{quantile="0.99",${labels}} ${m.p99 / 1000}`);
+    lines.push(`http_request_duration_seconds_count{${labels}} ${m.count}`);
+    lines.push(`http_request_duration_seconds_sum{${labels}} ${(m.avg * m.count) / 1000}`);
   }
 
   return lines.join('\n');

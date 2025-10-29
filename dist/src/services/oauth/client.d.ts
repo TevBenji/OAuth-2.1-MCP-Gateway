@@ -4,27 +4,10 @@
  * Handles client registration, validation, and management for OAuth 2.1
  * with multi-tenant support and security features.
  */
-import type { ClientRegistrationRequest, ClientRegistrationResponse } from '../../types/oauth';
-export interface OAuthClient {
-    client_id: string;
-    client_secret?: string;
-    tenant_id: string;
-    redirect_uris: string[];
-    grant_types: string[];
-    response_types: string[];
-    scope?: string;
-    client_name?: string;
-    client_uri?: string;
-    logo_uri?: string;
-    contacts?: string[];
-    tos_uri?: string;
-    policy_uri?: string;
-    token_endpoint_auth_method: string;
-    client_id_issued_at: number;
-    client_secret_expires_at?: number;
-    created_at: Date;
-    updated_at: Date;
-}
+import type { ClientRegistrationRequest, ClientRegistrationResponse, OAuthClient } from '../types/oauth';
+/**
+ * OAuth Client Service
+ */
 export declare class ClientService {
     private db;
     constructor(db: D1Database);

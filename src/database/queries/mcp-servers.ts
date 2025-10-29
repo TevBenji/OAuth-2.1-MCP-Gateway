@@ -141,6 +141,41 @@ export class MCPServerQueries implements MCPServerDatabase {
   }
 
   /**
+   * Get all servers (for administrative purposes)
+   */
+  async getAllServers(): Promise<MCPServerRegistryEntry[]> {
+    const query = `
+      SELECT
+        server_id,
+        tenant_id,
+        name,
+        endpoint_url,
+        resource_identifier,
+        required_scopes,
+        health_check_url,
+        timeout_ms,
+        retry_attempts,
+        status,
+        metadata,
+        health_status,
+        health_last_check,
+        health_response_time_ms,
+        health_error_message,
+        health_consecutive_failures,
+        created_at,
+        updated_at,
+        last_accessed,
+        access_count
+      FROM mcp_servers
+      ORDER BY created_at DESC
+    `;
+
+    const results = await this.db.query(query, []);
+
+    return results.map(row => this.mapRowToEntry(row));
+  }
+
+  /**
    * Create new MCP server
    */
   async createServer(config: MCPServerConfig): Promise<MCPServerRegistryEntry> {
@@ -349,6 +384,26 @@ export class MCPServerQueries implements MCPServerDatabase {
       status: row.status,
       metadata: this.safeJsonParse(row.metadata, {}),
     };
+
+    const health: MCPServerHealth = {
+      server_id: row.server_id,
+      status: row.health_status,
+      last_check: new Date(row.health_last_check),
+      response_time_ms: row.health_response_time_ms,
+      error_message: row.health_error_message,
+      consecutive_failures: row.health_consecutive_failures,
+    };
+
+    return {
+      server_id: row.server_id,
+      tenant_id: row.tenant_id,
+      config,
+      health,
+      created_at: new Date(row.created_at),
+      updated_at: new Date(row.updated_at),
+      last_accessed: new Date(row.last_accessed),
+      access_count: row.access_count,
+    };
   }
 
   /**
@@ -386,26 +441,5 @@ export class MCPServerQueries implements MCPServerDatabase {
       console.error('JSON parsing error:', error);
       return defaultValue;
     }
-  }
-
-    const health: MCPServerHealth = {
-      server_id: row.server_id,
-      status: row.health_status,
-      last_check: new Date(row.health_last_check),
-      response_time_ms: row.health_response_time_ms,
-      error_message: row.health_error_message,
-      consecutive_failures: row.health_consecutive_failures,
-    };
-
-    return {
-      server_id: row.server_id,
-      tenant_id: row.tenant_id,
-      config,
-      health,
-      created_at: new Date(row.created_at),
-      updated_at: new Date(row.updated_at),
-      last_accessed: new Date(row.last_accessed),
-      access_count: row.access_count,
-    };
   }
 }

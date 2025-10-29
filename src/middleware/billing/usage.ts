@@ -19,11 +19,11 @@ export async function billingMiddleware(c: Context<{ Bindings: Bindings; Variabl
   
   // Extract tenant context from request
   const tenantId = c.req.header('X-Tenant-ID') || 
-                  (c.get('tenantId') as string) || 
+                  (c.get('tenantId') as string | undefined) || 
                   'default';
   
-  const userId = c.req.header('X-User-ID') || (c.get('userId') as string);
-  const clientId = c.req.header('X-Client-ID') || (c.get('clientId') as string);
+  const userId = c.req.header('X-User-ID') || (c.get('userId') as string | undefined);
+  const clientId = c.req.header('X-Client-ID') || (c.get('clientId') as string | undefined);
 
   // Continue with the request
   await next();

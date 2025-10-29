@@ -44,17 +44,17 @@ export declare const TenantBillingSchema: z.ZodObject<{
         mcp_servers: z.ZodNumber;
         api_keys: z.ZodNumber;
     }, "strip", z.ZodTypeAny, {
-        mcp_servers: number;
-        api_keys: number;
-        users: number;
         requests_per_month: number;
         storage_gb: number;
+        users: number;
+        mcp_servers: number;
+        api_keys: number;
     }, {
-        mcp_servers: number;
-        api_keys: number;
-        users: number;
         requests_per_month: number;
         storage_gb: number;
+        users: number;
+        mcp_servers: number;
+        api_keys: number;
     }>;
     current_usage: z.ZodObject<{
         requests_this_month: z.ZodNumber;
@@ -87,11 +87,11 @@ export declare const TenantBillingSchema: z.ZodObject<{
     current_period_start: Date;
     current_period_end: Date;
     limits: {
-        mcp_servers: number;
-        api_keys: number;
-        users: number;
         requests_per_month: number;
         storage_gb: number;
+        users: number;
+        mcp_servers: number;
+        api_keys: number;
     };
     current_usage: {
         requests_this_month: number;
@@ -100,7 +100,7 @@ export declare const TenantBillingSchema: z.ZodObject<{
         current_mcp_servers: number;
         current_api_keys: number;
     };
-    subscription_status: "canceled" | "active" | "past_due" | "trialing" | "unpaid";
+    subscription_status: "active" | "canceled" | "past_due" | "trialing" | "unpaid";
     outstanding_balance: number;
     billing_email: string;
     auto_renew: boolean;
@@ -112,11 +112,11 @@ export declare const TenantBillingSchema: z.ZodObject<{
     current_period_start: Date;
     current_period_end: Date;
     limits: {
-        mcp_servers: number;
-        api_keys: number;
-        users: number;
         requests_per_month: number;
         storage_gb: number;
+        users: number;
+        mcp_servers: number;
+        api_keys: number;
     };
     current_usage: {
         requests_this_month: number;
@@ -125,7 +125,7 @@ export declare const TenantBillingSchema: z.ZodObject<{
         current_mcp_servers: number;
         current_api_keys: number;
     };
-    subscription_status: "canceled" | "active" | "past_due" | "trialing" | "unpaid";
+    subscription_status: "active" | "canceled" | "past_due" | "trialing" | "unpaid";
     outstanding_balance: number;
     billing_email: string;
     last_invoice_date?: Date | undefined;

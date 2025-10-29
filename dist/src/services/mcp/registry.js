@@ -75,6 +75,12 @@ export class MCPServerRegistry {
         return this.db.getServersByTenant(tenantId);
     }
     /**
+     * Get all servers (administrative function)
+     */
+    async getAllServers() {
+        return this.db.getAllServers();
+    }
+    /**
      * Update server configuration
      */
     async updateServer(serverId, tenantId, updates) {

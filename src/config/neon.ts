@@ -27,7 +27,8 @@ export class NeonDatabase {
    * Execute a query
    */
   async query<T = any>(query: string, params: any[] = []): Promise<T[]> {
-    return await this.sql(query, params);
+    const result = await this.sql(query, params);
+    return (result as any[]).map(row => row as T);
   }
 
   /**

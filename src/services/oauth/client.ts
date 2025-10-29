@@ -5,43 +5,12 @@
  * with multi-tenant support and security features.
  */
 
-// UUID v4 generation using Web Crypto API (edge-compatible)
-function generateUUID(): string {
-  const array = new Uint8Array(16);
-  crypto.getRandomValues(array);
-  
-  // Set version (4) and variant bits
-  array[6] = (array[6]! & 0x0f) | 0x40; // Version 4
-  array[8] = (array[8]! & 0x3f) | 0x80; // Variant 10
-  
-  // Convert to hex string with hyphens
-  const hex = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
-}
-import type { ClientRegistrationRequest, ClientRegistrationResponse } from '../../types/oauth';
-import { OAUTH_CONSTANTS, DATABASE_CONSTANTS } from '../../utils/constants';
+import type { ClientRegistrationRequest, ClientRegistrationResponse, OAuthClient } from '@/types/oauth';
+import { OAUTH_CONSTANTS, DATABASE_CONSTANTS } from '@/utils/constants';
 
-export interface OAuthClient {
-  client_id: string;
-  client_secret?: string;
-  tenant_id: string;
-  redirect_uris: string[];
-  grant_types: string[];
-  response_types: string[];
-  scope?: string;
-  client_name?: string;
-  client_uri?: string;
-  logo_uri?: string;
-  contacts?: string[];
-  tos_uri?: string;
-  policy_uri?: string;
-  token_endpoint_auth_method: string;
-  client_id_issued_at: number;
-  client_secret_expires_at?: number;
-  created_at: Date;
-  updated_at: Date;
-}
-
+/**
+ * OAuth Client Service
+ */
 export class ClientService {
   constructor(private db: D1Database) {}
 
@@ -138,19 +107,14 @@ export class ClientService {
       return null;
     }
     
-    // Parse JSON arrays with proper error handling to prevent injection attacks
-    try {
-      return {
-        ...result,
-        redirect_uris: result.redirect_uris ? safeJsonParse(result.redirect_uris as any, []) : [],
-        grant_types: result.grant_types ? safeJsonParse(result.grant_types as any, []) : [],
-        response_types: result.response_types ? safeJsonParse(result.response_types as any, []) : [],
-        contacts: result.contacts ? safeJsonParse(result.contacts as any, undefined) : undefined
-      };
-    } catch (error) {
-      console.error('Error parsing client data from database:', error);
-      throw new Error('Invalid client data format in database');
-    }
+    // Parse JSON arrays
+    return {
+      ...result,
+      redirect_uris: JSON.parse(result.redirect_uris as any),
+      grant_types: JSON.parse(result.grant_types as any),
+      response_types: JSON.parse(result.response_types as any),
+      contacts: result.contacts ? JSON.parse(result.contacts as any) : undefined
+    };
   }
 
   /**
@@ -244,7 +208,7 @@ export class ClientService {
       .prepare(`DELETE FROM ${DATABASE_CONSTANTS.TABLES.OAUTH_CLIENTS} WHERE client_id = ? AND tenant_id = ?`)
       .bind(clientId, tenantId)
       .run();
-
+    
     return result.meta.changes > 0;
   }
 
@@ -252,45 +216,8 @@ export class ClientService {
    * Generate secure client_id with prefix
    */
   private generateClientId(): string {
-    const uuid = generateUUID().replace(/-/g, '');
+    const uuid = crypto.randomUUID().replace(/-/g, '');
     return `mcp_client_${uuid}`;
-  }
-
-  /**
-   * Safely parse JSON with validation to prevent prototype pollution and other vulnerabilities
-   * @param jsonString The JSON string to parse
-   * @param defaultValue The default value to return if parsing fails
-   */
-  function safeJsonParse<T>(jsonString: string, defaultValue: T): T {
-    if (!jsonString) {
-      return defaultValue;
-    }
-
-    try {
-      // First, validate the string to ensure it's a proper JSON array/object
-      if (typeof jsonString !== 'string' || !/^[\[\{].*[\]\}]$/.test(jsonString.trim())) {
-        console.warn('Invalid JSON format detected, returning default value');
-        return defaultValue;
-      }
-
-      // Parse the JSON
-      const parsed = JSON.parse(jsonString);
-
-      // Additional validation to prevent prototype pollution
-      if (parsed !== null && typeof parsed === 'object') {
-        // Check for dangerous properties that could lead to prototype pollution
-        if (Object.prototype.hasOwnProperty.call(parsed, '__proto__') || 
-            Object.prototype.hasOwnProperty.call(parsed, 'constructor')) {
-          console.error('Prototype pollution attempt detected');
-          return defaultValue;
-        }
-      }
-
-      return parsed as T;
-    } catch (error) {
-      console.error('JSON parsing error:', error);
-      return defaultValue;
-    }
   }
 
   /**

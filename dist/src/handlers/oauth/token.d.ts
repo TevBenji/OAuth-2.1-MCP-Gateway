@@ -1,17 +1,5 @@
 import { Context } from 'hono';
-export interface AuthorizationCodeData {
-    clientId: string;
-    redirectUri: string;
-    userId: string;
-    scopes: string[];
-    expiresAt: number;
-    codeChallenge?: string;
-    challengeMethod?: string;
-}
-export interface AuthorizationCodeStorage {
-    storeCode(code: string, clientId: string, redirectUri: string, userId: string, scopes: string[], expiresAt: number, codeChallenge?: string, challengeMethod?: string): Promise<void>;
-    retrieveAndDeleteCode(code: string): Promise<AuthorizationCodeData | null>;
-}
+import type { Bindings } from '../../types/bindings';
 export interface TokenRequest {
     grant_type: string;
     code?: string;
@@ -29,22 +17,19 @@ export interface TokenResponse {
     scope?: string;
     id_token?: string;
 }
-export interface RefreshTokenStorage {
-    storeRefreshToken(refreshToken: string, accessToken: string, clientId: string, userId: string, scopes: string[], expiresAt: number): Promise<void>;
-    retrieveAndDeleteRefreshToken(refreshToken: string): Promise<RefreshTokenData | null>;
-}
-export interface RefreshTokenData {
-    clientId: string;
-    userId: string;
-    scopes: string[];
-    expiresAt: number;
-    rotatedRefreshToken?: string;
-}
 /**
  * POST /token endpoint - OAuth 2.1 token endpoint
  * Handles token exchange requests including authorization code grants and refresh tokens
+ *
+ * Security Enhancements:
+ * - Uses D1 database for token storage (replaces in-memory)
+ * - Validates PKCE challenge from stored authorization code
+ * - Atomic operations prevent token reuse
+ * - Refresh token rotation
  */
-export declare const handleToken: (c: Context) => Promise<(Response & import("hono").TypedResponse<{
+export declare const handleToken: (c: Context<{
+    Bindings: Bindings;
+}>) => Promise<(Response & import("hono").TypedResponse<{
     error: string;
     error_description: string;
 }>) | (Response & import("hono").TypedResponse<{

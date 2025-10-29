@@ -32,7 +32,7 @@ export async function registerTenant(c: Context) {
 
     const tenantService = new TenantService(c.env.DB);
     const emailService = new EmailService();
-    const auditService = new AuditService(c.env.DB);
+    const auditService = AuditService.getInstance(c.env.DB);
 
     // Generate tenant ID
     const tenant_id = `tenant_${Date.now()}_${Math.random().toString(36).substring(7)}`;

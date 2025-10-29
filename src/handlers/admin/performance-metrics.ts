@@ -6,7 +6,7 @@
  */
 
 import type { Context } from 'hono';
-import { getMetrics } from '../../middleware/performance';
+import { getPerformanceMetrics } from '../../middleware/performance';
 import {
   calculateMetricsSummary,
   groupByEndpoint,
@@ -21,7 +21,7 @@ import {
  */
 export async function getPerformanceMetrics(c: Context) {
   const format = c.req.query('format') || 'json';
-  const metrics = getMetrics();
+  const metrics = getPerformanceMetrics();
 
   if (metrics.length === 0) {
     return c.json({
@@ -69,8 +69,8 @@ export async function getPerformanceMetrics(c: Context) {
  * Clears performance metrics (useful for testing)
  */
 export async function resetPerformanceMetrics(c: Context) {
-  const { clearMetrics } = await import('../../middleware/performance');
-  clearMetrics();
+  const { clearPerformanceMetrics } = await import('../../middleware/performance');
+  clearPerformanceMetrics();
 
   return c.json({
     message: 'Performance metrics cleared',

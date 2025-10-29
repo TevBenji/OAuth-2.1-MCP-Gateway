@@ -86,6 +86,40 @@ export class SessionStorageKV {
         });
     }
     /**
+     * Regenerate session ID on authentication
+     *
+     * SECURITY FIX: Prevents session fixation attacks
+     * - Creates new session with new ID
+     * - Preserves session data
+     * - Deletes old session
+     * - Updates user index
+     *
+     * @param oldSessionId - Current session ID
+     * @returns New session ID
+     */
+    async regenerateSessionOnAuth(oldSessionId) {
+        // Get existing session data
+        const oldSession = await this.get(oldSessionId);
+        if (!oldSession) {
+            throw new Error('Session not found');
+        }
+        // Generate new session ID
+        const newSessionId = crypto.randomUUID();
+        // Create new session with same data but new ID
+        const newSession = {
+            ...oldSession,
+            session_id: newSessionId,
+            created_at: new Date(), // Reset creation time
+            last_accessed_at: new Date(),
+        };
+        // Store new session
+        await this.create(newSession);
+        // Delete old session
+        await this.delete(oldSessionId);
+        console.log(`Session regenerated: ${oldSessionId.substring(0, 8)}... → ${newSessionId.substring(0, 8)}...`);
+        return newSessionId;
+    }
+    /**
      * Delete a session
      */
     async delete(sessionId) {
@@ -137,17 +171,30 @@ export class SessionStorageKV {
     }
     /**
      * Cleanup expired sessions
+     *
+     * NOTE: This is now a no-op. KV automatically expires keys based on TTL.
+     * Use the scheduled cron job for index cleanup instead.
+     * See src/scheduled/cleanup-session-indexes.ts
      */
     async cleanupExpiredSessions() {
-        // Note: Cloudflare KV automatically removes expired keys based on TTL
-        // This method is here for interface compatibility
-        // In a real implementation, you might scan and clean up orphaned user indexes
+        // KV TTL handles session key expiration automatically
+        // Index cleanup is handled by scheduled cron job (daily)
+        return 0;
+    }
+    /**
+     * Cleanup orphaned user session indexes (called by cron)
+     *
+     * This is expensive and should only run via scheduled job.
+     * Batch size limited to prevent timeouts.
+     */
+    async cleanupIndexes(maxBatchSize = 100) {
         let cleaned = 0;
         let cursor;
+        let processed = 0;
         do {
             const result = await this.kv.list({
                 prefix: `${this.keyPrefix}:user:`,
-                limit: 100,
+                limit: Math.min(100, maxBatchSize - processed),
                 cursor,
             });
             for (const key of result.keys) {
@@ -171,9 +218,13 @@ export class SessionStorageKV {
                         await this.kv.put(key.name, JSON.stringify(validSessionIds));
                     }
                 }
+                processed++;
+                if (processed >= maxBatchSize) {
+                    break;
+                }
             }
             cursor = result.cursor;
-        } while (cursor);
+        } while (cursor && processed < maxBatchSize);
         return cleaned;
     }
     /**

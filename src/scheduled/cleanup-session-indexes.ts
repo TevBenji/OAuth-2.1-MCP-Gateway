@@ -40,7 +40,7 @@ export async function handleScheduledCleanup(
     const cleaned = await sessionStorage.cleanupIndexes(100);
 
     const duration = Date.now() - startTime;
-    console.log(\`[Cron] Cleaned \${cleaned} session indexes in \${duration}ms\`);
+    console.log(`[Cron] Cleaned ${cleaned} session indexes in ${duration}ms`);
 
     // Log metrics (could be sent to analytics service)
     if (env.ENVIRONMENT === 'production') {

@@ -25,6 +25,10 @@ export declare class MCPServerQueries implements MCPServerDatabase {
      */
     getServerByResourceIdentifier(resourceIdentifier: string, tenantId: string): Promise<MCPServerRegistryEntry | null>;
     /**
+     * Get all servers (for administrative purposes)
+     */
+    getAllServers(): Promise<MCPServerRegistryEntry[]>;
+    /**
      * Create new MCP server
      */
     createServer(config: MCPServerConfig): Promise<MCPServerRegistryEntry>;
@@ -48,4 +52,10 @@ export declare class MCPServerQueries implements MCPServerDatabase {
      * Map database row to MCPServerRegistryEntry
      */
     private mapRowToEntry;
+    /**
+     * Safely parse JSON with validation to prevent prototype pollution and other vulnerabilities
+     * @param jsonString The JSON string to parse
+     * @param defaultValue The default value to return if parsing fails
+     */
+    private safeJsonParse;
 }

@@ -61,6 +61,19 @@ export declare class SessionStorageKV implements SessionStorage {
      */
     update(sessionId: string, updates: Partial<Session>): Promise<void>;
     /**
+     * Regenerate session ID on authentication
+     *
+     * SECURITY FIX: Prevents session fixation attacks
+     * - Creates new session with new ID
+     * - Preserves session data
+     * - Deletes old session
+     * - Updates user index
+     *
+     * @param oldSessionId - Current session ID
+     * @returns New session ID
+     */
+    regenerateSessionOnAuth(oldSessionId: string): Promise<string>;
+    /**
      * Delete a session
      */
     delete(sessionId: string): Promise<void>;
@@ -74,8 +87,19 @@ export declare class SessionStorageKV implements SessionStorage {
     deleteUserSessions(tenantId: string, userId: string): Promise<number>;
     /**
      * Cleanup expired sessions
+     *
+     * NOTE: This is now a no-op. KV automatically expires keys based on TTL.
+     * Use the scheduled cron job for index cleanup instead.
+     * See src/scheduled/cleanup-session-indexes.ts
      */
     cleanupExpiredSessions(): Promise<number>;
+    /**
+     * Cleanup orphaned user session indexes (called by cron)
+     *
+     * This is expensive and should only run via scheduled job.
+     * Batch size limited to prevent timeouts.
+     */
+    cleanupIndexes(maxBatchSize?: number): Promise<number>;
     /**
      * Add session to user index
      */

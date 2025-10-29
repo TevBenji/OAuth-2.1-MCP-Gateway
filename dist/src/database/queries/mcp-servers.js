@@ -116,6 +116,38 @@ export class MCPServerQueries {
         return this.mapRowToEntry(result[0]);
     }
     /**
+     * Get all servers (for administrative purposes)
+     */
+    async getAllServers() {
+        const query = `
+      SELECT
+        server_id,
+        tenant_id,
+        name,
+        endpoint_url,
+        resource_identifier,
+        required_scopes,
+        health_check_url,
+        timeout_ms,
+        retry_attempts,
+        status,
+        metadata,
+        health_status,
+        health_last_check,
+        health_response_time_ms,
+        health_error_message,
+        health_consecutive_failures,
+        created_at,
+        updated_at,
+        last_accessed,
+        access_count
+      FROM mcp_servers
+      ORDER BY created_at DESC
+    `;
+        const results = await this.db.query(query, []);
+        return results.map(row => this.mapRowToEntry(row));
+    }
+    /**
      * Create new MCP server
      */
     async createServer(config) {
@@ -286,12 +318,12 @@ export class MCPServerQueries {
             name: row.name,
             endpoint_url: row.endpoint_url,
             resource_identifier: row.resource_identifier,
-            required_scopes: JSON.parse(row.required_scopes || '[]'),
+            required_scopes: this.safeJsonParse(row.required_scopes, []),
             health_check_url: row.health_check_url,
             timeout_ms: row.timeout_ms,
             retry_attempts: row.retry_attempts,
             status: row.status,
-            metadata: JSON.parse(row.metadata || '{}'),
+            metadata: this.safeJsonParse(row.metadata, {}),
         };
         const health = {
             server_id: row.server_id,
@@ -311,5 +343,38 @@ export class MCPServerQueries {
             last_accessed: new Date(row.last_accessed),
             access_count: row.access_count,
         };
+    }
+    /**
+     * Safely parse JSON with validation to prevent prototype pollution and other vulnerabilities
+     * @param jsonString The JSON string to parse
+     * @param defaultValue The default value to return if parsing fails
+     */
+    safeJsonParse(jsonString, defaultValue) {
+        if (!jsonString) {
+            return defaultValue;
+        }
+        try {
+            // First, validate the string to ensure it's a proper JSON array/object
+            if (typeof jsonString !== 'string' || !/^[\[\{].*[\]\}]$/.test(jsonString.trim())) {
+                console.warn('Invalid JSON format detected, returning default value');
+                return defaultValue;
+            }
+            // Parse the JSON
+            const parsed = JSON.parse(jsonString);
+            // Additional validation to prevent prototype pollution
+            if (parsed !== null && typeof parsed === 'object') {
+                // Check for dangerous properties that could lead to prototype pollution
+                if (Object.prototype.hasOwnProperty.call(parsed, '__proto__') ||
+                    Object.prototype.hasOwnProperty.call(parsed, 'constructor')) {
+                    console.error('Prototype pollution attempt detected');
+                    return defaultValue;
+                }
+            }
+            return parsed;
+        }
+        catch (error) {
+            console.error('JSON parsing error:', error);
+            return defaultValue;
+        }
     }
 }

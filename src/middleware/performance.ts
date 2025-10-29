@@ -1,92 +1,106 @@
 /**
  * Performance Monitoring Middleware
  *
- * Tracks request timing, database latency, and proxy performance.
- * Provides insights for optimization and alerting.
- *
- * Metrics Tracked:
- * - Request duration (total)
- * - Database query time
- * - MCP proxy latency
- * - Auth middleware overhead
- * - Rate limit check time
- *
- * Storage: In-memory with periodic aggregation
+ * Middleware for collecting performance metrics with Server-Timing headers
+ * and response time tracking for observability.
  */
 
-import type { Context, Next } from 'hono';
+import { Context, Next } from 'hono';
 
+// Performance metrics structure
 export interface PerformanceMetrics {
-  requestDuration: number;
-  authDuration?: number;
-  rateLimitDuration?: number;
-  databaseDuration?: number;
-  proxyDuration?: number;
-  timestamp: number;
-  endpoint: string;
-  method: string;
-  statusCode: number;
+  name: string;
+  duration: number;
+  description?: string;
 }
 
-/**
- * Global metrics store (in-memory)
- * Aggregated periodically and exported via /admin/api/metrics
- */
-const metricsStore: PerformanceMetrics[] = [];
-const maxMetricsStored = 1000; // Rolling window
+// Performance monitoring options
+export interface PerformanceOptions {
+  serverTiming?: boolean;
+  responseTimeHeader?: string;
+  metricsStore?: PerformanceMetrics[];
+  maxMetricsStored?: number;
+}
+
+// Default options
+const defaultOptions: Required<PerformanceOptions> = {
+  serverTiming: true,
+  responseTimeHeader: 'X-Response-Time',
+  metricsStore: [],
+  maxMetricsStored: 1000,
+};
+
+// Global metrics store
+let metricsStore: PerformanceMetrics[] = [];
+let maxMetricsStored = 1000;
 
 /**
  * Performance monitoring middleware
- *
- * Wraps request handlers and tracks timing information.
+ * Tracks response time and optionally adds Server-Timing headers
  */
-export function performanceMiddleware() {
-  return async (c: Context, next: Next) => {
-    const startTime = Date.now();
+export function performanceMiddleware(options: PerformanceOptions = {}) {
+  const config = { ...defaultOptions, ...options };
+  metricsStore = config.metricsStore;
+  maxMetricsStored = config.maxMetricsStored;
 
-    // Track timing for different phases
-    const timings = {
-      start: startTime,
-      authStart: 0,
-      authEnd: 0,
-      rateLimitStart: 0,
-      rateLimitEnd: 0,
-      databaseStart: 0,
-      databaseEnd: 0,
-      proxyStart: 0,
-      proxyEnd: 0,
-    };
+  return async function performance(c: Context, next: Next) {
+    const start = Date.now();
 
-    // Attach timing tracker to context
-    c.set('timings', timings);
+    // Collect timing marks
+    const marks: PerformanceMetrics[] = [];
 
-    // Execute request
-    await next();
+    // Add mark function to context for downstream handlers
+    c.set('perfMark', (name: string, description?: string) => {
+      marks.push({
+        name,
+        duration: Date.now() - start,
+        description,
+      });
+    });
 
-    // Calculate total duration
-    const endTime = Date.now();
-    const duration = endTime - startTime;
+    try {
+      await next();
+    } finally {
+      const duration = Date.now() - start;
 
-    // Record metrics
-    const metrics: PerformanceMetrics = {
-      requestDuration: duration,
-      authDuration: timings.authEnd - timings.authStart || undefined,
-      rateLimitDuration: timings.rateLimitEnd - timings.rateLimitStart || undefined,
-      databaseDuration: timings.databaseEnd - timings.databaseStart || undefined,
-      proxyDuration: timings.proxyEnd - timings.proxyStart || undefined,
-      timestamp: startTime,
-      endpoint: c.req.path,
-      method: c.req.method,
-      statusCode: c.res.status,
-    };
+      // Add response time header
+      if (config.responseTimeHeader) {
+        c.header(config.responseTimeHeader, `${duration}ms`);
+      }
 
-    // Store metrics
-    storeMetrics(metrics);
+      // Add Server-Timing header
+      if (config.serverTiming && marks.length > 0) {
+        c.header('Server-Timing', buildServerTimingHeader(marks));
+      }
 
-    // Add performance headers
-    c.header('X-Response-Time', \`\${duration}ms\`);
-    c.header('Server-Timing', buildServerTimingHeader(metrics));
+      // Store metrics
+      storeMetrics({
+        name: 'total',
+        duration,
+        description: c.req.path,
+      });
+
+      marks.forEach(mark => storeMetrics(mark));
+    }
   };
+}
+
+/**
+ * Build Server-Timing header from metrics
+ */
+function buildServerTimingHeader(metrics: PerformanceMetrics[]): string {
+  return metrics
+    .map(metric => {
+      let header = metric.name;
+      if (metric.duration !== undefined) {
+        header += `;dur=${metric.duration}`;
+      }
+      if (metric.description) {
+        header += `;desc="${metric.description}"`;
+      }
+      return header;
+    })
+    .join(', ');
 }
 
 /**
@@ -102,41 +116,15 @@ function storeMetrics(metrics: PerformanceMetrics): void {
 }
 
 /**
- * Build Server-Timing header for browser dev tools
+ * Get current performance metrics
  */
-function buildServerTimingHeader(metrics: PerformanceMetrics): string {
-  const parts: string[] = [];
-
-  parts.push(\`total;dur=\${metrics.requestDuration}\`);
-  if (metrics.authDuration) parts.push(\`auth;dur=\${metrics.authDuration}\`);
-  if (metrics.rateLimitDuration) parts.push(\`ratelimit;dur=\${metrics.rateLimitDuration}\`);
-  if (metrics.databaseDuration) parts.push(\`database;dur=\${metrics.databaseDuration}\`);
-  if (metrics.proxyDuration) parts.push(\`proxy;dur=\${metrics.proxyDuration}\`);
-
-  return parts.join(', ');
-}
-
-/**
- * Get all stored metrics
- */
-export function getMetrics(): PerformanceMetrics[] {
+export function getPerformanceMetrics(): PerformanceMetrics[] {
   return [...metricsStore];
 }
 
 /**
- * Clear metrics store
+ * Clear performance metrics
  */
-export function clearMetrics(): void {
-  metricsStore.length = 0;
-}
-
-/**
- * Helper to mark timing for specific operations
- */
-export function markTiming(c: Context, operation: string, phase: 'start' | 'end'): void {
-  const timings = c.get('timings') as any;
-  if (timings) {
-    const key = \`\${operation}\${phase === 'start' ? 'Start' : 'End'}\`;
-    timings[key] = Date.now();
-  }
+export function clearPerformanceMetrics(): void {
+  metricsStore = [];
 }

@@ -48,7 +48,7 @@ export class JWTServiceFactory {
       }
 
       this.cache.set(cacheKey, service);
-      console.log(\`[JWT Factory] Created new service. Cache size: \${this.cache.size}\`);
+      console.log(`[JWT Factory] Created new service. Cache size: ${this.cache.size}`);
     }
 
     return service;
@@ -58,7 +58,7 @@ export class JWTServiceFactory {
     const algorithm = env.JWT_ALGORITHM || 'HS256';
     const issuer = env.JWT_ISSUER || 'oauth-mcp-gateway';
     const verificationKey = env.JWT_VERIFICATION_KEY || '';
-    return \`\${algorithm}:\${issuer}:\${env.JWT_SECRET.substring(0, 8)}:\${verificationKey.substring(0, 8)}\`;
+    return `${algorithm}:${issuer}:${env.JWT_SECRET.substring(0, 8)}:${verificationKey.substring(0, 8)}`;
   }
 
   static clearCache(): void {

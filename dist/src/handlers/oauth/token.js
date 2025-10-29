@@ -1,61 +1,43 @@
 import { HTTPException } from 'hono/http-exception';
 import { v4 as uuidv4 } from 'uuid';
 import { validatePKCE } from '../../services/oauth/pkce';
-import { JWTService, JWT_CONFIG } from '../../services/oauth/jwt';
-// In-memory implementation for development/testing
-class InMemoryAuthorizationCodeStorage {
-    codes = new Map();
-    async storeCode(code, clientId, redirectUri, userId, scopes, expiresAt, codeChallenge, challengeMethod) {
-        this.codes.set(code, { clientId, redirectUri, userId, scopes, expiresAt, codeChallenge, challengeMethod });
-    }
-    async retrieveAndDeleteCode(code) {
-        const data = this.codes.get(code);
-        if (!data) {
-            return null;
-        }
-        // Check if code is expired
-        if (data.expiresAt < Date.now()) {
-            this.codes.delete(code);
-            return null;
-        }
-        // Remove and return the code data
-        this.codes.delete(code);
-        return data;
-    }
-}
-class InMemoryRefreshTokenStorage {
-    refreshTokens = new Map();
-    async storeRefreshToken(refreshToken, accessToken, // Not stored but could be useful for tracking
-    clientId, userId, scopes, expiresAt) {
-        this.refreshTokens.set(refreshToken, { clientId, userId, scopes, expiresAt });
-    }
-    async retrieveAndDeleteRefreshToken(refreshToken) {
-        const data = this.refreshTokens.get(refreshToken);
-        if (!data) {
-            return null;
-        }
-        // Check if refresh token is expired
-        if (data.expiresAt < Date.now()) {
-            this.refreshTokens.delete(refreshToken);
-            return null;
-        }
-        // Remove and return the refresh token data
-        // In a real implementation with rotation, we'd generate a new refresh token here
-        this.refreshTokens.delete(refreshToken);
-        return data;
-    }
-}
-// Storage instances
-const codeStorage = new InMemoryAuthorizationCodeStorage();
-const refreshTokenStorage = new InMemoryRefreshTokenStorage();
-// JWT Service instance (in real implementation, would be configured properly)
-const jwtService = new JWTService(process.env.JWT_SECRET || 'default_secret_key_for_development', 'HS256', 'oauth-mcp-gateway');
+import { JWT_CONFIG } from '../../services/oauth/jwt';
+import { getJWTService } from '../../services/oauth/jwt-factory';
+import { D1AuthorizationCodeStorage } from '../../storage/d1-authorization-code-storage';
+import { D1RefreshTokenStorage } from '../../storage/d1-refresh-token-storage';
 /**
  * POST /token endpoint - OAuth 2.1 token endpoint
  * Handles token exchange requests including authorization code grants and refresh tokens
+ *
+ * Security Enhancements:
+ * - Uses D1 database for token storage (replaces in-memory)
+ * - Validates PKCE challenge from stored authorization code
+ * - Atomic operations prevent token reuse
+ * - Refresh token rotation
  */
 export const handleToken = async (c) => {
     try {
+        // Initialize D1 storage (production-ready)
+        const db = c.env?.DB;
+        const tenantId = c.env?.TENANT_ID || 'default-tenant';
+        const jwtSecret = c.env?.JWT_SECRET;
+        if (!db) {
+            console.error('D1 database not configured');
+            throw new HTTPException(500, { message: 'Database configuration error' });
+        }
+        if (!jwtSecret) {
+            console.error('JWT_SECRET not configured');
+            throw new HTTPException(500, { message: 'Server configuration error' });
+        }
+        // Initialize storage instances
+        const codeStorage = new D1AuthorizationCodeStorage(db, tenantId);
+        const refreshTokenStorage = new D1RefreshTokenStorage(db, tenantId);
+        // Initialize JWT service with cached factory
+        const jwtService = getJWTService({
+            JWT_SECRET: jwtSecret,
+            JWT_ALGORITHM: 'HS256',
+            JWT_ISSUER: 'oauth-mcp-gateway',
+        });
         // Check content type
         const contentType = c.req.header('Content-Type');
         if (!contentType || !contentType.includes('application/x-www-form-urlencoded')) {
@@ -78,11 +60,11 @@ export const handleToken = async (c) => {
         }
         if (request.grant_type === 'authorization_code') {
             // Handle authorization code grant
-            return await handleAuthorizationCodeGrant(c, request);
+            return await handleAuthorizationCodeGrant(c, request, codeStorage, refreshTokenStorage, jwtService);
         }
         else if (request.grant_type === 'refresh_token') {
             // Handle refresh token grant
-            return await handleRefreshTokenGrant(c, request);
+            return await handleRefreshTokenGrant(c, request, refreshTokenStorage, jwtService);
         }
         else {
             return c.json({ error: 'unsupported_grant_type', error_description: `Grant type '${request.grant_type}' is not supported` }, 400);
@@ -94,9 +76,9 @@ export const handleToken = async (c) => {
     }
 };
 /**
- * Handle authorization code grant
+ * Handle authorization code grant with PKCE validation
  */
-async function handleAuthorizationCodeGrant(c, request) {
+async function handleAuthorizationCodeGrant(c, request, codeStorage, refreshTokenStorage, jwtService) {
     // Validate required parameters
     if (!request.code || !request.redirect_uri || !request.client_id) {
         return c.json({ error: 'invalid_request', error_description: 'Missing required parameters for authorization code grant' }, 400);
@@ -158,9 +140,9 @@ async function handleAuthorizationCodeGrant(c, request) {
     return c.json(response);
 }
 /**
- * Handle refresh token grant
+ * Handle refresh token grant with rotation
  */
-async function handleRefreshTokenGrant(c, request) {
+async function handleRefreshTokenGrant(c, request, refreshTokenStorage, jwtService) {
     // Validate required parameters
     if (!request.refresh_token) {
         return c.json({ error: 'invalid_request', error_description: 'Missing refresh_token parameter' }, 400);

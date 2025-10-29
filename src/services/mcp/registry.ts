@@ -21,6 +21,7 @@ export interface MCPServerDatabase {
   getServerById(serverId: string, tenantId: string): Promise<MCPServerRegistryEntry | null>;
   getServersByTenant(tenantId: string): Promise<MCPServerRegistryEntry[]>;
   getServerByResourceIdentifier(resourceIdentifier: string, tenantId: string): Promise<MCPServerRegistryEntry | null>;
+  getAllServers(): Promise<MCPServerRegistryEntry[]>;
   createServer(config: MCPServerConfig): Promise<MCPServerRegistryEntry>;
   updateServer(serverId: string, tenantId: string, config: Partial<MCPServerConfig>): Promise<MCPServerRegistryEntry>;
   updateServerHealth(serverId: string, tenantId: string, health: MCPServerHealth): Promise<void>;
@@ -124,6 +125,13 @@ export class MCPServerRegistry {
    */
   async listServers(tenantId: string): Promise<MCPServerRegistryEntry[]> {
     return this.db.getServersByTenant(tenantId);
+  }
+
+  /**
+   * Get all servers (administrative function)
+   */
+  async getAllServers(): Promise<MCPServerRegistryEntry[]> {
+    return this.db.getAllServers();
   }
 
   /**

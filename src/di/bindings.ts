@@ -25,7 +25,7 @@ export function configureServices(container: Container, env: Bindings): void {
     () => getJWTService({
       JWT_SECRET: env.JWT_SECRET,
       JWT_ALGORITHM: (env as any).JWT_ALGORITHM || 'HS256',
-      JWT_ISSUER: (env as any).JWT_ISSUER || env.JWT_ISSUER || 'oauth-mcp-gateway',
+      JWT_ISSUER: (env as any).JWT_ISSUER || 'oauth-mcp-gateway',
     }),
     true
   );

@@ -196,9 +196,26 @@ function decodeState(state) {
     try {
         // In production, retrieve from KV by token
         // For now, just base64 decode
-        return JSON.parse(atob(state));
+        const decoded = atob(state);
+        // Validate the decoded string before parsing
+        if (typeof decoded !== 'string' || !/^[\[\{].*[\]\}]$/.test(decoded.trim())) {
+            console.warn('Invalid JSON format detected in state parameter');
+            return {};
+        }
+        const parsed = JSON.parse(decoded);
+        // Validate parsed object to prevent prototype pollution
+        if (parsed !== null && typeof parsed === 'object') {
+            // Check for dangerous properties that could lead to prototype pollution
+            if (Object.prototype.hasOwnProperty.call(parsed, '__proto__') ||
+                Object.prototype.hasOwnProperty.call(parsed, 'constructor')) {
+                console.error('Prototype pollution attempt detected in state parameter');
+                return {};
+            }
+        }
+        return parsed;
     }
-    catch {
+    catch (error) {
+        console.error('State parameter parsing error:', error);
         return {};
     }
 }

@@ -4,18 +4,10 @@
  * Handles client registration, validation, and management for OAuth 2.1
  * with multi-tenant support and security features.
  */
-// UUID v4 generation using Web Crypto API (edge-compatible)
-function generateUUID() {
-    const array = new Uint8Array(16);
-    crypto.getRandomValues(array);
-    // Set version (4) and variant bits
-    array[6] = (array[6] & 0x0f) | 0x40; // Version 4
-    array[8] = (array[8] & 0x3f) | 0x80; // Variant 10
-    // Convert to hex string with hyphens
-    const hex = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
-    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
-}
-import { OAUTH_CONSTANTS, DATABASE_CONSTANTS } from '../../utils/constants';
+import { OAUTH_CONSTANTS, DATABASE_CONSTANTS } from '../utils/constants';
+/**
+ * OAuth Client Service
+ */
 export class ClientService {
     db;
     constructor(db) {
@@ -176,13 +168,13 @@ export class ClientService {
             .prepare(`DELETE FROM ${DATABASE_CONSTANTS.TABLES.OAUTH_CLIENTS} WHERE client_id = ? AND tenant_id = ?`)
             .bind(clientId, tenantId)
             .run();
-        return result.meta.changes > 0;
+        return result.changes > 0;
     }
     /**
      * Generate secure client_id with prefix
      */
     generateClientId() {
-        const uuid = generateUUID().replace(/-/g, '');
+        const uuid = crypto.randomUUID().replace(/-/g, '');
         return `mcp_client_${uuid}`;
     }
     /**

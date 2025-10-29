@@ -159,6 +159,39 @@ export class NotificationService {
         };
     }
     /**
+     * Safely parse JSON with validation to prevent prototype pollution and other vulnerabilities
+     * @param jsonString The JSON string to parse
+     * @param defaultValue The default value to return if parsing fails
+     */
+    safeJsonParse(jsonString, defaultValue) {
+        if (!jsonString) {
+            return defaultValue;
+        }
+        try {
+            // First, validate the string to ensure it's a proper JSON array/object
+            if (typeof jsonString !== 'string' || !/^[\[\{].*[\]\}]$/.test(jsonString.trim())) {
+                console.warn('Invalid JSON format detected, returning default value');
+                return defaultValue;
+            }
+            // Parse the JSON
+            const parsed = JSON.parse(jsonString);
+            // Additional validation to prevent prototype pollution
+            if (parsed !== null && typeof parsed === 'object') {
+                // Check for dangerous properties that could lead to prototype pollution
+                if (Object.prototype.hasOwnProperty.call(parsed, '__proto__') ||
+                    Object.prototype.hasOwnProperty.call(parsed, 'constructor')) {
+                    console.error('Prototype pollution attempt detected');
+                    return defaultValue;
+                }
+            }
+            return parsed;
+        }
+        catch (error) {
+            console.error('JSON parsing error:', error);
+            return defaultValue;
+        }
+    }
+    /**
      * Mark an alert as having notification sent
      */
     async markAlertNotificationSent(alertId) {

@@ -22,7 +22,19 @@ export declare function generatePKCE(): Promise<PKCEChallenge>;
  */
 export declare const createS256CodeChallenge: typeof sha256;
 /**
+ * Constant-time string comparison to prevent timing attacks
+ *
+ * Security: This prevents attackers from using timing differences to guess
+ * the PKCE challenge character by character.
+ */
+export declare function constantTimeCompare(a: string, b: string): boolean;
+/**
  * Validate PKCE verifier against challenge
+ *
+ * Security Enhancements:
+ * - Uses constant-time comparison to prevent timing attacks
+ * - Validates format before comparison
+ * - Only supports S256 method (most secure)
  */
 export declare function validatePKCE(codeVerifier: string, codeChallenge: string, method?: string): Promise<boolean>;
 /**

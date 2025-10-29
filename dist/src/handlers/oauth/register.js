@@ -224,8 +224,21 @@ function isValidEmail(email) {
  * CORS preflight handler for client registration
  */
 export const registerPreflight = async (c) => {
-    c.header('Access-Control-Allow-Origin', '*');
+    const origin = c.req.header('Origin');
+    if (origin) {
+        const allowedOrigins = process.env.CORS_ORIGINS
+            ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
+            : ['http://localhost:3000', 'https://localhost:3000'];
+        if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+            c.header('Access-Control-Allow-Origin', origin);
+        }
+    }
+    else {
+        // If no Origin header, don't set Access-Control-Allow-Origin to avoid wildcard
+        c.header('Access-Control-Allow-Origin', 'null');
+    }
     c.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
     c.header('Access-Control-Allow-Headers', 'Content-Type, X-Tenant-ID');
+    c.header('Vary', 'Origin'); // Important for caching when using origin-based CORS
     return c.text('', HTTP_STATUS.NO_CONTENT);
 };

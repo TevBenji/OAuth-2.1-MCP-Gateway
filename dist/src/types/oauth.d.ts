@@ -21,8 +21,8 @@ export declare const AuthorizeRequestSchema: z.ZodObject<{
     state: string;
     code_challenge: string;
     code_challenge_method: "S256";
-    scope?: string | undefined;
     resource?: string | undefined;
+    scope?: string | undefined;
 }, {
     client_id: string;
     redirect_uri: string;
@@ -30,8 +30,8 @@ export declare const AuthorizeRequestSchema: z.ZodObject<{
     state: string;
     code_challenge: string;
     code_challenge_method: "S256";
-    scope?: string | undefined;
     resource?: string | undefined;
+    scope?: string | undefined;
 }>;
 export type AuthorizeRequest = z.infer<typeof AuthorizeRequestSchema>;
 export interface AuthorizeResponse {
@@ -50,20 +50,20 @@ export declare const TokenRequestSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     client_id: string;
     grant_type: "authorization_code" | "refresh_token";
-    redirect_uri?: string | undefined;
     code?: string | undefined;
-    scope?: string | undefined;
-    resource?: string | undefined;
     refresh_token?: string | undefined;
+    resource?: string | undefined;
+    redirect_uri?: string | undefined;
+    scope?: string | undefined;
     code_verifier?: string | undefined;
 }, {
     client_id: string;
     grant_type: "authorization_code" | "refresh_token";
-    redirect_uri?: string | undefined;
     code?: string | undefined;
-    scope?: string | undefined;
-    resource?: string | undefined;
     refresh_token?: string | undefined;
+    resource?: string | undefined;
+    redirect_uri?: string | undefined;
+    scope?: string | undefined;
     code_verifier?: string | undefined;
 }>;
 export type TokenRequest = z.infer<typeof TokenRequestSchema>;

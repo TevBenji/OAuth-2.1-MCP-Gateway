@@ -12,6 +12,7 @@ export interface MCPServerDatabase {
     getServerById(serverId: string, tenantId: string): Promise<MCPServerRegistryEntry | null>;
     getServersByTenant(tenantId: string): Promise<MCPServerRegistryEntry[]>;
     getServerByResourceIdentifier(resourceIdentifier: string, tenantId: string): Promise<MCPServerRegistryEntry | null>;
+    getAllServers(): Promise<MCPServerRegistryEntry[]>;
     createServer(config: MCPServerConfig): Promise<MCPServerRegistryEntry>;
     updateServer(serverId: string, tenantId: string, config: Partial<MCPServerConfig>): Promise<MCPServerRegistryEntry>;
     updateServerHealth(serverId: string, tenantId: string, health: MCPServerHealth): Promise<void>;
@@ -43,6 +44,10 @@ export declare class MCPServerRegistry {
      * List all servers for a tenant
      */
     listServers(tenantId: string): Promise<MCPServerRegistryEntry[]>;
+    /**
+     * Get all servers (administrative function)
+     */
+    getAllServers(): Promise<MCPServerRegistryEntry[]>;
     /**
      * Update server configuration
      */

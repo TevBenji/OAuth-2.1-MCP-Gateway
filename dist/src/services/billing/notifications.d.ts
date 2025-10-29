@@ -44,6 +44,12 @@ export declare class NotificationService {
         enabled: boolean;
     }>;
     /**
+     * Safely parse JSON with validation to prevent prototype pollution and other vulnerabilities
+     * @param jsonString The JSON string to parse
+     * @param defaultValue The default value to return if parsing fails
+     */
+    private safeJsonParse;
+    /**
      * Mark an alert as having notification sent
      */
     markAlertNotificationSent(alertId: string): Promise<void>;

@@ -17,7 +17,7 @@ type Variables = {
 
 export async function featureEnforcementMiddleware(c: Context<{ Bindings: Bindings; Variables: Variables }>, next: Next) {
   const tenantId = c.req.header('X-Tenant-ID') || 
-                  (c.get('tenantId') as string) || 
+                  (c.get('tenantId') as string | undefined) || 
                   'default';
 
   try {

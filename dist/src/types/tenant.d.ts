@@ -78,10 +78,10 @@ export declare const TenantConfigSchema: z.ZodObject<{
     created_at: z.ZodOptional<z.ZodDate>;
     updated_at: z.ZodOptional<z.ZodDate>;
 }, "strip", z.ZodTypeAny, {
+    name: string;
     status: "active" | "suspended" | "pending";
     billing_tier: "free" | "pro" | "business" | "enterprise";
-    name: string;
-    compliance_tier: "pci-dss" | "hipaa" | "sox" | "standard";
+    compliance_tier: "standard" | "pci-dss" | "hipaa" | "sox";
     features: {
         api_key_rotation: boolean;
         advanced_audit_logging: boolean;
@@ -91,9 +91,9 @@ export declare const TenantConfigSchema: z.ZodObject<{
     };
     max_mcp_servers: number;
     max_users: number;
-    max_concurrent_sessions: number;
     domain: string;
     audit_retention_days: number;
+    max_concurrent_sessions: number;
     encryption_at_rest: boolean;
     max_oauth_clients: number;
     max_requests_per_month: number;
@@ -103,11 +103,11 @@ export declare const TenantConfigSchema: z.ZodObject<{
         requests_per_day: number;
         burst_limit: number;
     };
-    created_at?: Date | undefined;
-    updated_at?: Date | undefined;
     tenant_id?: string | undefined;
     metadata?: Record<string, any> | undefined;
     billing_email?: string | undefined;
+    created_at?: Date | undefined;
+    updated_at?: Date | undefined;
     billing_address?: {
         state: string;
         street: string;
@@ -118,14 +118,14 @@ export declare const TenantConfigSchema: z.ZodObject<{
 }, {
     name: string;
     domain: string;
-    status?: "active" | "suspended" | "pending" | undefined;
-    created_at?: Date | undefined;
-    updated_at?: Date | undefined;
     tenant_id?: string | undefined;
+    status?: "active" | "suspended" | "pending" | undefined;
     metadata?: Record<string, any> | undefined;
     billing_tier?: "free" | "pro" | "business" | "enterprise" | undefined;
     billing_email?: string | undefined;
-    compliance_tier?: "pci-dss" | "hipaa" | "sox" | "standard" | undefined;
+    compliance_tier?: "standard" | "pci-dss" | "hipaa" | "sox" | undefined;
+    created_at?: Date | undefined;
+    updated_at?: Date | undefined;
     features?: {
         api_key_rotation?: boolean | undefined;
         advanced_audit_logging?: boolean | undefined;
@@ -135,8 +135,8 @@ export declare const TenantConfigSchema: z.ZodObject<{
     } | undefined;
     max_mcp_servers?: number | undefined;
     max_users?: number | undefined;
-    max_concurrent_sessions?: number | undefined;
     audit_retention_days?: number | undefined;
+    max_concurrent_sessions?: number | undefined;
     encryption_at_rest?: boolean | undefined;
     max_oauth_clients?: number | undefined;
     max_requests_per_month?: number | undefined;
@@ -206,13 +206,13 @@ export declare const APIKeyConfigSchema: z.ZodObject<{
     created_at: z.ZodOptional<z.ZodDate>;
     updated_at: z.ZodOptional<z.ZodDate>;
 }, "strip", z.ZodTypeAny, {
-    status: "active" | "inactive" | "revoked";
     tenant_id: string;
-    version: number;
     name: string;
+    status: "active" | "inactive" | "revoked";
+    version: number;
+    scopes: string[];
     key_prefix: string;
     key_hash: string;
-    scopes: string[];
     usage_count: number;
     created_by: string;
     created_at?: Date | undefined;
@@ -230,12 +230,12 @@ export declare const APIKeyConfigSchema: z.ZodObject<{
     key_hash: string;
     created_by: string;
     status?: "active" | "inactive" | "revoked" | undefined;
+    version?: number | undefined;
     created_at?: Date | undefined;
     updated_at?: Date | undefined;
-    version?: number | undefined;
+    scopes?: string[] | undefined;
     expires_at?: Date | undefined;
     key_id?: string | undefined;
-    scopes?: string[] | undefined;
     last_used?: Date | undefined;
     usage_count?: number | undefined;
     allowed_ips?: string[] | undefined;

@@ -1,4 +1,5 @@
 import { Context } from 'hono';
+import type { Bindings } from '../../types/bindings';
 export interface AuthorizationRequest {
     response_type: string;
     client_id: string;
@@ -8,22 +9,18 @@ export interface AuthorizationRequest {
     code_challenge?: string;
     code_challenge_method?: string;
 }
-export interface AuthorizationCodeStorage {
-    storeCode(code: string, clientId: string, redirectUri: string, userId: string, scopes: string[], expiresAt: number): Promise<void>;
-    retrieveAndDeleteCode(code: string): Promise<AuthorizationCodeData | null>;
-}
-export interface AuthorizationCodeData {
-    clientId: string;
-    redirectUri: string;
-    userId: string;
-    scopes: string[];
-    expiresAt: number;
-}
 /**
  * GET /authorize endpoint - OAuth 2.1 authorization endpoint
  * Handles authorization requests and enforces PKCE
+ *
+ * Security Enhancements:
+ * - Uses D1 database for authorization code storage
+ * - Persists PKCE challenge for validation during token exchange
+ * - Atomic operations prevent race conditions
  */
-export declare const handleAuthorization: (c: Context) => Promise<Response>;
+export declare const handleAuthorization: (c: Context<{
+    Bindings: Bindings;
+}>) => Promise<Response>;
 /**
  * Function to validate state parameter for CSRF protection
  * @param providedState - State parameter provided in the request

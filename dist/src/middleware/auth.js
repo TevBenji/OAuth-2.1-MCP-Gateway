@@ -5,7 +5,7 @@
  * Validates JWT tokens, extracts claims, and attaches context to requests.
  */
 import { MCPError } from '../errors/mcp-error';
-import { JWTService } from '../services/oauth/jwt';
+import { getJWTService } from '../services/oauth/jwt-factory';
 import { RiskService } from '../services/security/risk';
 import { auditService } from '../services/security/audit';
 /**
@@ -35,9 +35,13 @@ export function authMiddleware() {
             if (!token) {
                 throw new MCPError('MISSING_TOKEN', 'Missing or invalid Authorization header. Expected: Bearer <token>', 401);
             }
-            // Get JWT service configuration from environment
+            // Get JWT service configuration from environment (uses cached factory)
             const env = c.env;
-            const jwtService = new JWTService(env.JWT_SECRET, env.JWT_ALGORITHM || 'HS256', env.ISSUER || 'oauth-mcp-gateway');
+            const jwtService = getJWTService({
+                JWT_SECRET: env.JWT_SECRET,
+                JWT_ALGORITHM: env.JWT_ALGORITHM || 'HS256',
+                JWT_ISSUER: env.ISSUER || 'oauth-mcp-gateway',
+            });
             // Verify the token
             let verificationResult;
             try {

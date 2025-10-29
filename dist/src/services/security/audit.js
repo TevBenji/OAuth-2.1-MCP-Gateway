@@ -210,11 +210,11 @@ export class AuditService {
         params.push(limit, offset);
         // Execute the main query
         const result = await this.db.prepare(baseQuery).bind(...params).all();
-        // Parse JSON fields
+        // Parse JSON fields with safe parsing to prevent prototype pollution
         const entries = result.results.map(log => ({
             ...log,
-            details: typeof log.details === 'string' ? JSON.parse(log.details) : log.details,
-            complianceTags: typeof log.complianceTags === 'string' ? JSON.parse(log.complianceTags) : log.complianceTags,
+            details: typeof log.details === 'string' ? this.safeJsonParse(log.details, {}) : log.details,
+            complianceTags: typeof log.complianceTags === 'string' ? this.safeJsonParse(log.complianceTags, []) : log.complianceTags,
             success: Boolean(log.success)
         }));
         return {
@@ -223,6 +223,39 @@ export class AuditService {
             limit,
             offset
         };
+    }
+    /**
+     * Safely parse JSON with validation to prevent prototype pollution and other vulnerabilities
+     * @param jsonString The JSON string to parse
+     * @param defaultValue The default value to return if parsing fails
+     */
+    safeJsonParse(jsonString, defaultValue) {
+        if (!jsonString) {
+            return defaultValue;
+        }
+        try {
+            // First, validate the string to ensure it's a proper JSON array/object
+            if (typeof jsonString !== 'string' || !/^[\[\{].*[\]\}]$/.test(jsonString.trim())) {
+                console.warn('Invalid JSON format detected, returning default value');
+                return defaultValue;
+            }
+            // Parse the JSON
+            const parsed = JSON.parse(jsonString);
+            // Additional validation to prevent prototype pollution
+            if (parsed !== null && typeof parsed === 'object') {
+                // Check for dangerous properties that could lead to prototype pollution
+                if (Object.prototype.hasOwnProperty.call(parsed, '__proto__') ||
+                    Object.prototype.hasOwnProperty.call(parsed, 'constructor')) {
+                    console.error('Prototype pollution attempt detected');
+                    return defaultValue;
+                }
+            }
+            return parsed;
+        }
+        catch (error) {
+            console.error('JSON parsing error:', error);
+            return defaultValue;
+        }
     }
     /**
      * Export audit logs for compliance requirements

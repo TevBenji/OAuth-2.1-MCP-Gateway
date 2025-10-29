@@ -31,6 +31,12 @@ export declare class AuditService {
      */
     queryLogs(query: AuditLogQuery): Promise<AuditLogQueryResult>;
     /**
+     * Safely parse JSON with validation to prevent prototype pollution and other vulnerabilities
+     * @param jsonString The JSON string to parse
+     * @param defaultValue The default value to return if parsing fails
+     */
+    private safeJsonParse;
+    /**
      * Export audit logs for compliance requirements
      */
     exportLogs(query: AuditLogQuery, format?: 'json' | 'csv' | 'xml'): Promise<string>;
