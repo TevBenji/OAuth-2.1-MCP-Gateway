@@ -4,7 +4,7 @@
  * Exposes aggregated performance metrics for monitoring.
  * Supports both JSON and Prometheus formats.
  */
-import { getMetrics } from '../../middleware/performance';
+import { getPerformanceMetrics } from '../../middleware/performance';
 import { calculateMetricsSummary, groupByEndpoint, calculateRate, formatPrometheusMetrics, } from '../../utils/metrics';
 /**
  * GET /admin/api/metrics/performance
@@ -13,7 +13,7 @@ import { calculateMetricsSummary, groupByEndpoint, calculateRate, formatPromethe
  */
 export async function getPerformanceMetrics(c) {
     const format = c.req.query('format') || 'json';
-    const metrics = getMetrics();
+    const metrics = getPerformanceMetrics();
     if (metrics.length === 0) {
         return c.json({
             message: 'No metrics collected yet',
@@ -52,8 +52,8 @@ export async function getPerformanceMetrics(c) {
  * Clears performance metrics (useful for testing)
  */
 export async function resetPerformanceMetrics(c) {
-    const { clearMetrics } = await import('../../middleware/performance');
-    clearMetrics();
+    const { clearPerformanceMetrics } = await import('../../middleware/performance');
+    clearPerformanceMetrics();
     return c.json({
         message: 'Performance metrics cleared',
         timestamp: new Date().toISOString(),

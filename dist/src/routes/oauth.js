@@ -4,7 +4,9 @@
  * Hono routes for OAuth 2.1 endpoints with proper error handling and validation.
  */
 import { Hono } from 'hono';
-import { handleAuthorization, handleToken, registerClient } from '../handlers/oauth';
+import { handleAuthorization } from '../handlers/oauth/authorize';
+import { handleToken } from '../handlers/oauth/token';
+import { registerClient } from '../handlers/oauth/register';
 import { ipRateLimitMiddleware } from '../middleware/rate-limit';
 import { createRateLimiter } from '../services/security/rate-limiter';
 const oauth = new Hono();

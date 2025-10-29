@@ -4,7 +4,7 @@
  * Handles client registration, validation, and management for OAuth 2.1
  * with multi-tenant support and security features.
  */
-import type { ClientRegistrationRequest, ClientRegistrationResponse, OAuthClient } from '../types/oauth';
+import type { ClientRegistrationRequest, ClientRegistrationResponse, OAuthClient } from '@/types/oauth';
 /**
  * OAuth Client Service
  */

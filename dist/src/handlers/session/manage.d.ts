@@ -36,7 +36,7 @@ export declare function getCurrentSessionHandler(c: Context): Promise<(Response 
     expires_at: string;
     idle_timeout_at: string;
     device_info: {
-        device_type: "unknown" | "desktop" | "mobile" | "tablet" | undefined;
+        device_type: "desktop" | "mobile" | "tablet" | "unknown" | undefined;
         os: string | undefined;
         browser: string | undefined;
     };
@@ -68,7 +68,7 @@ export declare function listUserSessionsHandler(c: Context): Promise<(Response &
         last_accessed_at: string;
         expires_at: string;
         device_info: {
-            device_type: "unknown" | "desktop" | "mobile" | "tablet" | undefined;
+            device_type: "desktop" | "mobile" | "tablet" | "unknown" | undefined;
             os: string | undefined;
             browser: string | undefined;
             ip_address: string;

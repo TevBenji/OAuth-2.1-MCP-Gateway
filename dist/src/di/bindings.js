@@ -20,7 +20,7 @@ export function configureServices(container, env) {
     container.register(SERVICE_IDS.JWT, () => getJWTService({
         JWT_SECRET: env.JWT_SECRET,
         JWT_ALGORITHM: env.JWT_ALGORITHM || 'HS256',
-        JWT_ISSUER: env.JWT_ISSUER || env.JWT_ISSUER || 'oauth-mcp-gateway',
+        JWT_ISSUER: env.JWT_ISSUER || 'oauth-mcp-gateway',
     }), true);
     // Rate Limiter Service (singleton)
     container.register(SERVICE_IDS.RATE_LIMITER, () => {

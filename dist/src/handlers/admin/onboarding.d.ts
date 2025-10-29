@@ -16,6 +16,14 @@ export declare function registerTenant(c: Context): Promise<(Response & import("
 }>) | (Response & import("hono").TypedResponse<{
     error: string;
     details: ({
+        code: "custom";
+        params?: {
+            [x: string]: any;
+        } | undefined;
+        path: (string | number)[];
+        message: string;
+        fatal?: boolean | undefined | undefined;
+    } | {
         code: "invalid_type";
         expected: z.ZodParsedType;
         received: z.ZodParsedType;
@@ -39,6 +47,14 @@ export declare function registerTenant(c: Context): Promise<(Response & import("
         code: "invalid_union";
         unionErrors: {
             issues: ({
+                code: "custom";
+                params?: {
+                    [x: string]: any;
+                } | undefined;
+                path: (string | number)[];
+                message: string;
+                fatal?: boolean | undefined | undefined;
+            } | {
                 code: "invalid_type";
                 expected: z.ZodParsedType;
                 received: z.ZodParsedType;
@@ -90,7 +106,7 @@ export declare function registerTenant(c: Context): Promise<(Response & import("
                 fatal?: boolean | undefined | undefined;
             } | {
                 code: "invalid_string";
-                validation: "ip" | "duration" | "date" | "email" | "url" | "emoji" | "uuid" | "nanoid" | "cuid" | "cuid2" | "ulid" | "base64" | "base64url" | "jwt" | "cidr" | "datetime" | "time" | "regex" | {
+                validation: "date" | "ip" | "duration" | "email" | "url" | "emoji" | "uuid" | "nanoid" | "cuid" | "cuid2" | "ulid" | "base64" | "base64url" | "jwt" | "cidr" | "datetime" | "time" | "regex" | {
                     includes: string;
                     position?: number | undefined | undefined;
                 } | {
@@ -132,19 +148,19 @@ export declare function registerTenant(c: Context): Promise<(Response & import("
                 fatal?: boolean | undefined | undefined;
             } | {
                 code: "not_finite";
-                path: (string | number)[];
-                message: string;
-                fatal?: boolean | undefined | undefined;
-            } | {
-                code: "custom";
-                params?: {
-                    [x: string]: any;
-                } | undefined;
                 path: (string | number)[];
                 message: string;
                 fatal?: boolean | undefined | undefined;
             })[];
             readonly errors: ({
+                code: "custom";
+                params?: {
+                    [x: string]: any;
+                } | undefined;
+                path: (string | number)[];
+                message: string;
+                fatal?: boolean | undefined | undefined;
+            } | {
                 code: "invalid_type";
                 expected: z.ZodParsedType;
                 received: z.ZodParsedType;
@@ -196,7 +212,7 @@ export declare function registerTenant(c: Context): Promise<(Response & import("
                 fatal?: boolean | undefined | undefined;
             } | {
                 code: "invalid_string";
-                validation: "ip" | "duration" | "date" | "email" | "url" | "emoji" | "uuid" | "nanoid" | "cuid" | "cuid2" | "ulid" | "base64" | "base64url" | "jwt" | "cidr" | "datetime" | "time" | "regex" | {
+                validation: "date" | "ip" | "duration" | "email" | "url" | "emoji" | "uuid" | "nanoid" | "cuid" | "cuid2" | "ulid" | "base64" | "base64url" | "jwt" | "cidr" | "datetime" | "time" | "regex" | {
                     includes: string;
                     position?: number | undefined | undefined;
                 } | {
@@ -238,14 +254,6 @@ export declare function registerTenant(c: Context): Promise<(Response & import("
                 fatal?: boolean | undefined | undefined;
             } | {
                 code: "not_finite";
-                path: (string | number)[];
-                message: string;
-                fatal?: boolean | undefined | undefined;
-            } | {
-                code: "custom";
-                params?: {
-                    [x: string]: any;
-                } | undefined;
                 path: (string | number)[];
                 message: string;
                 fatal?: boolean | undefined | undefined;
@@ -289,6 +297,14 @@ export declare function registerTenant(c: Context): Promise<(Response & import("
         code: "invalid_arguments";
         argumentsError: {
             issues: ({
+                code: "custom";
+                params?: {
+                    [x: string]: any;
+                } | undefined;
+                path: (string | number)[];
+                message: string;
+                fatal?: boolean | undefined | undefined;
+            } | {
                 code: "invalid_type";
                 expected: z.ZodParsedType;
                 received: z.ZodParsedType;
@@ -340,7 +356,7 @@ export declare function registerTenant(c: Context): Promise<(Response & import("
                 fatal?: boolean | undefined | undefined;
             } | {
                 code: "invalid_string";
-                validation: "ip" | "duration" | "date" | "email" | "url" | "emoji" | "uuid" | "nanoid" | "cuid" | "cuid2" | "ulid" | "base64" | "base64url" | "jwt" | "cidr" | "datetime" | "time" | "regex" | {
+                validation: "date" | "ip" | "duration" | "email" | "url" | "emoji" | "uuid" | "nanoid" | "cuid" | "cuid2" | "ulid" | "base64" | "base64url" | "jwt" | "cidr" | "datetime" | "time" | "regex" | {
                     includes: string;
                     position?: number | undefined | undefined;
                 } | {
@@ -382,19 +398,19 @@ export declare function registerTenant(c: Context): Promise<(Response & import("
                 fatal?: boolean | undefined | undefined;
             } | {
                 code: "not_finite";
-                path: (string | number)[];
-                message: string;
-                fatal?: boolean | undefined | undefined;
-            } | {
-                code: "custom";
-                params?: {
-                    [x: string]: any;
-                } | undefined;
                 path: (string | number)[];
                 message: string;
                 fatal?: boolean | undefined | undefined;
             })[];
             readonly errors: ({
+                code: "custom";
+                params?: {
+                    [x: string]: any;
+                } | undefined;
+                path: (string | number)[];
+                message: string;
+                fatal?: boolean | undefined | undefined;
+            } | {
                 code: "invalid_type";
                 expected: z.ZodParsedType;
                 received: z.ZodParsedType;
@@ -446,7 +462,7 @@ export declare function registerTenant(c: Context): Promise<(Response & import("
                 fatal?: boolean | undefined | undefined;
             } | {
                 code: "invalid_string";
-                validation: "ip" | "duration" | "date" | "email" | "url" | "emoji" | "uuid" | "nanoid" | "cuid" | "cuid2" | "ulid" | "base64" | "base64url" | "jwt" | "cidr" | "datetime" | "time" | "regex" | {
+                validation: "date" | "ip" | "duration" | "email" | "url" | "emoji" | "uuid" | "nanoid" | "cuid" | "cuid2" | "ulid" | "base64" | "base64url" | "jwt" | "cidr" | "datetime" | "time" | "regex" | {
                     includes: string;
                     position?: number | undefined | undefined;
                 } | {
@@ -488,14 +504,6 @@ export declare function registerTenant(c: Context): Promise<(Response & import("
                 fatal?: boolean | undefined | undefined;
             } | {
                 code: "not_finite";
-                path: (string | number)[];
-                message: string;
-                fatal?: boolean | undefined | undefined;
-            } | {
-                code: "custom";
-                params?: {
-                    [x: string]: any;
-                } | undefined;
                 path: (string | number)[];
                 message: string;
                 fatal?: boolean | undefined | undefined;
@@ -526,6 +534,14 @@ export declare function registerTenant(c: Context): Promise<(Response & import("
         code: "invalid_return_type";
         returnTypeError: {
             issues: ({
+                code: "custom";
+                params?: {
+                    [x: string]: any;
+                } | undefined;
+                path: (string | number)[];
+                message: string;
+                fatal?: boolean | undefined | undefined;
+            } | {
                 code: "invalid_type";
                 expected: z.ZodParsedType;
                 received: z.ZodParsedType;
@@ -577,7 +593,7 @@ export declare function registerTenant(c: Context): Promise<(Response & import("
                 fatal?: boolean | undefined | undefined;
             } | {
                 code: "invalid_string";
-                validation: "ip" | "duration" | "date" | "email" | "url" | "emoji" | "uuid" | "nanoid" | "cuid" | "cuid2" | "ulid" | "base64" | "base64url" | "jwt" | "cidr" | "datetime" | "time" | "regex" | {
+                validation: "date" | "ip" | "duration" | "email" | "url" | "emoji" | "uuid" | "nanoid" | "cuid" | "cuid2" | "ulid" | "base64" | "base64url" | "jwt" | "cidr" | "datetime" | "time" | "regex" | {
                     includes: string;
                     position?: number | undefined | undefined;
                 } | {
@@ -619,19 +635,19 @@ export declare function registerTenant(c: Context): Promise<(Response & import("
                 fatal?: boolean | undefined | undefined;
             } | {
                 code: "not_finite";
-                path: (string | number)[];
-                message: string;
-                fatal?: boolean | undefined | undefined;
-            } | {
-                code: "custom";
-                params?: {
-                    [x: string]: any;
-                } | undefined;
                 path: (string | number)[];
                 message: string;
                 fatal?: boolean | undefined | undefined;
             })[];
             readonly errors: ({
+                code: "custom";
+                params?: {
+                    [x: string]: any;
+                } | undefined;
+                path: (string | number)[];
+                message: string;
+                fatal?: boolean | undefined | undefined;
+            } | {
                 code: "invalid_type";
                 expected: z.ZodParsedType;
                 received: z.ZodParsedType;
@@ -683,7 +699,7 @@ export declare function registerTenant(c: Context): Promise<(Response & import("
                 fatal?: boolean | undefined | undefined;
             } | {
                 code: "invalid_string";
-                validation: "ip" | "duration" | "date" | "email" | "url" | "emoji" | "uuid" | "nanoid" | "cuid" | "cuid2" | "ulid" | "base64" | "base64url" | "jwt" | "cidr" | "datetime" | "time" | "regex" | {
+                validation: "date" | "ip" | "duration" | "email" | "url" | "emoji" | "uuid" | "nanoid" | "cuid" | "cuid2" | "ulid" | "base64" | "base64url" | "jwt" | "cidr" | "datetime" | "time" | "regex" | {
                     includes: string;
                     position?: number | undefined | undefined;
                 } | {
@@ -725,14 +741,6 @@ export declare function registerTenant(c: Context): Promise<(Response & import("
                 fatal?: boolean | undefined | undefined;
             } | {
                 code: "not_finite";
-                path: (string | number)[];
-                message: string;
-                fatal?: boolean | undefined | undefined;
-            } | {
-                code: "custom";
-                params?: {
-                    [x: string]: any;
-                } | undefined;
                 path: (string | number)[];
                 message: string;
                 fatal?: boolean | undefined | undefined;
@@ -766,7 +774,7 @@ export declare function registerTenant(c: Context): Promise<(Response & import("
         fatal?: boolean | undefined | undefined;
     } | {
         code: "invalid_string";
-        validation: "ip" | "duration" | "date" | "email" | "url" | "emoji" | "uuid" | "nanoid" | "cuid" | "cuid2" | "ulid" | "base64" | "base64url" | "jwt" | "cidr" | "datetime" | "time" | "regex" | {
+        validation: "date" | "ip" | "duration" | "email" | "url" | "emoji" | "uuid" | "nanoid" | "cuid" | "cuid2" | "ulid" | "base64" | "base64url" | "jwt" | "cidr" | "datetime" | "time" | "regex" | {
             includes: string;
             position?: number | undefined | undefined;
         } | {
@@ -808,14 +816,6 @@ export declare function registerTenant(c: Context): Promise<(Response & import("
         fatal?: boolean | undefined | undefined;
     } | {
         code: "not_finite";
-        path: (string | number)[];
-        message: string;
-        fatal?: boolean | undefined | undefined;
-    } | {
-        code: "custom";
-        params?: {
-            [x: string]: any;
-        } | undefined;
         path: (string | number)[];
         message: string;
         fatal?: boolean | undefined | undefined;

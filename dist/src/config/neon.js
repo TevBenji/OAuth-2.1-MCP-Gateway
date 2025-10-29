@@ -16,7 +16,8 @@ export class NeonDatabase {
      * Execute a query
      */
     async query(query, params = []) {
-        return await this.sql(query, params);
+        const result = await this.sql(query, params);
+        return result.map(row => row);
     }
     /**
      * Execute a single query and return first result

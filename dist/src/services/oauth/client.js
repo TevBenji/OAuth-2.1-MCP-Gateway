@@ -4,7 +4,7 @@
  * Handles client registration, validation, and management for OAuth 2.1
  * with multi-tenant support and security features.
  */
-import { OAUTH_CONSTANTS, DATABASE_CONSTANTS } from '../utils/constants';
+import { OAUTH_CONSTANTS, DATABASE_CONSTANTS } from '@/utils/constants';
 /**
  * OAuth Client Service
  */
@@ -168,7 +168,7 @@ export class ClientService {
             .prepare(`DELETE FROM ${DATABASE_CONSTANTS.TABLES.OAUTH_CLIENTS} WHERE client_id = ? AND tenant_id = ?`)
             .bind(clientId, tenantId)
             .run();
-        return result.changes > 0;
+        return result.meta.changes > 0;
     }
     /**
      * Generate secure client_id with prefix

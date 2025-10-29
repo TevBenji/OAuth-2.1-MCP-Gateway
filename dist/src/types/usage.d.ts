@@ -44,17 +44,17 @@ export declare const TenantBillingSchema: z.ZodObject<{
         mcp_servers: z.ZodNumber;
         api_keys: z.ZodNumber;
     }, "strip", z.ZodTypeAny, {
-        requests_per_month: number;
-        storage_gb: number;
-        users: number;
         mcp_servers: number;
         api_keys: number;
+        users: number;
+        requests_per_month: number;
+        storage_gb: number;
     }, {
-        requests_per_month: number;
-        storage_gb: number;
-        users: number;
         mcp_servers: number;
         api_keys: number;
+        users: number;
+        requests_per_month: number;
+        storage_gb: number;
     }>;
     current_usage: z.ZodObject<{
         requests_this_month: z.ZodNumber;
@@ -87,11 +87,11 @@ export declare const TenantBillingSchema: z.ZodObject<{
     current_period_start: Date;
     current_period_end: Date;
     limits: {
-        requests_per_month: number;
-        storage_gb: number;
-        users: number;
         mcp_servers: number;
         api_keys: number;
+        users: number;
+        requests_per_month: number;
+        storage_gb: number;
     };
     current_usage: {
         requests_this_month: number;
@@ -112,11 +112,11 @@ export declare const TenantBillingSchema: z.ZodObject<{
     current_period_start: Date;
     current_period_end: Date;
     limits: {
-        requests_per_month: number;
-        storage_gb: number;
-        users: number;
         mcp_servers: number;
         api_keys: number;
+        users: number;
+        requests_per_month: number;
+        storage_gb: number;
     };
     current_usage: {
         requests_this_month: number;

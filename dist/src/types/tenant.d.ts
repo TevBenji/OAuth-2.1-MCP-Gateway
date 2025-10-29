@@ -78,10 +78,10 @@ export declare const TenantConfigSchema: z.ZodObject<{
     created_at: z.ZodOptional<z.ZodDate>;
     updated_at: z.ZodOptional<z.ZodDate>;
 }, "strip", z.ZodTypeAny, {
-    name: string;
     status: "active" | "suspended" | "pending";
+    name: string;
     billing_tier: "free" | "pro" | "business" | "enterprise";
-    compliance_tier: "standard" | "pci-dss" | "hipaa" | "sox";
+    compliance_tier: "pci-dss" | "hipaa" | "sox" | "standard";
     features: {
         api_key_rotation: boolean;
         advanced_audit_logging: boolean;
@@ -104,10 +104,10 @@ export declare const TenantConfigSchema: z.ZodObject<{
         burst_limit: number;
     };
     tenant_id?: string | undefined;
-    metadata?: Record<string, any> | undefined;
-    billing_email?: string | undefined;
     created_at?: Date | undefined;
+    metadata?: Record<string, any> | undefined;
     updated_at?: Date | undefined;
+    billing_email?: string | undefined;
     billing_address?: {
         state: string;
         street: string;
@@ -118,14 +118,14 @@ export declare const TenantConfigSchema: z.ZodObject<{
 }, {
     name: string;
     domain: string;
-    tenant_id?: string | undefined;
     status?: "active" | "suspended" | "pending" | undefined;
+    tenant_id?: string | undefined;
+    created_at?: Date | undefined;
     metadata?: Record<string, any> | undefined;
+    updated_at?: Date | undefined;
     billing_tier?: "free" | "pro" | "business" | "enterprise" | undefined;
     billing_email?: string | undefined;
-    compliance_tier?: "standard" | "pci-dss" | "hipaa" | "sox" | undefined;
-    created_at?: Date | undefined;
-    updated_at?: Date | undefined;
+    compliance_tier?: "pci-dss" | "hipaa" | "sox" | "standard" | undefined;
     features?: {
         api_key_rotation?: boolean | undefined;
         advanced_audit_logging?: boolean | undefined;
@@ -206,18 +206,18 @@ export declare const APIKeyConfigSchema: z.ZodObject<{
     created_at: z.ZodOptional<z.ZodDate>;
     updated_at: z.ZodOptional<z.ZodDate>;
 }, "strip", z.ZodTypeAny, {
+    scopes: string[];
+    status: "active" | "revoked" | "inactive";
     tenant_id: string;
     name: string;
-    status: "active" | "inactive" | "revoked";
     version: number;
-    scopes: string[];
     key_prefix: string;
     key_hash: string;
     usage_count: number;
     created_by: string;
     created_at?: Date | undefined;
-    updated_at?: Date | undefined;
     expires_at?: Date | undefined;
+    updated_at?: Date | undefined;
     key_id?: string | undefined;
     last_used?: Date | undefined;
     allowed_ips?: string[] | undefined;
@@ -229,12 +229,12 @@ export declare const APIKeyConfigSchema: z.ZodObject<{
     key_prefix: string;
     key_hash: string;
     created_by: string;
-    status?: "active" | "inactive" | "revoked" | undefined;
-    version?: number | undefined;
-    created_at?: Date | undefined;
-    updated_at?: Date | undefined;
     scopes?: string[] | undefined;
+    status?: "active" | "revoked" | "inactive" | undefined;
+    created_at?: Date | undefined;
     expires_at?: Date | undefined;
+    updated_at?: Date | undefined;
+    version?: number | undefined;
     key_id?: string | undefined;
     last_used?: Date | undefined;
     usage_count?: number | undefined;

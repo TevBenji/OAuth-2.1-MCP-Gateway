@@ -17,14 +17,14 @@ export declare const DeviceInfoSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     user_agent: string;
     ip_address: string;
-    device_type?: "unknown" | "desktop" | "mobile" | "tablet" | undefined;
+    device_type?: "desktop" | "mobile" | "tablet" | "unknown" | undefined;
     os?: string | undefined;
     browser?: string | undefined;
     device_fingerprint?: string | undefined;
 }, {
     user_agent: string;
     ip_address: string;
-    device_type?: "unknown" | "desktop" | "mobile" | "tablet" | undefined;
+    device_type?: "desktop" | "mobile" | "tablet" | "unknown" | undefined;
     os?: string | undefined;
     browser?: string | undefined;
     device_fingerprint?: string | undefined;
