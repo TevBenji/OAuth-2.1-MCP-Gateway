@@ -4,7 +4,6 @@ import { ClerkProvider } from '@clerk/nextjs';
 import './globals.css';
 import { Toaster } from 'sonner';
 import { ConvexClientProvider } from '@/providers/ConvexClientProvider';
-import { HydrationInitializer } from '@/components/ui/HydrationInitializer';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -209,53 +208,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       }}
     >
       <html lang='en' className={`${inter.variable} font-sans`} suppressHydrationWarning>
-        <head>
-          {/* Pre-hydration script to remove browser extension attributes BEFORE React loads */}
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-                (function() {
-                  // Remove browser extension attributes immediately
-                  function cleanupExtensionAttributes() {
-                    var attrs = ['bis_skin_checked', 'bis_register', 'data-new-gr-c-s-check-loaded', 'data-gr-ext-installed', 'data-grammarly-shadow-editor'];
-                    attrs.forEach(function(attr) {
-                      var elements = document.querySelectorAll('[' + attr + ']');
-                      elements.forEach(function(el) {
-                        el.removeAttribute(attr);
-                      });
-                    });
-                  }
-
-                  // Run immediately
-                  cleanupExtensionAttributes();
-
-                  // Run again when DOM is loaded
-                  if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', cleanupExtensionAttributes);
-                  }
-
-                  // Run before hydration
-                  window.addEventListener('load', cleanupExtensionAttributes);
-
-                  // Run repeatedly for aggressive extensions (first 2 seconds)
-                  var attempts = 0;
-                  var interval = setInterval(function() {
-                    cleanupExtensionAttributes();
-                    attempts++;
-                    if (attempts >= 10) {
-                      clearInterval(interval);
-                    }
-                  }, 200);
-                })();
-              `,
-            }}
-          />
-        </head>
         <body
           className='min-h-screen bg-white text-wise-gray-900 antialiased'
           suppressHydrationWarning
         >
-          <HydrationInitializer />
           <ConvexClientProvider>{children}</ConvexClientProvider>
           <Toaster
             position='bottom-right'

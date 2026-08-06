@@ -1,4 +1,28 @@
-node_modules
-.vercel
+# Dependencies
+node_modules/
 
-.env.local
+# Build output
+dist/
+.next/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Test coverage
+coverage/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+
+# Logs
+*.log

@@ -14,7 +14,6 @@ import { handleToken } from './handlers/oauth/token';
 import { proxyToMCPServer, proxyByResourceIdentifier } from './handlers/mcp/proxy';
 import { healthCheck } from './handlers/admin/health';
 import adminApi from './handlers/admin/api';
-import adminUi from './handlers/admin/ui';
 import { authMiddleware, requireScopes } from './middleware/auth';
 import { rateLimitMiddleware, ipRateLimitMiddleware } from './middleware/rate-limit';
 import { RateLimiter } from './services/security/rate-limiter';
@@ -172,9 +171,8 @@ app.all(
 // The /mcp/:serverId/* route is already defined above (lines 154-160)
 // The /mcp/resource/* route is already defined above (lines 162-168)
 
-// Admin API and UI routes
+// Admin API routes
 app.route('/admin/api', adminApi);
-app.route('/admin', adminUi);
 
 // Default 404 handler
 app.notFound(c => {

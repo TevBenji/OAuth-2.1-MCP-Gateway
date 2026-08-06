@@ -2,7 +2,7 @@
 
 import { SettingsSection, SettingsItem, SettingsGroup } from '@/components/dashboard/settings/SettingsSection';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/Badge';
+import { Badge } from '@/components/ui/badge';
 import {
   Shield,
   Key,
