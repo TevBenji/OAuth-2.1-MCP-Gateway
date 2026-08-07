@@ -35,16 +35,16 @@ export function CompletionStep({ onFinish }: CompletionStepProps) {
             className="mx-auto mb-6"
           >
             <div className="relative">
-              <div className="h-24 w-24 mx-auto rounded-full bg-wise-green-100 dark:bg-wise-green-900 flex items-center justify-center">
-                <CheckCircle className="h-12 w-12 text-wise-green-600 dark:text-wise-green-400" />
+              <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-wise-green-forest text-wise-green-bright">
+                <CheckCircle className="h-12 w-12" />
               </div>
               <motion.div
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.4 }}
-                className="absolute -top-2 -right-2 h-8 w-8 bg-wise-green-500 rounded-full flex items-center justify-center"
+                className="absolute -top-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full bg-wise-green-bright"
               >
-                <span className="text-white text-2xl">🎉</span>
+                <span className="text-2xl">🎉</span>
               </motion.div>
             </div>
           </motion.div>
@@ -69,7 +69,7 @@ export function CompletionStep({ onFinish }: CompletionStepProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.9 }}
           >
-            <h3 className="text-xl font-semibold text-wise-gray-900 dark:text-wise-gray-100 mb-4">
+            <h3 className="mb-4 text-lg font-bold tracking-tight text-wise-green-forest">
               Quick Links
             </h3>
             <div className="grid grid-cols-2 gap-3">
@@ -77,12 +77,12 @@ export function CompletionStep({ onFinish }: CompletionStepProps) {
                 <Link
                   key={link.label}
                   href={link.href}
-                  className="flex items-center justify-between px-4 py-3 rounded-lg border border-wise-gray-300 dark:border-wise-gray-600 hover:border-wise-green-500 hover:bg-wise-green-50 dark:hover:bg-wise-green-900/20 transition-all group"
+                  className="group flex items-center justify-between rounded-xl border border-wise-gray-200 px-4 py-3 transition-all hover:border-wise-green-primary/50 hover:bg-wise-green-50"
                 >
-                  <span className="text-sm font-medium text-wise-gray-700 dark:text-wise-gray-300 group-hover:text-wise-green-700 dark:group-hover:text-wise-green-400">
+                  <span className="text-sm font-semibold text-wise-green-forest">
                     {link.label}
                   </span>
-                  <ArrowRight className="h-4 w-4 text-wise-gray-400 group-hover:text-wise-green-600 group-hover:translate-x-1 transition-all" />
+                  <ArrowRight className="h-4 w-4 text-wise-gray-400 transition-all group-hover:translate-x-1 group-hover:text-wise-green-primary" />
                 </Link>
               ))}
             </div>
@@ -93,12 +93,12 @@ export function CompletionStep({ onFinish }: CompletionStepProps) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.1 }}
-            className="bg-wise-green-50 dark:bg-wise-green-900/20 border border-wise-green-200 dark:border-wise-green-700 rounded-lg p-6"
+            className="rounded-xl border border-wise-green-primary/30 bg-wise-green-50 p-6"
           >
-            <h4 className="font-semibold text-wise-gray-900 dark:text-wise-gray-100 mb-3">
+            <h4 className="mb-3 font-bold text-wise-green-forest">
               💡 Tips for Success
             </h4>
-            <ul className="space-y-2 text-sm text-wise-gray-700 dark:text-wise-gray-300">
+            <ul className="space-y-2 text-sm text-wise-gray-700">
               <li className="flex items-start">
                 <span className="mr-2 mt-0.5">✓</span>
                 <span>Store your client credentials in a secure environment (e.g., env variables)</span>

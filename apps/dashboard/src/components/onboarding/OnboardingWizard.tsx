@@ -77,15 +77,23 @@ export function OnboardingWizard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-wise-gray-50 to-white dark:from-wise-gray-900 dark:to-wise-gray-800 py-12 px-4">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-wise-green-forest px-4 py-12">
+      <div className="mx-auto max-w-6xl">
+        {/* Logo */}
+        <div className="mb-10 flex items-center justify-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-wise-green-bright text-base font-black text-wise-green-forest">
+            G
+          </span>
+          <span className="text-base font-semibold tracking-tight text-white">MCP Gateway</span>
+        </div>
+
         {/* Progress Bar */}
         <div className="mb-12">
           <ProgressBar steps={STEPS} currentStep={currentStep} />
         </div>
 
         {error && (
-          <div className="max-w-3xl mx-auto mb-6 bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+          <div className="mx-auto mb-6 max-w-3xl rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {error}
           </div>
         )}
@@ -126,12 +134,10 @@ export function OnboardingWizard() {
 
         {/* Loading Overlay */}
         {isSubmitting && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-wise-gray-800 rounded-lg p-8 flex flex-col items-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-4 border-wise-green-500 border-t-transparent mb-4" />
-              <p className="text-wise-gray-900 dark:text-wise-gray-100 font-medium">
-                Processing...
-              </p>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-wise-green-forest/40 backdrop-blur-sm">
+            <div className="flex flex-col items-center rounded-xl border border-wise-gray-200 bg-white p-8">
+              <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-wise-green-primary border-t-transparent" />
+              <p className="font-semibold text-wise-green-forest">Processing...</p>
             </div>
           </div>
         )}

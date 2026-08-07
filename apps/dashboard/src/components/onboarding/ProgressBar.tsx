@@ -39,9 +39,7 @@ export function ProgressBar({ steps, currentStep, className }: ProgressBarProps)
                   className={cn(
                     'absolute top-5 left-1/2 h-0.5 w-full',
                     'transition-colors duration-300',
-                    isCompleted
-                      ? 'bg-wise-green-500'
-                      : 'bg-wise-gray-300 dark:bg-wise-gray-700'
+                    isCompleted ? 'bg-wise-green-bright' : 'bg-white/15'
                   )}
                   aria-hidden="true"
                 />
@@ -55,11 +53,10 @@ export function ProgressBar({ steps, currentStep, className }: ProgressBarProps)
                     'transition-all duration-300',
                     'border-2',
                     isCompleted &&
-                      'bg-wise-green-500 border-wise-green-500 text-white',
+                      'bg-wise-green-bright border-wise-green-bright text-wise-green-forest',
                     isCurrent &&
-                      'bg-wise-green-100 border-wise-green-500 text-wise-green-700 ring-4 ring-wise-green-100',
-                    isPending &&
-                      'bg-white border-wise-gray-300 text-wise-gray-500 dark:bg-wise-gray-800 dark:border-wise-gray-600'
+                      'bg-wise-green-forest border-wise-green-bright text-wise-green-bright ring-4 ring-wise-green-bright/20',
+                    isPending && 'bg-wise-green-forest border-white/25 text-white/40'
                   )}
                   aria-current={isCurrent ? 'step' : undefined}
                 >
@@ -69,7 +66,7 @@ export function ProgressBar({ steps, currentStep, className }: ProgressBarProps)
                     <Circle
                       className={cn(
                         'h-6 w-6',
-                        isCurrent && 'fill-wise-green-500 text-wise-green-500'
+                        isCurrent && 'fill-wise-green-bright text-wise-green-bright'
                       )}
                       aria-hidden="true"
                     />
@@ -90,9 +87,9 @@ export function ProgressBar({ steps, currentStep, className }: ProgressBarProps)
                     className={cn(
                       'text-sm font-medium text-center',
                       'transition-colors duration-300',
-                      isCompleted && 'text-wise-green-700 dark:text-wise-green-400',
-                      isCurrent && 'text-wise-green-700 dark:text-wise-green-400',
-                      isPending && 'text-wise-gray-500 dark:text-wise-gray-400'
+                      isCompleted && 'text-wise-green-bright',
+                      isCurrent && 'text-wise-green-bright',
+                      isPending && 'text-white/40'
                     )}
                   >
                     {step.label}
@@ -102,9 +99,7 @@ export function ProgressBar({ steps, currentStep, className }: ProgressBarProps)
                       className={cn(
                         'mt-1 text-xs text-center',
                         'transition-colors duration-300',
-                        isCurrent
-                          ? 'text-wise-gray-600 dark:text-wise-gray-400'
-                          : 'text-wise-gray-400 dark:text-wise-gray-500'
+                        isCurrent ? 'text-white/60' : 'text-white/30'
                       )}
                     >
                       {step.description}

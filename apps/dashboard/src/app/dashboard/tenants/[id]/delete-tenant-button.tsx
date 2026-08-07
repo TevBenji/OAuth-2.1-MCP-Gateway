@@ -29,17 +29,17 @@ export function DeleteTenantButton({ tenantId }: { tenantId: string }) {
   };
 
   return (
-    <div className='card-wise p-6 border border-red-200'>
-      <h2 className='text-lg font-semibold text-red-700 mb-2'>Danger Zone</h2>
-      <p className='text-sm text-wise-gray-600 mb-4'>
+    <div className='card-wise border-red-200 p-6'>
+      <h2 className='mb-2 text-lg font-bold tracking-tight text-red-700'>Danger Zone</h2>
+      <p className='mb-4 text-sm text-wise-gray-500'>
         Deleting a tenant permanently removes all of its clients, servers, and configuration.
       </p>
       <button
         onClick={handleDelete}
         disabled={deleting}
-        className='bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors inline-flex items-center disabled:opacity-50'
+        className='inline-flex h-10 items-center rounded-lg border border-red-600 px-4 text-sm font-semibold text-red-600 transition-colors hover:bg-red-600 hover:text-white disabled:opacity-50'
       >
-        <Trash2 className='w-4 h-4 mr-2' />
+        <Trash2 className='mr-2 h-4 w-4' />
         {deleting ? 'Deleting…' : 'Delete Tenant'}
       </button>
     </div>

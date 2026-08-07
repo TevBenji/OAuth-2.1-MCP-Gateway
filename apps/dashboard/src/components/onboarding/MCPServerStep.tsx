@@ -96,8 +96,8 @@ export function MCPServerStep({ onNext, onBack, onSkip }: MCPServerStepProps) {
       <Card variant="elevated" padding="lg">
         <CardHeader>
           <div className="flex items-center mb-2">
-            <div className="h-12 w-12 rounded-lg bg-wise-blue/10 flex items-center justify-center mr-4">
-              <Server className="h-6 w-6 text-wise-blue" />
+            <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-lg bg-wise-green-forest text-wise-green-bright">
+              <Server className="h-6 w-6" />
             </div>
             <div>
               <CardTitle className="text-3xl">Configure MCP Servers</CardTitle>
@@ -110,11 +110,11 @@ export function MCPServerStep({ onNext, onBack, onSkip }: MCPServerStepProps) {
 
         <CardContent>
           {/* Info Banner */}
-          <div className="bg-wise-blue/10 border border-wise-blue/30 rounded-lg p-4 mb-6">
-            <h4 className="font-semibold text-wise-gray-900 dark:text-wise-gray-100 mb-2">
+          <div className="mb-6 rounded-xl border border-wise-green-primary/30 bg-wise-green-50 p-4">
+            <h4 className="mb-2 font-bold text-wise-green-forest">
               What are MCP Servers?
             </h4>
-            <p className="text-sm text-wise-gray-700 dark:text-wise-gray-300">
+            <p className="text-sm text-wise-gray-700">
               MCP (Model Context Protocol) servers provide additional context and capabilities to AI
               models. You can configure them now or add them later from your dashboard.
             </p>
@@ -129,10 +129,10 @@ export function MCPServerStep({ onNext, onBack, onSkip }: MCPServerStepProps) {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="p-4 border border-wise-gray-300 dark:border-wise-gray-600 rounded-lg space-y-4"
+                  className="space-y-4 rounded-xl border border-wise-gray-200 p-4"
                 >
                   <div className="flex justify-between items-start">
-                    <h4 className="text-lg font-semibold text-wise-gray-900 dark:text-wise-gray-100">
+                    <h4 className="text-base font-bold text-wise-green-forest">
                       Server {index + 1}
                     </h4>
                     {servers.length > 1 && (
@@ -151,7 +151,7 @@ export function MCPServerStep({ onNext, onBack, onSkip }: MCPServerStepProps) {
                   <div>
                     <label
                       htmlFor={`server-name-${index}`}
-                      className="block text-sm font-medium text-wise-gray-900 dark:text-wise-gray-100 mb-2"
+                      className="mb-2 block text-sm font-medium text-wise-gray-700"
                     >
                       Server Name
                     </label>
@@ -160,15 +160,7 @@ export function MCPServerStep({ onNext, onBack, onSkip }: MCPServerStepProps) {
                       type="text"
                       value={server.name}
                       onChange={(e) => updateServer(index, 'name', e.target.value)}
-                      className={cn(
-                        'w-full px-4 py-2 rounded-lg border',
-                        'bg-white dark:bg-wise-gray-800',
-                        'text-wise-gray-900 dark:text-wise-gray-100',
-                        'focus:outline-none focus:ring-2 focus:ring-wise-green-500',
-                        errors[`name_${index}`]
-                          ? 'border-red-500'
-                          : 'border-wise-gray-300 dark:border-wise-gray-600'
-                      )}
+                      className={cn('input-wise', errors[`name_${index}`] && 'border-red-500')}
                       placeholder="Production API Server"
                       aria-invalid={!!errors[`name_${index}`]}
                     />
@@ -184,7 +176,7 @@ export function MCPServerStep({ onNext, onBack, onSkip }: MCPServerStepProps) {
                   <div>
                     <label
                       htmlFor={`server-endpoint-${index}`}
-                      className="block text-sm font-medium text-wise-gray-900 dark:text-wise-gray-100 mb-2"
+                      className="mb-2 block text-sm font-medium text-wise-gray-700"
                     >
                       Endpoint URL
                     </label>
@@ -193,15 +185,7 @@ export function MCPServerStep({ onNext, onBack, onSkip }: MCPServerStepProps) {
                       type="url"
                       value={server.endpoint}
                       onChange={(e) => updateServer(index, 'endpoint', e.target.value)}
-                      className={cn(
-                        'w-full px-4 py-2 rounded-lg border',
-                        'bg-white dark:bg-wise-gray-800',
-                        'text-wise-gray-900 dark:text-wise-gray-100',
-                        'focus:outline-none focus:ring-2 focus:ring-wise-green-500',
-                        errors[`endpoint_${index}`]
-                          ? 'border-red-500'
-                          : 'border-wise-gray-300 dark:border-wise-gray-600'
-                      )}
+                      className={cn('input-wise', errors[`endpoint_${index}`] && 'border-red-500')}
                       placeholder="https://api.example.com/mcp"
                       aria-invalid={!!errors[`endpoint_${index}`]}
                     />
@@ -217,7 +201,7 @@ export function MCPServerStep({ onNext, onBack, onSkip }: MCPServerStepProps) {
                   <div>
                     <label
                       htmlFor={`server-description-${index}`}
-                      className="block text-sm font-medium text-wise-gray-900 dark:text-wise-gray-100 mb-2"
+                      className="mb-2 block text-sm font-medium text-wise-gray-700"
                     >
                       Description (Optional)
                     </label>
@@ -226,13 +210,7 @@ export function MCPServerStep({ onNext, onBack, onSkip }: MCPServerStepProps) {
                       type="text"
                       value={server.description}
                       onChange={(e) => updateServer(index, 'description', e.target.value)}
-                      className={cn(
-                        'w-full px-4 py-2 rounded-lg border',
-                        'bg-white dark:bg-wise-gray-800',
-                        'text-wise-gray-900 dark:text-wise-gray-100',
-                        'border-wise-gray-300 dark:border-wise-gray-600',
-                        'focus:outline-none focus:ring-2 focus:ring-wise-green-500'
-                      )}
+                      className="input-wise"
                       placeholder="Main production MCP server"
                     />
                   </div>

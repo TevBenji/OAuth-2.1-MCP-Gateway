@@ -149,25 +149,29 @@
   }
 
   .btn-wise-primary {
-    @apply btn-wise bg-wise-green-primary text-white hover:bg-wise-green-700 focus:ring-wise-green-500;
+    @apply btn-wise bg-wise-green-bright font-bold text-wise-green-forest hover:brightness-105 focus:ring-wise-green-primary;
   }
 
   .btn-wise-secondary {
-    @apply btn-wise bg-wise-gray-100 text-wise-gray-900 hover:bg-wise-gray-200 focus:ring-wise-gray-500;
+    @apply btn-wise border border-wise-gray-300 bg-white font-semibold text-wise-green-forest hover:bg-wise-gray-50 focus:ring-wise-gray-400;
   }
 
   .btn-wise-outline {
-    @apply btn-wise border-2 border-wise-gray-300 text-wise-gray-700 hover:bg-wise-gray-50 focus:ring-wise-gray-500;
+    @apply btn-wise border border-wise-gray-300 font-semibold text-wise-green-forest hover:bg-wise-gray-50 focus:ring-wise-gray-400;
   }
 
-  /* Wise Card */
+  .btn-wise-ghost {
+    @apply btn-wise text-wise-gray-600 hover:bg-wise-gray-100 hover:text-wise-green-forest;
+  }
+
+  /* Wise Card — flat, hairline border, no shadow (matches landing) */
   .card-wise {
-    @apply bg-white rounded-xl border border-wise-gray-200 shadow-wise-card transition-shadow duration-200 hover:shadow-wise-hover;
+    @apply bg-white rounded-xl border border-wise-gray-200;
   }
 
   /* Wise Input */
   .input-wise {
-    @apply w-full rounded-lg border border-wise-gray-300 px-4 py-3 text-base transition-all duration-200 placeholder:text-wise-gray-400 hover:border-wise-gray-400 focus:border-wise-green-primary focus:outline-none focus:ring-2 focus:ring-wise-green-primary/20;
+    @apply w-full rounded-lg border border-wise-gray-300 px-4 py-2.5 text-sm transition-all duration-200 placeholder:text-wise-gray-400 hover:border-wise-gray-400 focus:border-wise-green-primary focus:outline-none focus:ring-2 focus:ring-wise-green-primary/20;
   }
 
   /* Wise Label */
@@ -241,12 +245,12 @@
 
   /* Wise Modal Overlay */
   .modal-overlay-wise {
-    @apply fixed inset-0 bg-black/40 backdrop-blur-sm animate-fade-in;
+    @apply fixed inset-0 bg-wise-green-forest/40 backdrop-blur-sm animate-fade-in;
   }
 
   /* Wise Modal Content */
   .modal-content-wise {
-    @apply bg-white rounded-2xl shadow-wise-modal animate-scale-in;
+    @apply bg-white rounded-xl animate-scale-in;
   }
 
   /* Wise Dropdown */

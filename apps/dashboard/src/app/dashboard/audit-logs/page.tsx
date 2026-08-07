@@ -1,5 +1,6 @@
 import { Search, ShieldAlert } from 'lucide-react';
 import { gateway, type AuditLogRow } from '@/lib/gateway';
+import { PageHeader } from '@/components/dashboard/PageHeader';
 import { Badge } from '@/components/ui/badge';
 
 export const dynamic = 'force-dynamic';
@@ -7,7 +8,7 @@ export const dynamic = 'force-dynamic';
 const outcomeVariant = {
   success: 'success',
   failure: 'danger',
-  denied: 'warning',
+  denied: 'danger',
 } as const;
 
 export default async function AuditLogsPage({
@@ -23,41 +24,47 @@ export default async function AuditLogsPage({
   } catch {
     return (
       <div className='card-wise p-12 text-center'>
-        <ShieldAlert className='w-12 h-12 text-wise-gray-400 mx-auto mb-4' />
-        <h2 className='text-lg font-semibold text-wise-gray-900 mb-2'>Gateway unreachable</h2>
-        <p className='text-wise-gray-600'>Could not load audit logs from the gateway admin API.</p>
+        <span className='mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-wise-green-forest text-wise-green-bright'>
+          <ShieldAlert className='h-6 w-6' />
+        </span>
+        <h2 className='mb-2 text-lg font-bold tracking-tight text-wise-green-forest'>
+          Gateway unreachable
+        </h2>
+        <p className='mx-auto max-w-md text-sm text-wise-gray-500'>
+          Could not load audit logs from the gateway admin API.
+        </p>
       </div>
     );
   }
 
   return (
     <div className='space-y-6'>
-      <div className='flex flex-col md:flex-row md:items-center md:justify-between gap-4'>
-        <div>
-          <h1 className='text-3xl font-bold text-wise-gray-900'>Audit Logs</h1>
-          <p className='text-wise-gray-600 mt-1'>Security and compliance events (latest 100)</p>
-        </div>
+      <PageHeader
+        eyebrow='Compliance'
+        title='Audit Logs'
+        description='Security and compliance events (latest 100)'
+      >
         {/* ponytail: plain GET form — the server re-queries on submit, no client JS */}
         <form className='flex items-center gap-2'>
           <div className='relative'>
-            <Search className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-wise-gray-400' />
+            <Search className='absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-wise-gray-400' />
             <input
               type='text'
               name='action'
               defaultValue={action ?? ''}
               placeholder='Filter by action…'
-              className='input-wise pl-10 w-64'
+              className='input-wise w-64 pl-10'
             />
           </div>
-          <button type='submit' className='btn-wise-secondary px-4 py-2'>
+          <button type='submit' className='btn-wise-secondary h-10 px-4'>
             Filter
           </button>
         </form>
-      </div>
+      </PageHeader>
 
       <div className='card-wise p-6'>
         {logs.length === 0 ? (
-          <div className='text-center py-8 text-wise-gray-500'>
+          <div className='py-8 text-center text-wise-gray-500'>
             {action ? `No audit logs matching "${action}"` : 'No audit logs yet'}
           </div>
         ) : (
@@ -65,26 +72,30 @@ export default async function AuditLogsPage({
             <table className='w-full'>
               <thead>
                 <tr className='border-b border-wise-gray-200'>
-                  <th className='px-4 py-3 text-left text-sm font-medium text-wise-gray-700'>Time</th>
-                  <th className='px-4 py-3 text-left text-sm font-medium text-wise-gray-700'>Action</th>
-                  <th className='px-4 py-3 text-left text-sm font-medium text-wise-gray-700'>Event Type</th>
-                  <th className='px-4 py-3 text-left text-sm font-medium text-wise-gray-700'>User / Client</th>
-                  <th className='px-4 py-3 text-left text-sm font-medium text-wise-gray-700'>IP Address</th>
-                  <th className='px-4 py-3 text-left text-sm font-medium text-wise-gray-700'>Outcome</th>
+                  {['Time', 'Action', 'Event Type', 'User / Client', 'IP Address', 'Outcome'].map(
+                    label => (
+                      <th
+                        key={label}
+                        className='px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-wise-gray-500'
+                      >
+                        {label}
+                      </th>
+                    )
+                  )}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className='divide-y divide-wise-gray-200'>
                 {logs.map(log => (
-                  <tr key={log.logId} className='border-b border-wise-gray-100 hover:bg-wise-gray-50'>
-                    <td className='px-4 py-3 text-sm text-wise-gray-600 whitespace-nowrap'>
+                  <tr key={log.logId} className='transition-colors hover:bg-wise-gray-50'>
+                    <td className='whitespace-nowrap px-4 py-3 text-sm text-wise-gray-500'>
                       {new Date(log.createdAt).toLocaleString()}
                     </td>
                     <td className='px-4 py-3 text-sm font-medium text-wise-gray-900'>{log.action}</td>
-                    <td className='px-4 py-3 text-sm text-wise-gray-600'>{log.eventType}</td>
-                    <td className='px-4 py-3 text-sm text-wise-gray-600'>
+                    <td className='px-4 py-3 text-sm text-wise-gray-500'>{log.eventType}</td>
+                    <td className='px-4 py-3 text-sm text-wise-gray-500'>
                       {log.userId || log.clientId || '—'}
                     </td>
-                    <td className='px-4 py-3 text-sm text-wise-gray-600'>{log.ipAddress || '—'}</td>
+                    <td className='px-4 py-3 text-sm text-wise-gray-500'>{log.ipAddress || '—'}</td>
                     <td className='px-4 py-3'>
                       <Badge variant={outcomeVariant[log.outcome] ?? 'default'} size='sm'>
                         {log.outcome}

@@ -100,7 +100,7 @@ export function ClientsCard({
       render: c => (
         <button
           onClick={() => handleDelete(c.clientId)}
-          className='p-1.5 rounded hover:bg-red-50 text-wise-gray-400 hover:text-red-600'
+          className='rounded-lg p-1.5 text-wise-gray-400 transition-colors hover:bg-red-50 hover:text-red-600'
           aria-label='Delete client'
         >
           <Trash2 className='w-4 h-4' />
@@ -111,13 +111,13 @@ export function ClientsCard({
 
   return (
     <div className='card-wise p-6'>
-      <div className='flex items-center justify-between mb-6'>
-        <h2 className='text-lg font-semibold text-wise-gray-900'>OAuth Clients</h2>
+      <div className='mb-6 flex items-center justify-between'>
+        <h2 className='text-lg font-bold tracking-tight text-wise-green-forest'>OAuth Clients</h2>
         <button
           onClick={() => setShowCreate(true)}
-          className='btn-wise-primary px-4 py-2 inline-flex items-center text-sm'
+          className='btn-wise-primary inline-flex h-10 items-center px-4 text-sm'
         >
-          <Plus className='w-4 h-4 mr-2' />
+          <Plus className='mr-2 h-4 w-4' />
           New Client
         </button>
       </div>
@@ -159,10 +159,10 @@ export function ClientsCard({
           </div>
           {error && <p className='text-sm text-red-600'>{error}</p>}
           <div className='flex justify-end gap-3 pt-2'>
-            <button type='button' onClick={() => setShowCreate(false)} className='btn-wise-secondary px-4 py-2'>
+            <button type='button' onClick={() => setShowCreate(false)} className='btn-wise-secondary h-10 px-4'>
               Cancel
             </button>
-            <button type='submit' disabled={submitting} className='btn-wise-primary px-4 py-2'>
+            <button type='submit' disabled={submitting} className='btn-wise-primary h-10 px-4'>
               {submitting ? 'Registering…' : 'Register Client'}
             </button>
           </div>
@@ -178,13 +178,13 @@ export function ClientsCard({
       >
         {registration && (
           <div className='space-y-4'>
-            <div className='bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-2'>
-              <AlertTriangle className='w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5' />
-              <p className='text-sm text-yellow-800'>
+            <div className='flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4'>
+              <AlertTriangle className='mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600' />
+              <p className='text-sm text-amber-800'>
                 <strong>Copy these credentials now.</strong> The client secret is shown only once.
               </p>
             </div>
-            <div className='bg-wise-gray-50 rounded-lg p-4'>
+            <div className='rounded-lg border border-wise-gray-200 bg-wise-gray-50 p-4'>
               <div className='flex justify-between items-center mb-1'>
                 <span className='text-sm font-medium text-wise-gray-700'>Client ID</span>
                 <button
@@ -202,7 +202,7 @@ export function ClientsCard({
               <code className='text-sm font-mono break-all'>{registration.client_id}</code>
             </div>
             {registration.client_secret && (
-              <div className='bg-wise-gray-50 rounded-lg p-4'>
+              <div className='rounded-lg border border-wise-gray-200 bg-wise-gray-50 p-4'>
                 <div className='flex justify-between items-center mb-1'>
                   <span className='text-sm font-medium text-wise-gray-700'>Client Secret</span>
                   <button
@@ -221,7 +221,7 @@ export function ClientsCard({
               </div>
             )}
             <div className='flex justify-end'>
-              <button onClick={() => setRegistration(null)} className='btn-wise-secondary px-4 py-2'>
+              <button onClick={() => setRegistration(null)} className='btn-wise-secondary h-10 px-4'>
                 Done
               </button>
             </div>

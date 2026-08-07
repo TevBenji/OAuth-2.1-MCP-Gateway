@@ -1,6 +1,7 @@
 import { ShieldAlert } from 'lucide-react';
 import { gateway, type Tenant } from '@/lib/gateway';
 import { TenantSettingsForm } from '@/components/dashboard/TenantSettingsForm';
+import { PageHeader } from '@/components/dashboard/PageHeader';
 import { Badge } from '@/components/ui/badge';
 
 export const dynamic = 'force-dynamic';
@@ -22,9 +23,13 @@ export default async function GatewaySettingsPage() {
   } catch {
     return (
       <div className='card-wise p-12 text-center'>
-        <ShieldAlert className='w-12 h-12 text-wise-gray-400 mx-auto mb-4' />
-        <h2 className='text-lg font-semibold text-wise-gray-900 mb-2'>Gateway unreachable</h2>
-        <p className='text-wise-gray-600'>
+        <span className='mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-wise-green-forest text-wise-green-bright'>
+          <ShieldAlert className='h-6 w-6' />
+        </span>
+        <h2 className='mb-2 text-lg font-bold tracking-tight text-wise-green-forest'>
+          Gateway unreachable
+        </h2>
+        <p className='mx-auto max-w-md text-sm text-wise-gray-500'>
           Could not load the default tenant&apos;s settings from the gateway admin API.
         </p>
       </div>
@@ -33,31 +38,33 @@ export default async function GatewaySettingsPage() {
 
   return (
     <div className='space-y-6'>
-      <div>
-        <h1 className='text-3xl font-bold text-wise-gray-900'>Gateway Settings</h1>
-        <p className='text-wise-gray-600 mt-1'>
-          Limits and feature toggles for the default tenant
-        </p>
-      </div>
+      <PageHeader
+        eyebrow='Configuration'
+        title='Gateway Settings'
+        description='Limits and feature toggles for the default tenant'
+      />
 
       <TenantSettingsForm tenant={tenant} />
 
       <div className='card-wise p-6'>
-        <h2 className='text-lg font-semibold text-wise-gray-900 mb-1'>API Endpoints</h2>
-        <p className='text-sm text-wise-gray-600 mb-4'>
-          Base URL: <code className='bg-wise-gray-100 px-2 py-0.5 rounded font-mono'>{GATEWAY_URL}</code>
+        <h2 className='mb-1 text-lg font-bold tracking-tight text-wise-green-forest'>
+          API Endpoints
+        </h2>
+        <p className='mb-4 text-sm text-wise-gray-500'>
+          Base URL:{' '}
+          <code className='rounded bg-wise-gray-100 px-2 py-0.5 font-mono'>{GATEWAY_URL}</code>
         </p>
         <div className='space-y-3'>
           {endpoints.map(endpoint => (
             <div
               key={endpoint.path}
-              className='flex items-center py-3 px-4 bg-wise-gray-50 rounded-lg space-x-3'
+              className='flex items-center gap-3 rounded-lg border border-wise-gray-200 bg-wise-gray-50 px-4 py-3'
             >
               <Badge variant='secondary' size='sm'>
                 {endpoint.method}
               </Badge>
-              <code className='text-sm font-mono text-wise-gray-800 flex-1'>{endpoint.path}</code>
-              <span className='text-sm text-wise-gray-600'>{endpoint.description}</span>
+              <code className='flex-1 font-mono text-sm text-wise-gray-800'>{endpoint.path}</code>
+              <span className='text-sm text-wise-gray-500'>{endpoint.description}</span>
             </div>
           ))}
         </div>

@@ -58,9 +58,13 @@ export function TenantSettingsForm({ tenant }: { tenant: Tenant }) {
 
   return (
     <div className='card-wise p-6'>
-      <div className='flex items-center space-x-3 mb-6'>
-        <SlidersHorizontal className='w-6 h-6 text-wise-green-primary' />
-        <h2 className='text-lg font-semibold text-wise-gray-900'>Limits & Settings</h2>
+      <div className='mb-6 flex items-center gap-3'>
+        <span className='inline-flex h-9 w-9 items-center justify-center rounded-lg bg-wise-green-forest text-wise-green-bright'>
+          <SlidersHorizontal className='h-[18px] w-[18px]' />
+        </span>
+        <h2 className='text-lg font-bold tracking-tight text-wise-green-forest'>
+          Limits &amp; Settings
+        </h2>
       </div>
       <form onSubmit={handleSubmit} className='space-y-6'>
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
@@ -95,7 +99,7 @@ export function TenantSettingsForm({ tenant }: { tenant: Tenant }) {
             </label>
           ))}
         </div>
-        <button type='submit' disabled={saving} className='btn-wise-primary px-6 py-2'>
+        <button type='submit' disabled={saving} className='btn-wise-primary h-10 px-6'>
           {saving ? 'Saving…' : 'Save Changes'}
         </button>
       </form>

@@ -110,7 +110,7 @@ export function ClientRegistrationStep({ onNext, onBack }: ClientRegistrationSte
             <div>
               <label
                 htmlFor="client-name"
-                className="block text-sm font-medium text-wise-gray-900 dark:text-wise-gray-100 mb-2"
+                className="mb-2 block text-sm font-medium text-wise-gray-700"
               >
                 Application Name <span className="text-red-500">*</span>
               </label>
@@ -119,15 +119,7 @@ export function ClientRegistrationStep({ onNext, onBack }: ClientRegistrationSte
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className={cn(
-                  'w-full px-4 py-2 rounded-lg border',
-                  'bg-white dark:bg-wise-gray-800',
-                  'text-wise-gray-900 dark:text-wise-gray-100',
-                  'focus:outline-none focus:ring-2 focus:ring-wise-green-500',
-                  errors.name
-                    ? 'border-red-500'
-                    : 'border-wise-gray-300 dark:border-wise-gray-600'
-                )}
+                className={cn('input-wise', errors.name && 'border-red-500')}
                 placeholder="My Awesome App"
                 aria-invalid={!!errors.name}
                 aria-describedby={errors.name ? 'name-error' : undefined}
@@ -142,7 +134,7 @@ export function ClientRegistrationStep({ onNext, onBack }: ClientRegistrationSte
 
             {/* Application Type */}
             <div>
-              <label className="block text-sm font-medium text-wise-gray-900 dark:text-wise-gray-100 mb-2">
+              <label className="mb-2 block text-sm font-medium text-wise-gray-700">
                 Application Type <span className="text-red-500">*</span>
               </label>
               <div className="grid grid-cols-3 gap-4">
@@ -161,14 +153,14 @@ export function ClientRegistrationStep({ onNext, onBack }: ClientRegistrationSte
                       })
                     }
                     className={cn(
-                      'p-4 rounded-lg border-2 text-left transition-all',
+                      'rounded-xl border p-4 text-left transition-all',
                       formData.applicationType === type.value
-                        ? 'border-wise-green-500 bg-wise-green-50 dark:bg-wise-green-900/30'
-                        : 'border-wise-gray-300 dark:border-wise-gray-600 hover:border-wise-green-300'
+                        ? 'border-wise-green-primary/50 bg-wise-green-50 ring-1 ring-wise-green-primary/30'
+                        : 'border-wise-gray-200 hover:border-wise-gray-300'
                     )}
                   >
-                    <div className="font-medium text-sm">{type.label}</div>
-                    <div className="text-xs text-wise-gray-600 dark:text-wise-gray-400 mt-1">
+                    <div className="text-sm font-bold text-wise-green-forest">{type.label}</div>
+                    <div className="mt-1 text-xs text-wise-gray-500">
                       {type.desc}
                     </div>
                   </button>
@@ -178,10 +170,10 @@ export function ClientRegistrationStep({ onNext, onBack }: ClientRegistrationSte
 
             {/* Redirect URIs */}
             <div>
-              <label className="block text-sm font-medium text-wise-gray-900 dark:text-wise-gray-100 mb-2">
+              <label className="mb-2 block text-sm font-medium text-wise-gray-700">
                 Redirect URIs <span className="text-red-500">*</span>
               </label>
-              <p className="text-sm text-wise-gray-600 dark:text-wise-gray-400 mb-3">
+              <p className="mb-3 text-sm text-wise-gray-500">
                 Where should users be redirected after authentication?
               </p>
               <div className="space-y-3">
@@ -192,15 +184,7 @@ export function ClientRegistrationStep({ onNext, onBack }: ClientRegistrationSte
                         type="url"
                         value={uri}
                         onChange={(e) => updateRedirectUri(index, e.target.value)}
-                        className={cn(
-                          'w-full px-4 py-2 rounded-lg border',
-                          'bg-white dark:bg-wise-gray-800',
-                          'text-wise-gray-900 dark:text-wise-gray-100',
-                          'focus:outline-none focus:ring-2 focus:ring-wise-green-500',
-                          errors[`uri_${index}`]
-                            ? 'border-red-500'
-                            : 'border-wise-gray-300 dark:border-wise-gray-600'
-                        )}
+                        className={cn('input-wise', errors[`uri_${index}`] && 'border-red-500')}
                         placeholder="https://example.com/callback"
                         aria-invalid={!!errors[`uri_${index}`]}
                         aria-describedby={errors[`uri_${index}`] ? `uri-error-${index}` : undefined}
@@ -250,7 +234,7 @@ export function ClientRegistrationStep({ onNext, onBack }: ClientRegistrationSte
             <div>
               <label
                 htmlFor="description"
-                className="block text-sm font-medium text-wise-gray-900 dark:text-wise-gray-100 mb-2"
+                className="mb-2 block text-sm font-medium text-wise-gray-700"
               >
                 Description (Optional)
               </label>
@@ -259,13 +243,7 @@ export function ClientRegistrationStep({ onNext, onBack }: ClientRegistrationSte
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={3}
-                className={cn(
-                  'w-full px-4 py-2 rounded-lg border',
-                  'bg-white dark:bg-wise-gray-800',
-                  'text-wise-gray-900 dark:text-wise-gray-100',
-                  'border-wise-gray-300 dark:border-wise-gray-600',
-                  'focus:outline-none focus:ring-2 focus:ring-wise-green-500'
-                )}
+                className="input-wise"
                 placeholder="A brief description of your application..."
               />
             </div>

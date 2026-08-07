@@ -48,8 +48,8 @@ export function WelcomeStep({ onNext }: WelcomeStepProps) {
             animate={{ scale: 1 }}
             transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
           >
-            <div className="mx-auto mb-6 h-20 w-20 rounded-full bg-wise-green-100 dark:bg-wise-green-900 flex items-center justify-center">
-              <Shield className="h-10 w-10 text-wise-green-600 dark:text-wise-green-400" />
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-wise-green-forest text-wise-green-bright">
+              <Shield className="h-10 w-10" />
             </div>
           </motion.div>
           <CardTitle className="text-4xl">Welcome to OAuth 2.1 MCP Gateway</CardTitle>
@@ -69,17 +69,17 @@ export function WelcomeStep({ onNext }: WelcomeStepProps) {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.2 + index * 0.1 }}
               >
-                <div className="flex items-start space-x-4 p-4 rounded-lg hover:bg-wise-gray-50 dark:hover:bg-wise-gray-800 transition-colors">
+                <div className="flex items-start space-x-4 rounded-lg p-4 transition-colors hover:bg-wise-gray-50">
                   <div className="flex-shrink-0">
-                    <div className="h-12 w-12 rounded-lg bg-wise-green-100 dark:bg-wise-green-900 flex items-center justify-center">
-                      <feature.icon className="h-6 w-6 text-wise-green-600 dark:text-wise-green-400" />
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-wise-green-forest text-wise-green-bright">
+                      <feature.icon className="h-[18px] w-[18px]" />
                     </div>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-wise-gray-900 dark:text-wise-gray-100">
+                    <h3 className="text-base font-bold text-wise-green-forest">
                       {feature.title}
                     </h3>
-                    <p className="mt-1 text-sm text-wise-gray-600 dark:text-wise-gray-400">
+                    <p className="mt-1 text-sm leading-relaxed text-wise-gray-500">
                       {feature.description}
                     </p>
                   </div>
@@ -93,12 +93,12 @@ export function WelcomeStep({ onNext }: WelcomeStepProps) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
-            className="bg-wise-blue/10 dark:bg-wise-blue/20 border border-wise-blue/30 rounded-lg p-6 mb-6"
+            className="mb-6 rounded-xl border border-wise-green-primary/30 bg-wise-green-50 p-6"
           >
-            <h3 className="text-lg font-semibold text-wise-gray-900 dark:text-wise-gray-100 mb-3">
+            <h3 className="mb-3 text-base font-bold text-wise-green-forest">
               What to expect:
             </h3>
-            <ul className="space-y-2 text-sm text-wise-gray-700 dark:text-wise-gray-300">
+            <ul className="space-y-2 text-sm text-wise-gray-700">
               <li className="flex items-start">
                 <span className="mr-2">1.</span>
                 <span>Register your first OAuth client application</span>

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Activity, CheckCircle, XCircle, ShieldAlert, AlertCircle } from 'lucide-react';
 import { gateway, type AuditLogRow, type UsageMetricsRow } from '@/lib/gateway';
 import { StatCard } from '@/components/dashboard/StatCard';
+import { PageHeader } from '@/components/dashboard/PageHeader';
 import { Badge } from '@/components/ui/badge';
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic';
 const outcomeVariant = {
   success: 'success',
   failure: 'danger',
-  denied: 'warning',
+  denied: 'danger',
 } as const;
 
 export default async function DashboardPage() {
@@ -23,9 +24,13 @@ export default async function DashboardPage() {
   } catch {
     return (
       <div className='card-wise p-12 text-center'>
-        <ShieldAlert className='w-12 h-12 text-wise-gray-400 mx-auto mb-4' />
-        <h2 className='text-lg font-semibold text-wise-gray-900 mb-2'>Gateway unreachable</h2>
-        <p className='text-wise-gray-600'>
+        <span className='mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-wise-green-forest text-wise-green-bright'>
+          <ShieldAlert className='h-6 w-6' />
+        </span>
+        <h2 className='mb-2 text-lg font-bold tracking-tight text-wise-green-forest'>
+          Gateway unreachable
+        </h2>
+        <p className='mx-auto max-w-md text-sm text-wise-gray-500'>
           Could not reach the gateway admin API. Check that the gateway is running and GATEWAY_URL
           is configured.
         </p>
@@ -46,55 +51,50 @@ export default async function DashboardPage() {
 
   return (
     <div className='space-y-6'>
-      <div>
-        <h1 className='text-3xl font-bold text-wise-gray-900'>Overview</h1>
-        <p className='text-wise-gray-600 mt-1'>
-          What&apos;s happening with your MCP Gateway today.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow='Dashboard'
+        title='Overview'
+        description="What's happening with your MCP Gateway today."
+      />
 
-      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
+      <div className='grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4'>
         <StatCard label='Total Requests' value={totals.total.toLocaleString()} icon={Activity} />
         <StatCard
           label='Successful Requests'
           value={totals.success.toLocaleString()}
           icon={CheckCircle}
-          color='blue'
         />
-        <StatCard
-          label='Failed Requests'
-          value={totals.failed.toLocaleString()}
-          icon={XCircle}
-          color='red'
-        />
-        <StatCard label='Success Rate' value={successRate} icon={ShieldAlert} color='purple' />
+        <StatCard label='Failed Requests' value={totals.failed.toLocaleString()} icon={XCircle} />
+        <StatCard label='Success Rate' value={successRate} icon={ShieldAlert} />
       </div>
 
       <div className='card-wise p-6'>
-        <div className='flex items-center justify-between mb-6'>
-          <h2 className='text-lg font-semibold text-wise-gray-900'>Recent Activity</h2>
+        <div className='mb-4 flex items-center justify-between'>
+          <h2 className='text-lg font-bold tracking-tight text-wise-green-forest'>
+            Recent Activity
+          </h2>
           <Link
             href='/dashboard/audit-logs'
-            className='text-sm text-wise-green-primary hover:text-wise-green-600 font-medium'
+            className='text-sm font-semibold text-wise-green-primary transition hover:text-wise-green-700'
           >
-            View All →
+            View all →
           </Link>
         </div>
         {logs.length === 0 ? (
-          <div className='text-center py-8 text-wise-gray-500'>
-            <AlertCircle className='w-8 h-8 mx-auto mb-2 opacity-50' />
+          <div className='py-8 text-center text-wise-gray-500'>
+            <AlertCircle className='mx-auto mb-2 h-8 w-8 opacity-50' />
             <p className='text-sm'>No recent activity</p>
           </div>
         ) : (
-          <div className='space-y-3'>
+          <div className='divide-y divide-wise-gray-200'>
             {logs.map(log => (
               <div
                 key={log.logId}
-                className='flex items-center justify-between p-3 rounded-lg hover:bg-wise-gray-50 transition-colors'
+                className='flex items-center justify-between px-2 py-3 transition-colors hover:bg-wise-gray-50'
               >
                 <div>
                   <p className='text-sm font-medium text-wise-gray-900'>{log.action}</p>
-                  <p className='text-xs text-wise-gray-500 mt-0.5'>
+                  <p className='mt-0.5 text-xs text-wise-gray-500'>
                     {log.eventType}
                     {log.ipAddress ? ` · ${log.ipAddress}` : ''} ·{' '}
                     {new Date(log.createdAt).toLocaleString()}

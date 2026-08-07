@@ -65,8 +65,8 @@ curl -X POST "${GATEWAY_URL}/oauth/token" \\
       <Card variant="elevated" padding="lg">
         <CardHeader>
           <div className="flex items-center mb-2">
-            <div className="h-12 w-12 rounded-lg bg-wise-purple/10 flex items-center justify-center mr-4">
-              <Terminal className="h-6 w-6 text-wise-purple" />
+            <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-lg bg-wise-green-forest text-wise-green-bright">
+              <Terminal className="h-6 w-6" />
             </div>
             <div>
               <CardTitle className="text-3xl">Test Your Integration</CardTitle>
@@ -80,19 +80,19 @@ curl -X POST "${GATEWAY_URL}/oauth/token" \\
         <CardContent className="space-y-6">
           {/* Credentials Section */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-wise-gray-900 dark:text-wise-gray-100">
+            <h3 className="text-lg font-bold tracking-tight text-wise-green-forest">
               Your OAuth Credentials
             </h3>
 
             {/* Client ID */}
-            <div className="bg-wise-gray-50 dark:bg-wise-gray-800 rounded-lg p-4">
+            <div className="rounded-lg border border-wise-gray-200 bg-wise-gray-50 p-4">
               <div className="flex justify-between items-start mb-2">
-                <label className="text-sm font-medium text-wise-gray-700 dark:text-wise-gray-300">
+                <label className="text-sm font-medium text-wise-gray-700">
                   Client ID
                 </label>
                 <button
                   onClick={() => copyToClipboard(clientId, 'clientId')}
-                  className="flex items-center text-sm text-wise-green-600 hover:text-wise-green-700"
+                  className="flex items-center text-sm font-semibold text-wise-green-700 hover:text-wise-green-forest"
                   aria-label="Copy client ID"
                 >
                   {copiedItem === 'clientId' ? (
@@ -108,21 +108,21 @@ curl -X POST "${GATEWAY_URL}/oauth/token" \\
                   )}
                 </button>
               </div>
-              <code className="text-sm font-mono text-wise-gray-900 dark:text-wise-gray-100 break-all">
+              <code className="break-all font-mono text-sm text-wise-gray-900">
                 {clientId}
               </code>
             </div>
 
             {/* Client Secret */}
             {clientSecret && (
-              <div className="bg-wise-gray-50 dark:bg-wise-gray-800 rounded-lg p-4">
+              <div className="rounded-lg border border-wise-gray-200 bg-wise-gray-50 p-4">
                 <div className="flex justify-between items-start mb-2">
-                  <label className="text-sm font-medium text-wise-gray-700 dark:text-wise-gray-300">
+                  <label className="text-sm font-medium text-wise-gray-700">
                     Client Secret
                   </label>
                   <button
                     onClick={() => copyToClipboard(clientSecret, 'clientSecret')}
-                    className="flex items-center text-sm text-wise-green-600 hover:text-wise-green-700"
+                    className="flex items-center text-sm font-semibold text-wise-green-700 hover:text-wise-green-forest"
                     aria-label="Copy client secret"
                   >
                     {copiedItem === 'clientSecret' ? (
@@ -138,10 +138,10 @@ curl -X POST "${GATEWAY_URL}/oauth/token" \\
                     )}
                   </button>
                 </div>
-                <code className="text-sm font-mono text-wise-gray-900 dark:text-wise-gray-100 break-all">
+                <code className="break-all font-mono text-sm text-wise-gray-900">
                   {clientSecret}
                 </code>
-                <p className="mt-2 text-xs text-wise-gray-600 dark:text-wise-gray-400">
+                <p className="mt-2 text-xs text-wise-gray-500">
                   ⚠️ This secret is shown only once — store it securely and never commit it to
                   version control.
                 </p>
@@ -151,14 +151,14 @@ curl -X POST "${GATEWAY_URL}/oauth/token" \\
 
           {/* Curl Example Section */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-wise-gray-900 dark:text-wise-gray-100">
+            <h3 className="text-lg font-bold tracking-tight text-wise-green-forest">
               Try It with cURL
             </h3>
             <div className="relative">
               <div className="absolute top-3 right-3 z-10">
                 <button
                   onClick={() => copyToClipboard(curlExample, 'code')}
-                  className="flex items-center px-3 py-1.5 text-sm bg-wise-gray-700 hover:bg-wise-gray-600 text-white rounded-lg transition-colors"
+                  className="flex items-center rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium text-white/80 transition-colors hover:bg-white/20 hover:text-white"
                   aria-label="Copy code"
                 >
                   {copiedItem === 'code' ? (
@@ -174,19 +174,19 @@ curl -X POST "${GATEWAY_URL}/oauth/token" \\
                   )}
                 </button>
               </div>
-              <pre className="bg-wise-gray-900 text-wise-gray-100 rounded-lg p-6 overflow-x-auto">
-                <code className="text-sm font-mono">{curlExample}</code>
+              <pre className="overflow-x-auto rounded-xl border border-white/[0.08] bg-[#081400] p-6 text-wise-gray-100">
+                <code className="font-mono text-sm">{curlExample}</code>
               </pre>
             </div>
           </div>
 
           {/* Next Steps */}
-          <div className="bg-wise-blue/10 border border-wise-blue/30 rounded-lg p-4">
-            <h4 className="font-semibold text-wise-gray-900 dark:text-wise-gray-100 mb-2 flex items-center">
-              <Code className="h-5 w-5 mr-2 text-wise-blue" />
+          <div className="rounded-xl border border-wise-green-primary/30 bg-wise-green-50 p-4">
+            <h4 className="mb-2 flex items-center font-bold text-wise-green-forest">
+              <Code className="mr-2 h-5 w-5 text-wise-green-primary" />
               Next Steps
             </h4>
-            <ul className="space-y-1 text-sm text-wise-gray-700 dark:text-wise-gray-300 ml-7">
+            <ul className="ml-7 space-y-1 text-sm text-wise-gray-700">
               <li>• Copy your credentials to a secure location</li>
               <li>• Run the discovery request to verify the gateway is reachable</li>
               <li>• Test the full OAuth flow from your application</li>

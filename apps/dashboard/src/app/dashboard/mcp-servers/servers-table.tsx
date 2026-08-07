@@ -7,6 +7,7 @@ import type { McpServerEntry } from '@/lib/gateway';
 import { DataTable, type Column } from '@/components/dashboard/DataTable';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { Modal } from '@/components/dashboard/Modal';
+import { PageHeader } from '@/components/dashboard/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { registerServer, deleteServer } from './actions';
 
@@ -83,7 +84,7 @@ export function ServersTable({ servers }: { servers: McpServerEntry[] }) {
       render: s => (
         <button
           onClick={() => handleDelete(s.server_id)}
-          className='p-1.5 rounded hover:bg-red-50 text-wise-gray-400 hover:text-red-600'
+          className='rounded-lg p-1.5 text-wise-gray-400 transition-colors hover:bg-red-50 hover:text-red-600'
           aria-label='Delete server'
         >
           <Trash2 className='w-4 h-4' />
@@ -94,21 +95,19 @@ export function ServersTable({ servers }: { servers: McpServerEntry[] }) {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center justify-between'>
-        <div>
-          <h1 className='text-3xl font-bold text-wise-gray-900'>MCP Servers</h1>
-          <p className='text-wise-gray-600 mt-1'>
-            Model Context Protocol servers proxied by the gateway (default tenant)
-          </p>
-        </div>
+      <PageHeader
+        eyebrow='Infrastructure'
+        title='MCP Servers'
+        description='Model Context Protocol servers proxied by the gateway (default tenant)'
+      >
         <button
           onClick={() => setShowCreate(true)}
-          className='btn-wise-primary px-4 py-2 inline-flex items-center'
+          className='btn-wise-primary inline-flex h-10 items-center px-4'
         >
-          <Plus className='w-4 h-4 mr-2' />
+          <Plus className='mr-2 h-4 w-4' />
           Register Server
         </button>
-      </div>
+      </PageHeader>
 
       {servers.length === 0 ? (
         <EmptyState
@@ -165,10 +164,10 @@ export function ServersTable({ servers }: { servers: McpServerEntry[] }) {
           </div>
           {error && <p className='text-sm text-red-600'>{error}</p>}
           <div className='flex justify-end gap-3 pt-2'>
-            <button type='button' onClick={() => setShowCreate(false)} className='btn-wise-secondary px-4 py-2'>
+            <button type='button' onClick={() => setShowCreate(false)} className='btn-wise-secondary h-10 px-4'>
               Cancel
             </button>
-            <button type='submit' disabled={submitting} className='btn-wise-primary px-4 py-2'>
+            <button type='submit' disabled={submitting} className='btn-wise-primary h-10 px-4'>
               {submitting ? 'Registering…' : 'Register Server'}
             </button>
           </div>

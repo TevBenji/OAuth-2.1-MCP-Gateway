@@ -11,9 +11,15 @@ export default async function TenantsPage() {
   } catch {
     return (
       <div className='card-wise p-12 text-center'>
-        <ShieldAlert className='w-12 h-12 text-wise-gray-400 mx-auto mb-4' />
-        <h2 className='text-lg font-semibold text-wise-gray-900 mb-2'>Gateway unreachable</h2>
-        <p className='text-wise-gray-600'>Could not load tenants from the gateway admin API.</p>
+        <span className='mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-wise-green-forest text-wise-green-bright'>
+          <ShieldAlert className='h-6 w-6' />
+        </span>
+        <h2 className='mb-2 text-lg font-bold tracking-tight text-wise-green-forest'>
+          Gateway unreachable
+        </h2>
+        <p className='mx-auto max-w-md text-sm text-wise-gray-500'>
+          Could not load tenants from the gateway admin API.
+        </p>
       </div>
     );
   }

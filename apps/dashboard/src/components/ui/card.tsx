@@ -8,8 +8,8 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 
 const variantStyles = {
   default: 'card-wise',
-  elevated: 'card-wise shadow-wise-hover',
-  outlined: 'card-wise border-2 border-wise-gray-300',
+  elevated: 'card-wise',
+  outlined: 'card-wise',
 };
 
 const paddingStyles = {
@@ -55,7 +55,7 @@ export const CardTitle = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLHea
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
-      className={cn('text-2xl font-semibold leading-none tracking-tight', className)}
+      className={cn('text-2xl font-extrabold tracking-tight text-wise-green-forest', className)}
       {...props}
     />
   )
@@ -67,7 +67,7 @@ export const CardDescription = forwardRef<HTMLParagraphElement, HTMLAttributes<H
   ({ className, ...props }, ref) => (
     <p
       ref={ref}
-      className={cn('text-sm text-wise-gray-600', className)}
+      className={cn('text-sm text-wise-gray-500', className)}
       {...props}
     />
   )

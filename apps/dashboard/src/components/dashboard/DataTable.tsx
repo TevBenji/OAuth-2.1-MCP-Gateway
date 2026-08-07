@@ -61,7 +61,7 @@ export function DataTable<T extends Record<string, any>>({
             {columns.map((column) => (
               <th
                 key={column.key as string}
-                className={`px-4 py-3 text-left text-sm font-medium text-wise-gray-700 ${
+                className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-wise-gray-500 ${
                   column.sortable ? 'cursor-pointer hover:bg-wise-gray-50' : ''
                 }`}
                 onClick={() => column.sortable && handleSort(column.key)}
@@ -82,12 +82,9 @@ export function DataTable<T extends Record<string, any>>({
             ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody className='divide-y divide-wise-gray-200'>
           {sortedData.map((item, index) => (
-            <tr
-              key={index}
-              className='border-b border-wise-gray-100 hover:bg-wise-gray-50'
-            >
+            <tr key={index} className='transition-colors hover:bg-wise-gray-50'>
               {columns.map((column) => (
                 <td key={column.key as string} className='px-4 py-3 text-sm text-wise-gray-900'>
                   {column.render ? column.render(item) : item[column.key]}

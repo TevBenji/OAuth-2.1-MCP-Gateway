@@ -1,6 +1,7 @@
 import { Activity, CheckCircle, XCircle, ShieldAlert } from 'lucide-react';
 import { gateway, type AuditLogRow, type UsageMetricsRow } from '@/lib/gateway';
 import { StatCard } from '@/components/dashboard/StatCard';
+import { PageHeader } from '@/components/dashboard/PageHeader';
 import { OutcomesChart } from './charts';
 
 export const dynamic = 'force-dynamic';
@@ -16,9 +17,13 @@ export default async function AnalyticsPage() {
   } catch {
     return (
       <div className='card-wise p-12 text-center'>
-        <ShieldAlert className='w-12 h-12 text-wise-gray-400 mx-auto mb-4' />
-        <h2 className='text-lg font-semibold text-wise-gray-900 mb-2'>Gateway unreachable</h2>
-        <p className='text-wise-gray-600'>
+        <span className='mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-wise-green-forest text-wise-green-bright'>
+          <ShieldAlert className='h-6 w-6' />
+        </span>
+        <h2 className='mb-2 text-lg font-bold tracking-tight text-wise-green-forest'>
+          Gateway unreachable
+        </h2>
+        <p className='mx-auto max-w-md text-sm text-wise-gray-500'>
           Could not reach the gateway admin API to load analytics.
         </p>
       </div>
@@ -38,28 +43,17 @@ export default async function AnalyticsPage() {
 
   return (
     <div className='space-y-6'>
-      <div>
-        <h1 className='text-3xl font-bold text-wise-gray-900'>Analytics</h1>
-        <p className='text-wise-gray-600 mt-1'>
-          Gateway usage and audit event outcomes over time
-        </p>
-      </div>
+      <PageHeader
+        eyebrow='Insights'
+        title='Analytics'
+        description='Gateway usage and audit event outcomes over time'
+      />
 
-      <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
+      <div className='grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4'>
         <StatCard label='Total Requests' value={totals.total.toLocaleString()} icon={Activity} />
-        <StatCard
-          label='Successful'
-          value={totals.success.toLocaleString()}
-          icon={CheckCircle}
-          color='blue'
-        />
-        <StatCard
-          label='Failed'
-          value={totals.failed.toLocaleString()}
-          icon={XCircle}
-          color='red'
-        />
-        <StatCard label='Success Rate' value={successRate} icon={ShieldAlert} color='purple' />
+        <StatCard label='Successful' value={totals.success.toLocaleString()} icon={CheckCircle} />
+        <StatCard label='Failed' value={totals.failed.toLocaleString()} icon={XCircle} />
+        <StatCard label='Success Rate' value={successRate} icon={ShieldAlert} />
       </div>
 
       <OutcomesChart logs={logs} />

@@ -8,10 +8,11 @@ import type { Tenant } from '@/lib/gateway';
 import { DataTable, type Column } from '@/components/dashboard/DataTable';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { Modal } from '@/components/dashboard/Modal';
+import { PageHeader } from '@/components/dashboard/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { createTenant } from './actions';
 
-const statusVariant = { active: 'success', suspended: 'danger', pending: 'warning' } as const;
+const statusVariant = { active: 'success', suspended: 'default', pending: 'warning' } as const;
 
 export function TenantsTable({ tenants }: { tenants: Tenant[] }) {
   const router = useRouter();
@@ -27,7 +28,7 @@ export function TenantsTable({ tenants }: { tenants: Tenant[] }) {
       render: t => (
         <Link
           href={`/dashboard/tenants/${t.tenantId}`}
-          className='font-medium text-wise-green-primary hover:text-wise-green-600'
+          className='font-semibold text-wise-green-forest transition hover:text-wise-green-primary'
         >
           {t.name}
         </Link>
@@ -73,19 +74,19 @@ export function TenantsTable({ tenants }: { tenants: Tenant[] }) {
 
   return (
     <div className='space-y-6'>
-      <div className='flex items-center justify-between'>
-        <div>
-          <h1 className='text-3xl font-bold text-wise-gray-900'>Tenants</h1>
-          <p className='text-wise-gray-600 mt-1'>Isolated tenants served by this gateway</p>
-        </div>
+      <PageHeader
+        eyebrow='Organization'
+        title='Tenants'
+        description='Isolated tenants served by this gateway'
+      >
         <button
           onClick={() => setShowCreate(true)}
-          className='btn-wise-primary px-4 py-2 inline-flex items-center'
+          className='btn-wise-primary inline-flex h-10 items-center px-4'
         >
-          <Plus className='w-4 h-4 mr-2' />
+          <Plus className='mr-2 h-4 w-4' />
           New Tenant
         </button>
-      </div>
+      </PageHeader>
 
       {tenants.length === 0 ? (
         <EmptyState
@@ -103,15 +104,15 @@ export function TenantsTable({ tenants }: { tenants: Tenant[] }) {
       <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title='Create Tenant'>
         <form onSubmit={handleCreate} className='space-y-4'>
           <div>
-            <label className='block text-sm font-medium text-wise-gray-700 mb-1'>Name</label>
+            <label className='mb-1 block text-sm font-medium text-wise-gray-700'>Name</label>
             <input name='name' required className='input-wise w-full' placeholder='Acme Corp' />
           </div>
           <div>
-            <label className='block text-sm font-medium text-wise-gray-700 mb-1'>Domain</label>
+            <label className='mb-1 block text-sm font-medium text-wise-gray-700'>Domain</label>
             <input name='domain' required className='input-wise w-full' placeholder='acme.example.com' />
           </div>
           <div>
-            <label className='block text-sm font-medium text-wise-gray-700 mb-1'>
+            <label className='mb-1 block text-sm font-medium text-wise-gray-700'>
               Description (optional)
             </label>
             <textarea name='description' rows={3} className='input-wise w-full' />
@@ -121,11 +122,11 @@ export function TenantsTable({ tenants }: { tenants: Tenant[] }) {
             <button
               type='button'
               onClick={() => setShowCreate(false)}
-              className='btn-wise-secondary px-4 py-2'
+              className='btn-wise-secondary h-10 px-4'
             >
               Cancel
             </button>
-            <button type='submit' disabled={submitting} className='btn-wise-primary px-4 py-2'>
+            <button type='submit' disabled={submitting} className='btn-wise-primary h-10 px-4'>
               {submitting ? 'Creating…' : 'Create Tenant'}
             </button>
           </div>

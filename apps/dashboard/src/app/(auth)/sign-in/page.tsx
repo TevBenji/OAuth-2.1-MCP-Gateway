@@ -29,15 +29,15 @@ function SignInForm() {
   }
 
   return (
-    <Card className='w-full max-w-md'>
-      <CardHeader>
+    <Card className='w-full max-w-md' padding='lg'>
+      <CardHeader className='pb-6'>
         <CardTitle>Sign in</CardTitle>
         <CardDescription>Access your MCP Gateway dashboard</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className='space-y-4'>
           <div>
-            <label htmlFor='email' className='mb-1 block text-sm font-medium text-gray-700'>
+            <label htmlFor='email' className='mb-1 block text-sm font-medium text-wise-gray-700'>
               Email
             </label>
             <input
@@ -47,11 +47,11 @@ function SignInForm() {
               autoComplete='email'
               value={email}
               onChange={e => setEmail(e.target.value)}
-              className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/20'
+              className='input-wise'
             />
           </div>
           <div>
-            <label htmlFor='password' className='mb-1 block text-sm font-medium text-gray-700'>
+            <label htmlFor='password' className='mb-1 block text-sm font-medium text-wise-gray-700'>
               Password
             </label>
             <input
@@ -61,16 +61,16 @@ function SignInForm() {
               autoComplete='current-password'
               value={password}
               onChange={e => setPassword(e.target.value)}
-              className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/20'
+              className='input-wise'
             />
           </div>
-          <Button type='submit' disabled={loading} className='w-full'>
+          <Button type='submit' disabled={loading} size='lg' className='w-full'>
             {loading ? 'Signing in…' : 'Sign in'}
           </Button>
         </form>
-        <p className='mt-4 text-center text-sm text-gray-500'>
+        <p className='mt-4 text-center text-sm text-wise-gray-500'>
           No account?{' '}
-          <Link href='/sign-up' className='font-medium text-green-700 hover:underline'>
+          <Link href='/sign-up' className='font-semibold text-wise-green-700 hover:underline'>
             Sign up
           </Link>
         </p>
@@ -81,7 +81,13 @@ function SignInForm() {
 
 export default function SignInPage() {
   return (
-    <main className='flex min-h-screen items-center justify-center bg-gray-50 p-4'>
+    <main className='flex min-h-screen flex-col items-center justify-center bg-wise-green-forest p-4'>
+      <Link href='/' className='mb-8 flex items-center gap-2.5'>
+        <span className='flex h-8 w-8 items-center justify-center rounded-md bg-wise-green-bright text-base font-black text-wise-green-forest'>
+          G
+        </span>
+        <span className='text-base font-semibold tracking-tight text-white'>MCP Gateway</span>
+      </Link>
       <Suspense>
         <SignInForm />
       </Suspense>

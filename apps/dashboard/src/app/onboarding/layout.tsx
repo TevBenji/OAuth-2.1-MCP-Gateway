@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function OnboardingLayout({ children }: { children: ReactNode }) {
   return (
-    <div className='min-h-screen bg-gradient-to-b from-wise-gray-50 to-white dark:from-wise-gray-900 dark:to-wise-gray-800'>
+    <div className='min-h-screen bg-wise-green-forest'>
       {children}
     </div>
   );

@@ -29,30 +29,34 @@ export function OutcomesChart({ logs }: { logs: AuditLogRow[] }) {
   return (
     <div className='card-wise p-6'>
       <div className='mb-6'>
-        <h2 className='text-lg font-semibold text-wise-gray-900'>Audit Event Outcomes</h2>
-        <p className='text-sm text-wise-gray-600'>Events per day by outcome (last 500 events)</p>
+        <h2 className='text-lg font-bold tracking-tight text-wise-green-forest'>
+          Audit Event Outcomes
+        </h2>
+        <p className='text-sm text-wise-gray-500'>Events per day by outcome (last 500 events)</p>
       </div>
       {data.length === 0 ? (
-        <div className='flex items-center justify-center h-[300px] text-wise-gray-500'>
+        <div className='flex h-[300px] items-center justify-center text-wise-gray-500'>
           <p>No audit events yet</p>
         </div>
       ) : (
         <ResponsiveContainer width='100%' height={300}>
           <BarChart data={data}>
-            <CartesianGrid strokeDasharray='3 3' stroke='#e5e7eb' />
-            <XAxis dataKey='date' stroke='#6b7280' fontSize={12} />
-            <YAxis stroke='#6b7280' fontSize={12} allowDecimals={false} />
+            <CartesianGrid strokeDasharray='3 3' stroke='#e5e7eb' vertical={false} />
+            <XAxis dataKey='date' stroke='#6b7280' fontSize={12} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+            <YAxis stroke='#6b7280' fontSize={12} allowDecimals={false} tickLine={false} axisLine={false} />
             <Tooltip
+              cursor={{ fill: '#f9fafb' }}
               contentStyle={{
                 backgroundColor: '#fff',
                 border: '1px solid #e5e7eb',
                 borderRadius: '8px',
+                fontSize: '13px',
               }}
             />
             <Legend />
-            <Bar dataKey='success' stackId='a' fill='#9FE870' name='Success' />
-            <Bar dataKey='failure' stackId='a' fill='#ef4444' name='Failure' />
-            <Bar dataKey='denied' stackId='a' fill='#f59e0b' name='Denied' />
+            <Bar dataKey='success' stackId='a' fill='#1DB954' name='Success' />
+            <Bar dataKey='denied' stackId='a' fill='#9FE870' name='Denied' />
+            <Bar dataKey='failure' stackId='a' fill='#163300' name='Failure' radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       )}
