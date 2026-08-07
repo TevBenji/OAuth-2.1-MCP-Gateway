@@ -63,6 +63,9 @@ export class APIKeyManager {
   /**
    * Generates a secure API key with prefix
    */
+  // 'sk-' + 8 hex chars — validation must slice exactly this many characters
+  static readonly PREFIX_LENGTH = 11;
+
   generateAPIKey(): { key: string; prefix: string } {
     // Generate a random UUID and take first 8 characters for the prefix
     const prefix = 'sk-' + uuidv4().slice(0, 8);
@@ -100,12 +103,12 @@ export class APIKeyManager {
   /**
    * Creates a new API key
    */
-  async createAPIKey(options: APIKeyOptions): Promise<APIKey> {
+  async createAPIKey(options: APIKeyOptions): Promise<APIKey & { plaintextKey: string }> {
     const { key, prefix } = this.generateAPIKey();
-    
+
     // Hash the key for secure storage
     const keyHash = this.hashAPIKey(key);
-    
+
     const apiKey: APIKey = {
       id: uuidv4(),
       key: keyHash, // Store the hash, not the actual key
@@ -126,7 +129,8 @@ export class APIKeyManager {
     this.keyPrefixMap.set(prefix, apiKey.id);
     this.keyIdToHash.set(apiKey.id, keyHash);
 
-    return apiKey;
+    // The plaintext key is returned exactly once and never stored
+    return { ...apiKey, plaintextKey: key };
   }
 
   /**
@@ -138,11 +142,11 @@ export class APIKeyManager {
     }
 
     // Extract the prefix from the provided key
-    if (providedKey.length < 10) {
+    if (providedKey.length < APIKeyManager.PREFIX_LENGTH) {
       return { isValid: false, error: 'Invalid API key format' };
     }
 
-    const prefix = providedKey.substring(0, 10); // First 10 characters should be the prefix
+    const prefix = providedKey.substring(0, APIKeyManager.PREFIX_LENGTH);
     
     // Find the key ID based on the prefix
     const keyId = this.keyPrefixMap.get(prefix);

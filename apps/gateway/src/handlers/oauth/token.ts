@@ -63,7 +63,7 @@ export const handleToken = async (c: Context<{ Bindings: Bindings }>) => {
     const jwtService = getJWTService({
       JWT_SECRET: jwtSecret,
       JWT_ALGORITHM: 'HS256',
-      JWT_ISSUER: 'oauth-mcp-gateway',
+      JWT_ISSUER: c.env?.JWT_ISSUER || 'oauth-mcp-gateway',
     });
 
     // Check content type
@@ -183,12 +183,12 @@ async function handleAuthorizationCodeGrant(
 
   // Generate access token
   const accessToken = await jwtService.createToken({
-    issuer: 'oauth-mcp-gateway',
+    issuer: c.env?.JWT_ISSUER || 'oauth-mcp-gateway',
     subject: codeData.userId,
     audience: codeData.clientId, // Or resource server identifier for RFC 8707
     scopes: codeData.scopes.join(' '),
     expiresIn: JWT_CONFIG.ACCESS_TOKEN_LIFETIME,
-    tenantId: 'default-tenant', // In real implementation, resolve from context
+    tenantId: c.env?.TENANT_ID || 'default',
     userId: codeData.userId,
     // Add resource indicators if needed per RFC 8707
     resourceIndicators: ['default-resource'],
@@ -260,12 +260,12 @@ async function handleRefreshTokenGrant(
 
   // Generate new access token based on original refresh token data
   const newAccessToken = await jwtService.createToken({
-    issuer: 'oauth-mcp-gateway',
+    issuer: c.env?.JWT_ISSUER || 'oauth-mcp-gateway',
     subject: refreshTokenData.userId,
     audience: refreshTokenData.clientId, // Or resource server identifier for RFC 8707
     scopes: refreshTokenData.scopes.join(' '),
     expiresIn: JWT_CONFIG.ACCESS_TOKEN_LIFETIME,
-    tenantId: 'default-tenant', // In real implementation, resolve from context
+    tenantId: c.env?.TENANT_ID || 'default',
     userId: refreshTokenData.userId,
     // Add resource indicators if needed per RFC 8707
     resourceIndicators: ['default-resource'],

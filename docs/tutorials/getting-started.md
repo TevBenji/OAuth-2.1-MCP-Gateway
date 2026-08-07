@@ -14,49 +14,51 @@ This tutorial will walk you through setting up and using the OAuth 2.1 MCP Gatew
 
 - Basic understanding of OAuth 2.1 and MCP
 - A running MCP server (or access to one)
-- Node.js/Python development environment
+- Docker (with Compose), Node.js 20+/Python development environment
 
 ## Step 1: Gateway Setup
 
-### Option A: Use Hosted Gateway (Recommended)
-
-Sign up for a hosted gateway account at [https://oauth-mcp-gateway.com](https://oauth-mcp-gateway.com).
-
-### Option B: Self-Hosted Gateway
-
-Deploy your own gateway instance:
+Run the gateway with Docker Compose:
 
 ```bash
-# Clone the gateway repository
-git clone https://github.com/oauth-mcp-gateway/gateway
-cd gateway
+# Clone the repository
+git clone <repository-url>
+cd oauth-mcp-gateway
 
-# Install dependencies
-npm install
+# Start PostgreSQL, gateway (:8787), and dashboard (:3000)
+docker compose up -d
 
-# Configure environment
-cp .env.example .env
-# Edit .env with your configuration
-
-# Deploy to Cloudflare Workers
-npm run deploy
+# Verify
+curl http://localhost:8787/health
 ```
+
+For development with hot reload:
+
+```bash
+docker compose up -d postgres
+pnpm install
+pnpm dev
+```
+
+See the [Deployment Guide](../deployment.md) for production configuration (secrets, TLS, Railway).
 
 ## Step 2: Register Your MCP Server
 
-Register your MCP server with the gateway:
+Register your MCP server with the gateway's admin API (Bearer `ADMIN_TOKEN`; the compose default is `dev-admin-token`):
 
 ```bash
-curl -X POST https://your-gateway.com/admin/servers \
+curl -X POST http://localhost:8787/admin/api/tenants/default/servers \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
   -d '{
     "name": "My Weather API",
     "endpoint_url": "https://my-weather-api.com",
     "resource_identifier": "https://my-weather-api.com",
-    "required_scopes": ["mcp:tools:read", "mcp:tools:call"]
+    "required_scopes": ["mcp:tools:read", "mcp:tools:write"]
   }'
 ```
+
+You can also do this from the dashboard at http://localhost:3000.
 
 ## Step 3: Register Your Client Application
 
@@ -67,12 +69,12 @@ curl -X POST https://your-gateway.com/admin/servers \
 import { OAuthMCPClient } from '@oauth-mcp-gateway/sdk';
 
 const registration = await OAuthMCPClient.register(
-  'https://your-gateway.com',
+  'http://localhost:8787',
   {
     client_name: 'My MCP Client',
     redirect_uris: ['https://myapp.com/callback'],
     grant_types: ['authorization_code', 'refresh_token'],
-    scope: 'mcp:tools:read mcp:tools:call',
+    scope: 'mcp:tools:read mcp:tools:write',
   }
 );
 
@@ -85,12 +87,12 @@ console.log('Client Secret:', registration.client_secret);
 from oauth_mcp_gateway import OAuthMCPClient
 
 registration = OAuthMCPClient.register(
-    gateway_url='https://your-gateway.com',
+    gateway_url='http://localhost:8787',
     registration={
         'client_name': 'My MCP Client',
         'redirect_uris': ['https://myapp.com/callback'],
         'grant_types': ['authorization_code', 'refresh_token'],
-        'scope': 'mcp:tools:read mcp:tools:call',
+        'scope': 'mcp:tools:read mcp:tools:write',
     }
 )
 
@@ -111,11 +113,11 @@ Contact your gateway administrator to manually register your client.
 import { OAuthMCPClient } from '@oauth-mcp-gateway/sdk';
 
 const client = new OAuthMCPClient({
-  gatewayUrl: 'https://your-gateway.com',
+  gatewayUrl: 'http://localhost:8787',
   clientId: 'your-client-id',
   clientSecret: 'your-client-secret', // Optional for public clients
   redirectUri: 'https://myapp.com/callback',
-  scopes: ['mcp:tools:read', 'mcp:tools:call'],
+  scopes: ['mcp:tools:read', 'mcp:tools:write'],
 });
 ```
 
@@ -124,11 +126,11 @@ const client = new OAuthMCPClient({
 from oauth_mcp_gateway import OAuthMCPClient
 
 client = OAuthMCPClient(
-    gateway_url='https://your-gateway.com',
+    gateway_url='http://localhost:8787',
     client_id='your-client-id',
     client_secret='your-client-secret',  # Optional for public clients
     redirect_uri='https://myapp.com/callback',
-    scopes=['mcp:tools:read', 'mcp:tools:call']
+    scopes=['mcp:tools:read', 'mcp:tools:write']
 )
 ```
 
@@ -448,10 +450,10 @@ const client = new OAuthMCPClient({
 
 ## Next Steps
 
-- [Advanced Configuration](./advanced-configuration.md)
-- [Multi-Tenant Setup](./multi-tenant-setup.md)
-- [Production Deployment](./production-deployment.md)
-- [Monitoring and Logging](./monitoring-logging.md)
+- [API Reference](../api-reference.md)
+- [Deployment Guide](../deployment.md)
+- [Production Checklist](../deployment/production-checklist.md)
+- [Architecture Overview](../architecture/README.md)
 
 ## Troubleshooting
 
@@ -476,7 +478,5 @@ const client = new OAuthMCPClient({
 
 ### Getting Help
 
-- [Documentation](https://docs.oauth-mcp-gateway.com)
-- [GitHub Issues](https://github.com/oauth-mcp-gateway/gateway/issues)
-- [Community Forum](https://community.oauth-mcp-gateway.com)
-- [Email Support](mailto:support@oauth-mcp-gateway.com)
+- [Project README](../../README.md)
+- Open an issue on the project's GitHub repository

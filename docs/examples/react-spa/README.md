@@ -29,7 +29,7 @@ npm start
 Create a `.env` file:
 
 ```
-REACT_APP_GATEWAY_URL=https://gateway.example.com
+REACT_APP_GATEWAY_URL=http://localhost:8787
 REACT_APP_CLIENT_ID=your-client-id
 REACT_APP_REDIRECT_URI=http://localhost:3000/callback
 ```

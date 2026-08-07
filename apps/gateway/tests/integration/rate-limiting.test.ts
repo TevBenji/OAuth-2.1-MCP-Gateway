@@ -24,10 +24,11 @@ class MockRateLimitStorage implements RateLimitStorage {
     const newValue = currentValue + 1;
     this.counters.set(key, newValue);
 
-    // Simulate TTL by removing after delay (for testing purposes)
+    // Simulate TTL by removing after delay (for testing purposes).
+    // unref() so pending timers never keep the vitest process alive.
     setTimeout(() => {
       this.counters.delete(key);
-    }, ttl * 1000);
+    }, ttl * 1000).unref();
 
     return newValue;
   }

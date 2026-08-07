@@ -184,10 +184,10 @@ export const healthCheck = async (c: Context): Promise<Response> => {
     };
 
     // Check database connectivity (if available)
-    let dbCheck = { status: 'healthy' as const, message: 'Database connection OK' };
+    const dbCheck = { status: 'healthy' as const, message: 'Database connection OK' };
 
     // Check if MCP server registry is accessible
-    let mcpRegistryCheck = { status: 'healthy' as const, message: 'MCP registry OK' };
+    const mcpRegistryCheck = { status: 'healthy' as const, message: 'MCP registry OK' };
 
     // Check other critical dependencies
     const uptime = process.uptime ? process.uptime() * 1000 : startTime - Date.now(); // fallback for Cloudflare Workers
@@ -264,7 +264,7 @@ export const detailedHealthCheck = async (c: Context): Promise<Response> => {
       },
     };
 
-    let overallMcpStatus: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
+    const overallMcpStatus: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
 
     const response: HealthCheckResponse = {
       status: overallMcpStatus,

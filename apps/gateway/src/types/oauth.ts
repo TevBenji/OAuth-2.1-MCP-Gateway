@@ -100,7 +100,13 @@ export interface PKCEChallenge {
 // OAuth Client Registration (RFC 7591)
 export const ClientRegistrationRequestSchema = z.object({
   redirect_uris: z.array(z.string().url()).min(1),
-  client_name: z.string().optional(),
+  // no control characters (Postgres rejects NUL; nothing legitimate needs them)
+  client_name: z
+    .string()
+    .max(255)
+    // eslint-disable-next-line no-control-regex -- intentionally matching control chars
+    .regex(/^[^\u0000-\u001f\u007f]*$/, 'client_name must not contain control characters')
+    .optional(),
   client_uri: z.string().url().optional(),
   logo_uri: z.string().url().optional(),
   scope: z.string().optional(),

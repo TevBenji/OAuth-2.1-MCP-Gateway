@@ -6,50 +6,14 @@
 
 import { describe, it, expect } from 'vitest';
 import app from '../../src/index';
+import { makeTestEnv } from '../helpers/env';
 
 describe('Route Registration Smoke Tests', () => {
-  // Basic mock environment for testing
-  const mockEnv = {
-    SESSIONS: {
-      get: async () => null,
-      put: async () => {},
-      delete: async () => {},
-    },
-    CACHE: {
-      get: async () => null,
-      put: async () => {},
-      delete: async () => {},
-    },
-    RATE_LIMIT_KV: {
-      get: async () => null,
-      put: async () => {},
-      delete: async () => {},
-    },
-    RATE_LIMIT: {
-      get: async () => null,
-      put: async () => {},
-      delete: async () => {},
-    },
-    DB: {
-      prepare: () => ({
-        bind: () => ({
-          first: async () => null,
-          run: async () => ({ success: true, results: [] }),
-          all: async () => ({ success: true, results: [] }),
-        }),
-      }),
-    },
-    ENVIRONMENT: 'test',
-    JWT_ISSUER: 'https://test.oauth-mcp-gateway.com',
-  };
+  const mockEnv = makeTestEnv();
 
   describe('OAuth 2.1 Routes - Basic Registration', () => {
     it('should register OAuth discovery endpoint', async () => {
-      const request = new Request(
-        'https://test.oauth-mcp-gateway.com/.well-known/oauth-authorization-server'
-      );
-
-      const response = await app.request(request, mockEnv);
+      const response = await app.request('/.well-known/oauth-authorization-server', {}, mockEnv);
 
       expect(response.status).toBe(200);
 
@@ -60,50 +24,56 @@ describe('Route Registration Smoke Tests', () => {
     });
 
     it('should register OAuth authorization endpoint (POST)', async () => {
-      const request = new Request('https://test.oauth-mcp-gateway.com/oauth/authorize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'response_type=code&client_id=test&redirect_uri=http://test.com',
-      });
-
-      const response = await app.request(request, mockEnv);
+      const response = await app.request(
+        '/oauth/authorize',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'response_type=code&client_id=test&redirect_uri=http://test.com',
+        },
+        mockEnv
+      );
 
       // Should handle the request (may redirect or return error)
       expect([302, 400, 401]).toContain(response.status);
     });
 
     it('should register OAuth authorization endpoint (GET)', async () => {
-      const request = new Request(
-        'https://test.oauth-mcp-gateway.com/oauth/authorize?response_type=code&client_id=test'
+      const response = await app.request(
+        '/oauth/authorize?response_type=code&client_id=test',
+        {},
+        mockEnv
       );
-
-      const response = await app.request(request, mockEnv);
 
       // Should handle the request
       expect([302, 400, 401]).toContain(response.status);
     });
 
     it('should register OAuth token endpoint', async () => {
-      const request = new Request('https://test.oauth-mcp-gateway.com/oauth/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'grant_type=authorization_code&code=test',
-      });
-
-      const response = await app.request(request, mockEnv);
+      const response = await app.request(
+        '/oauth/token',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'grant_type=authorization_code&code=test',
+        },
+        mockEnv
+      );
 
       // Should handle the request
       expect([200, 400, 401]).toContain(response.status);
     });
 
     it('should register OAuth client registration endpoint', async () => {
-      const request = new Request('https://test.oauth-mcp-gateway.com/oauth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_name: 'Test Client' }),
-      });
-
-      const response = await app.request(request, mockEnv);
+      const response = await app.request(
+        '/oauth/register',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ client_name: 'Test Client' }),
+        },
+        mockEnv
+      );
 
       // Should handle the request
       expect([201, 400, 415]).toContain(response.status);
@@ -112,9 +82,7 @@ describe('Route Registration Smoke Tests', () => {
 
   describe('MCP Gateway Routes - Basic Registration', () => {
     it('should register MCP health check endpoint', async () => {
-      const request = new Request('https://test.oauth-mcp-gateway.com/mcp/health');
-
-      const response = await app.request(request, mockEnv);
+      const response = await app.request('/mcp/health', {}, mockEnv);
 
       expect(response.status).toBe(200);
 
@@ -124,25 +92,29 @@ describe('Route Registration Smoke Tests', () => {
     });
 
     it('should register MCP proxy route by server ID', async () => {
-      const request = new Request('https://test.oauth-mcp-gateway.com/mcp/test-server/tools', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ method: 'tools/list' }),
-      });
-
-      const response = await app.request(request, mockEnv);
+      const response = await app.request(
+        '/mcp/test-server/tools',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ method: 'tools/list' }),
+        },
+        mockEnv
+      );
 
       // Should require authentication
       expect([401, 403, 500]).toContain(response.status);
     });
 
     it('should register MCP proxy route by resource identifier', async () => {
-      const request = new Request('https://test.oauth-mcp-gateway.com/mcp/resource/data', {
-        method: 'GET',
-        headers: { 'X-Resource-Identifier': 'test-resource' },
-      });
-
-      const response = await app.request(request, mockEnv);
+      const response = await app.request(
+        '/mcp/resource/data',
+        {
+          method: 'GET',
+          headers: { 'X-Resource-Identifier': 'test-resource' },
+        },
+        mockEnv
+      );
 
       // Should require authentication
       expect([401, 403, 500]).toContain(response.status);
@@ -150,36 +122,40 @@ describe('Route Registration Smoke Tests', () => {
   });
 
   describe('Legacy Route Compatibility', () => {
-    it('should support legacy authorize endpoint', async () => {
-      const request = new Request(
-        'https://test.oauth-mcp-gateway.com/authorize?response_type=code&client_id=test'
+    it('should no longer expose the legacy authorize endpoint (removed as duplicate)', async () => {
+      const response = await app.request(
+        '/authorize?response_type=code&client_id=test',
+        {},
+        mockEnv
       );
 
-      const response = await app.request(request, mockEnv);
-
-      expect([302, 400, 401]).toContain(response.status);
+      expect(response.status).toBe(404);
     });
 
-    it('should support legacy token endpoint', async () => {
-      const request = new Request('https://test.oauth-mcp-gateway.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'grant_type=authorization_code&code=test',
-      });
+    it('should no longer expose the legacy token endpoint (removed as duplicate)', async () => {
+      const response = await app.request(
+        '/token',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'grant_type=authorization_code&code=test',
+        },
+        mockEnv
+      );
 
-      const response = await app.request(request, mockEnv);
-
-      expect([200, 400, 401]).toContain(response.status);
+      expect(response.status).toBe(404);
     });
 
     it('should support legacy register endpoint', async () => {
-      const request = new Request('https://test.oauth-mcp-gateway.com/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_name: 'Test Client' }),
-      });
-
-      const response = await app.request(request, mockEnv);
+      const response = await app.request(
+        '/register',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ client_name: 'Test Client' }),
+        },
+        mockEnv
+      );
 
       expect([201, 400, 415]).toContain(response.status);
     });
@@ -187,37 +163,36 @@ describe('Route Registration Smoke Tests', () => {
 
   describe('Health and Status Endpoints', () => {
     it('should provide main health check', async () => {
-      const request = new Request('https://test.oauth-mcp-gateway.com/health');
-
-      const response = await app.request(request, mockEnv);
+      const response = await app.request('/health', {}, mockEnv);
 
       expect(response.status).toBe(200);
     });
 
     it('should handle CORS preflight requests', async () => {
-      const request = new Request('https://test.oauth-mcp-gateway.com/oauth/token', {
-        method: 'OPTIONS',
-        headers: {
-          Origin: 'https://client.example.com',
-          'Access-Control-Request-Method': 'POST',
-          'Access-Control-Request-Headers': 'Content-Type, Authorization',
+      const response = await app.request(
+        '/oauth/token',
+        {
+          method: 'OPTIONS',
+          headers: {
+            Origin: 'https://client.example.com',
+            'Access-Control-Request-Method': 'POST',
+            'Access-Control-Request-Headers': 'Content-Type, Authorization',
+          },
         },
-      });
-
-      const response = await app.request(request, mockEnv);
+        mockEnv
+      );
 
       expect(response.status).toBe(204); // CORS preflight returns 204 No Content
-      // CORS headers may not be set in test environment, but the request should be handled
-      expect([204, 200]).toContain(response.status);
     });
   });
 
   describe('Route Structure Verification', () => {
     it('should have proper OAuth 2.1 endpoints', async () => {
-      const discoveryRequest = new Request(
-        'https://test.oauth-mcp-gateway.com/.well-known/oauth-authorization-server'
+      const discoveryResponse = await app.request(
+        '/.well-known/oauth-authorization-server',
+        {},
+        mockEnv
       );
-      const discoveryResponse = await app.request(discoveryRequest, mockEnv);
       const discovery = await discoveryResponse.json();
 
       // Verify OAuth 2.1 compliance
@@ -232,9 +207,7 @@ describe('Route Registration Smoke Tests', () => {
     });
 
     it('should have proper MCP gateway structure', async () => {
-      // Test that MCP routes follow the expected pattern
-      const healthRequest = new Request('https://test.oauth-mcp-gateway.com/mcp/health');
-      const healthResponse = await app.request(healthRequest, mockEnv);
+      const healthResponse = await app.request('/mcp/health', {}, mockEnv);
 
       expect(healthResponse.status).toBe(200);
 

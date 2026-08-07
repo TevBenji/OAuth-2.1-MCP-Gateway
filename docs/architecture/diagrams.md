@@ -24,15 +24,13 @@ C4Context
 
     System_Ext(aiClient, "AI Clients", "Claude, ChatGPT, Cursor, custom AI applications")
     System_Ext(mcpServer, "MCP Servers", "Filesystem, Database, API integration servers")
-    System_Ext(idp, "Identity Provider", "Optional SAML/OIDC provider for SSO")
-    System_Ext(monitoring, "Monitoring System", "Datadog, New Relic, or similar")
+    System_Ext(monitoring, "Monitoring System", "Uptime and log monitoring")
 
     Rel(developer, aiClient, "Builds applications with")
     Rel(aiClient, gateway, "Authenticates via OAuth 2.1 with PKCE")
     Rel(gateway, mcpServer, "Proxies authenticated requests to")
-    Rel(gateway, idp, "Federates authentication to")
     Rel(admin, gateway, "Configures and monitors")
-    Rel(gateway, monitoring, "Sends metrics and logs to")
+    Rel(gateway, monitoring, "Exposes health endpoints and logs to")
 
     UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="2")
 ```
@@ -42,9 +40,8 @@ C4Context
 - **Developers** build AI applications that use **AI Clients**
 - **AI Clients** authenticate with the **Gateway** using OAuth 2.1
 - **Gateway** proxies authenticated requests to **MCP Servers**
-- **Administrators** manage the **Gateway** configuration
-- **Gateway** can federate authentication to external **Identity Providers**
-- **Gateway** sends observability data to **Monitoring Systems**
+- **Administrators** manage the **Gateway** through the dashboard
+- **Gateway** exposes health checks and logs to **Monitoring Systems**
 
 ## Level 2: Container Diagram
 
@@ -58,105 +55,92 @@ C4Container
     Person(admin, "Administrator", "System administrator")
 
     Container_Boundary(gateway, "OAuth 2.1 MCP Gateway") {
-        Container(workers, "Cloudflare Workers", "JavaScript/TypeScript", "Handles HTTP requests, OAuth flows, and MCP proxying")
-        Container(dashboard, "Admin Dashboard", "Next.js, React", "Web-based administration interface")
-        ContainerDb(d1, "D1 Database", "SQLite", "Stores clients, tokens, audit logs")
-        ContainerDb(kv, "KV Store", "Key-Value", "Caches sessions and rate limits")
-        ContainerDb(convex, "Convex DB", "Real-time DB", "Real-time analytics and metrics")
-        Container(durableObjects, "Durable Objects", "Stateful Workers", "Coordinates distributed operations")
+        Container(server, "Gateway Server", "Node.js, Hono", "Handles HTTP requests, OAuth flows, MCP proxying, and the admin API")
+        Container(dashboard, "Admin Dashboard", "Next.js 15, React, better-auth", "Web-based administration interface")
+        ContainerDb(pg, "PostgreSQL", "postgres:16", "Stores tenants, clients, tokens, MCP server registry, audit logs")
     }
 
     System_Ext(aiClient, "AI Client", "Claude, ChatGPT, etc.")
     System_Ext(mcpServer, "MCP Server", "Backend MCP servers")
 
     Rel(user, aiClient, "Uses")
-    Rel(aiClient, workers, "Makes OAuth requests to", "HTTPS/OAuth 2.1")
-    Rel(workers, d1, "Reads/writes data", "SQL")
-    Rel(workers, kv, "Caches data in", "Key-Value")
-    Rel(workers, convex, "Sends analytics to", "WebSocket")
-    Rel(workers, durableObjects, "Coordinates via")
-    Rel(workers, mcpServer, "Proxies requests to", "HTTPS/MCP")
+    Rel(aiClient, server, "Makes OAuth requests to", "HTTPS/OAuth 2.1")
+    Rel(server, pg, "Reads/writes data", "SQL (Drizzle ORM)")
+    Rel(server, mcpServer, "Proxies requests to", "HTTPS/MCP")
     Rel(admin, dashboard, "Manages gateway via", "HTTPS")
-    Rel(dashboard, workers, "Makes API calls to", "HTTPS/REST")
-    Rel(dashboard, convex, "Queries analytics from", "WebSocket")
+    Rel(dashboard, server, "Calls admin API with service token", "HTTPS/REST")
+    Rel(dashboard, pg, "Stores dashboard users/sessions", "SQL")
 
     UpdateRelStyle(user, aiClient, $offsetY="-40")
-    UpdateRelStyle(workers, mcpServer, $offsetY="20")
+    UpdateRelStyle(server, mcpServer, $offsetY="20")
 ```
 
 ### Container Responsibilities
 
 | Container | Technology | Responsibility |
 |-----------|-----------|----------------|
-| **Cloudflare Workers** | TypeScript/Hono | OAuth 2.1 flows, request routing, authentication |
-| **Admin Dashboard** | Next.js/React | Configuration UI, analytics dashboard |
-| **D1 Database** | SQLite | Persistent storage for clients, tokens, users |
-| **KV Store** | Cloudflare KV | Session storage, rate limiting, token cache |
-| **Convex DB** | Convex | Real-time analytics, metrics aggregation |
-| **Durable Objects** | Stateful Workers | Distributed coordination, sequence generation |
+| **Gateway Server** | Node.js 20+ / Hono 4 | OAuth 2.1 flows, MCP proxying, admin API, rate limiting |
+| **Admin Dashboard** | Next.js 15 / better-auth | Configuration UI, tenant/client/server management, audit log views |
+| **PostgreSQL** | postgres:16 | All persistent state: tenants, clients, tokens, servers, audit logs, dashboard auth |
+
+Rate limiting and caching are in-process within the gateway server — there is no separate cache store.
 
 ## Level 3: Component Diagram
 
-Shows the internal components within the Cloudflare Workers container.
+Shows the internal components within the gateway server container.
 
 ```mermaid
 C4Component
-    title Component Diagram for Cloudflare Workers Container
+    title Component Diagram for Gateway Server Container
 
-    Container_Boundary(workers, "Cloudflare Workers") {
+    Container_Boundary(server, "Gateway Server (Node.js + Hono)") {
         Component(router, "HTTP Router", "Hono", "Routes requests to appropriate handlers")
 
-        Component(authHandler, "Authorization Handler", "TypeScript", "Handles /authorize endpoint")
-        Component(tokenHandler, "Token Handler", "TypeScript", "Handles /token endpoint")
-        Component(registerHandler, "Registration Handler", "TypeScript", "Handles client registration")
-        Component(mcpProxy, "MCP Proxy Handler", "TypeScript", "Proxies MCP requests")
+        Component(authHandler, "Authorization Handler", "TypeScript", "Handles /oauth/authorize endpoint")
+        Component(tokenHandler, "Token Handler", "TypeScript", "Handles /oauth/token endpoint")
+        Component(registerHandler, "Registration Handler", "TypeScript", "Handles /oauth/register")
+        Component(mcpProxy, "MCP Proxy Handler", "TypeScript", "Proxies /mcp/* requests")
+        Component(adminApi, "Admin API", "TypeScript", "Handles /admin/api/* (service token)")
 
-        Component(authMiddleware, "Auth Middleware", "TypeScript", "Validates OAuth tokens")
-        Component(rateLimiter, "Rate Limiter", "TypeScript", "Enforces rate limits")
-        Component(sessionMgmt, "Session Manager", "TypeScript", "Manages user sessions")
-        Component(errorHandler, "Error Handler", "TypeScript", "Formats error responses")
+        Component(authMiddleware, "Auth Middleware", "TypeScript", "Validates OAuth tokens and scopes")
+        Component(rateLimiter, "Rate Limiter", "TypeScript", "In-process counters")
 
         Component(tokenService, "Token Service", "TypeScript", "Generates and validates JWT tokens")
         Component(pkceService, "PKCE Service", "TypeScript", "Validates PKCE challenges")
         Component(clientService, "Client Service", "TypeScript", "Manages OAuth clients")
         Component(auditService, "Audit Service", "TypeScript", "Logs security events")
+        Component(registry, "MCP Server Registry", "TypeScript", "Resolves tenant MCP servers")
     }
 
-    ContainerDb_Ext(d1, "D1 Database", "SQLite")
-    ContainerDb_Ext(kv, "KV Store", "Key-Value")
+    ContainerDb_Ext(pg, "PostgreSQL", "Drizzle ORM")
     System_Ext(aiClient, "AI Client")
     System_Ext(mcpServer, "MCP Server")
+    System_Ext(dashboard, "Admin Dashboard")
 
     Rel(aiClient, router, "Makes request to")
+    Rel(dashboard, router, "Makes admin calls to")
     Rel(router, authHandler, "Routes to")
     Rel(router, tokenHandler, "Routes to")
     Rel(router, registerHandler, "Routes to")
     Rel(router, mcpProxy, "Routes to")
+    Rel(router, adminApi, "Routes to")
 
-    Rel(authHandler, authMiddleware, "Uses")
-    Rel(tokenHandler, authMiddleware, "Uses")
     Rel(mcpProxy, authMiddleware, "Uses")
-
-    Rel(authHandler, rateLimiter, "Checks limits via")
-    Rel(authHandler, sessionMgmt, "Manages sessions via")
-    Rel(authHandler, pkceService, "Validates PKCE via")
-    Rel(authHandler, clientService, "Validates client via")
-    Rel(authHandler, auditService, "Logs events via")
-
-    Rel(tokenHandler, tokenService, "Generates tokens via")
-    Rel(tokenHandler, pkceService, "Validates PKCE via")
-    Rel(tokenHandler, auditService, "Logs events via")
-
-    Rel(mcpProxy, tokenService, "Validates tokens via")
+    Rel(mcpProxy, rateLimiter, "Checks limits via")
+    Rel(mcpProxy, registry, "Resolves servers via")
+    Rel(mcpProxy, auditService, "Logs events via")
     Rel(mcpProxy, mcpServer, "Proxies to")
 
-    Rel(clientService, d1, "Reads/writes")
-    Rel(tokenService, d1, "Reads/writes")
-    Rel(sessionMgmt, kv, "Reads/writes")
-    Rel(rateLimiter, kv, "Reads/writes")
-    Rel(auditService, d1, "Writes logs")
+    Rel(authHandler, pkceService, "Stores challenge via")
+    Rel(authHandler, clientService, "Validates client via")
+    Rel(tokenHandler, tokenService, "Generates tokens via")
+    Rel(tokenHandler, pkceService, "Validates PKCE via")
 
-    Rel(router, errorHandler, "Uses for errors")
+    Rel(clientService, pg, "Reads/writes")
+    Rel(tokenService, pg, "Reads/writes")
+    Rel(registry, pg, "Reads")
+    Rel(auditService, pg, "Writes logs")
+    Rel(adminApi, pg, "Reads/writes")
 ```
 
 ### Component Details
@@ -165,32 +149,32 @@ C4Component
 
 | Component | Endpoint | Responsibility |
 |-----------|----------|----------------|
-| **Authorization Handler** | `/authorize` | OAuth authorization flow with PKCE |
-| **Token Handler** | `/token` | Token exchange and refresh |
-| **Registration Handler** | `/register` | Dynamic client registration (RFC 7591) |
-| **MCP Proxy Handler** | `/mcp/*` | Proxies authenticated requests to MCP servers |
+| **Authorization Handler** | `GET/POST /oauth/authorize` | OAuth authorization flow with PKCE |
+| **Token Handler** | `POST /oauth/token` | Token exchange and refresh |
+| **Registration Handler** | `POST /oauth/register` | Dynamic client registration (RFC 7591) |
+| **MCP Proxy Handler** | `ALL /mcp/:serverId/*`, `ALL /mcp/resource/*` | Proxies authenticated requests to MCP servers |
+| **Admin API** | `/admin/api/*` | Tenant, client, server, audit-log management (Bearer `ADMIN_TOKEN`) |
 
 #### Middleware Components
 
 | Component | Purpose | Implementation |
 |-----------|---------|----------------|
-| **Auth Middleware** | Validates Bearer tokens | JWT validation with KV cache |
-| **Rate Limiter** | Prevents abuse | Token bucket algorithm in KV |
-| **Session Manager** | Manages user sessions | Secure session storage in KV |
-| **Error Handler** | Formats errors | Enhanced OAuth error responses |
+| **Auth Middleware** | Validates Bearer tokens and required scopes | JWT verification |
+| **Rate Limiter** | Prevents abuse | In-process counters (per-IP on OAuth endpoints, per-token on MCP endpoints) |
 
 #### Service Components
 
 | Component | Responsibility | Dependencies |
 |-----------|---------------|--------------|
-| **Token Service** | JWT generation/validation | D1 (token storage), KV (cache) |
+| **Token Service** | JWT generation/validation | PostgreSQL (refresh tokens) |
 | **PKCE Service** | PKCE challenge validation | Crypto API |
-| **Client Service** | OAuth client CRUD | D1 (client storage) |
-| **Audit Service** | Security event logging | D1 (audit logs) |
+| **Client Service** | OAuth client CRUD | PostgreSQL |
+| **Audit Service** | Security event logging | PostgreSQL |
+| **MCP Server Registry** | Tenant-scoped server lookup with in-memory TTL cache | PostgreSQL |
 
 ## Deployment Diagram
 
-Shows how the system is deployed across Cloudflare's infrastructure.
+Shows the default docker-compose deployment. Railway mirrors the same topology with managed services.
 
 ```mermaid
 graph TB
@@ -199,149 +183,55 @@ graph TB
         AI[AI Clients]
     end
 
-    subgraph "Cloudflare Global Network"
-        subgraph "Edge Locations (300+)"
-            subgraph "US-West"
-                WorkerUSW[Cloudflare Worker]
-                CacheUSW[Local Cache]
-            end
+    subgraph "Host / Docker Compose"
+        Proxy[Reverse Proxy<br/>Caddy or nginx<br/>TLS termination]
 
-            subgraph "US-East"
-                WorkerUSE[Cloudflare Worker]
-                CacheUSE[Local Cache]
-            end
-
-            subgraph "EU-Central"
-                WorkerEU[Cloudflare Worker]
-                CacheEU[Local Cache]
-            end
-
-            subgraph "Asia-Pacific"
-                WorkerAP[Cloudflare Worker]
-                CacheAP[Local Cache]
-            end
+        subgraph "gateway container :8787"
+            GW[Gateway Server<br/>Node.js + Hono]
         end
 
-        subgraph "Global Data Layer"
-            D1Primary[(D1 Primary<br/>US-West)]
-            D1Replica1[(D1 Replica<br/>US-East)]
-            D1Replica2[(D1 Replica<br/>EU-Central)]
-
-            KVGlobal[KV Global<br/>Eventually Consistent]
-
-            ConvexDB[(Convex DB<br/>US-East)]
+        subgraph "dashboard container :3000"
+            Dash[Next.js Dashboard]
         end
 
-        subgraph "Durable Objects"
-            DOCoordinator[Coordination DO<br/>Jurisdiction-aware]
+        subgraph "postgres container :5432"
+            PG[(PostgreSQL 16<br/>pgdata volume)]
         end
     end
 
     subgraph "External Services"
         MCPServers[MCP Servers<br/>Customer Infrastructure]
-        Monitoring[Monitoring<br/>Datadog/NewRelic]
     end
 
-    subgraph "Admin Interface"
-        Dashboard[Next.js Dashboard<br/>Vercel Edge]
-    end
+    User --> Proxy
+    AI --> Proxy
+    Proxy --> GW
+    Proxy --> Dash
 
-    User --> WorkerUSW
-    User --> WorkerUSE
-    AI --> WorkerEU
-    AI --> WorkerAP
+    GW --> PG
+    Dash --> PG
+    Dash -->|Admin API + service token| GW
+    GW --> MCPServers
 
-    WorkerUSW --> CacheUSW
-    WorkerUSE --> CacheUSE
-    WorkerEU --> CacheEU
-    WorkerAP --> CacheAP
-
-    WorkerUSW --> D1Primary
-    WorkerUSE --> D1Replica1
-    WorkerEU --> D1Replica2
-    WorkerAP --> D1Primary
-
-    WorkerUSW --> KVGlobal
-    WorkerUSE --> KVGlobal
-    WorkerEU --> KVGlobal
-    WorkerAP --> KVGlobal
-
-    WorkerUSW --> ConvexDB
-    WorkerUSW --> DOCoordinator
-
-    WorkerUSW --> MCPServers
-    WorkerUSE --> MCPServers
-    WorkerEU --> MCPServers
-    WorkerAP --> MCPServers
-
-    WorkerUSW --> Monitoring
-
-    Dashboard --> WorkerUSW
-    Dashboard --> ConvexDB
-
-    style WorkerUSW fill:#4A90E2
-    style WorkerUSE fill:#4A90E2
-    style WorkerEU fill:#4A90E2
-    style WorkerAP fill:#4A90E2
-    style D1Primary fill:#50C878
-    style D1Replica1 fill:#7FD68A
-    style D1Replica2 fill:#7FD68A
-    style KVGlobal fill:#F5A623
-    style ConvexDB fill:#9B59B6
+    style GW fill:#4A90E2
+    style Dash fill:#50C878
+    style PG fill:#F5A623
 ```
 
 ### Deployment Characteristics
 
-| Characteristic | Implementation | Benefit |
-|---------------|----------------|---------|
-| **Geographic Distribution** | 300+ edge locations worldwide | <50ms latency globally |
-| **Database Replication** | Primary + read replicas | Regional read performance |
-| **Cache Strategy** | Local + KV global cache | Fast token validation |
-| **Auto-Scaling** | Worker auto-scale per region | Handle traffic spikes |
-| **High Availability** | Multi-region active-active | 99.99% uptime SLA |
-
-### Data Consistency Model
-
-```mermaid
-graph LR
-    subgraph "Consistency Levels"
-        A[Strong Consistency] --> B[D1 Primary Writes]
-        C[Read-After-Write] --> D[D1 Read Replicas]
-        E[Eventual Consistency] --> F[KV Global Cache]
-        G[Real-Time Sync] --> H[Convex DB]
-    end
-
-    B --> |Synchronous Replication| D
-    D --> |Asynchronous Replication| F
-    B --> |Event Streaming| H
-
-    style A fill:#50C878
-    style C fill:#7FD68A
-    style E fill:#F5A623
-    style G fill:#9B59B6
-```
-
-## Infrastructure as Code
-
-The entire deployment is managed using Terraform:
-
-```
-infrastructure/
-├── cloudflare/
-│   ├── workers.tf       # Worker configuration
-│   ├── d1.tf            # Database setup
-│   ├── kv.tf            # KV namespace configuration
-│   └── dns.tf           # DNS and routing
-├── convex/
-│   └── convex.json      # Convex configuration
-└── monitoring/
-    ├── datadog.tf       # Monitoring setup
-    └── alerts.tf        # Alert configuration
-```
+| Characteristic | Implementation |
+|---------------|----------------|
+| **Packaging** | One Docker image per app (`Dockerfile` for gateway, `apps/dashboard/Dockerfile` for dashboard) |
+| **Database** | Single PostgreSQL 16 instance with a persistent volume; back up with `pg_dump` |
+| **Migrations** | Drizzle migrations from `packages/db/migrations` applied automatically at gateway boot |
+| **TLS** | Terminated at a reverse proxy (Caddy/nginx) or the hosting platform |
+| **Scaling** | Run additional gateway replicas behind a load balancer; note rate limits are per replica |
+| **Hosted option** | Railway: two services from the repo Dockerfiles + Railway Postgres plugin |
 
 ## Related Documentation
 
 - [Architecture Overview](./README.md) - High-level architecture description
 - [Sequence Diagrams](./flows.md) - Detailed flow documentation
 - [API Reference](../api-reference.md) - Complete API documentation
-- [Deployment Guide](../deployment.md) - Infrastructure setup guide
+- [Deployment Guide](../deployment.md) - Docker and Railway setup

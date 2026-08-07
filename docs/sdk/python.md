@@ -478,10 +478,6 @@ def test_mcp_request(mock_client):
 See the [examples directory](../examples/) for complete working examples:
 
 - [Flask Web App](../examples/flask-app/)
-- [Django Project](../examples/django-project/)
-- [FastAPI Service](../examples/fastapi-service/)
-- [CLI Tool](../examples/cli-tool/)
-- [Jupyter Notebook](../examples/jupyter-notebook/)
 
 ## Requirements
 
@@ -490,11 +486,10 @@ See the [examples directory](../examples/) for complete working examples:
 
 ## Development
 
-To contribute to the SDK:
+The SDK lives in the monorepo at `packages/sdk-python`:
 
 ```bash
-git clone https://github.com/oauth-mcp-gateway/sdk-python
-cd sdk-python
+cd packages/sdk-python
 pip install -e .[dev]
 pytest
 ```

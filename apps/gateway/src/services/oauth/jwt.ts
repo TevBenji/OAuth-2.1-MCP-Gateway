@@ -207,7 +207,7 @@ export class JWTService {
       const payloadJSON = atob(paddedPayloadB64);
       
       // Validate the payloadJSON before parsing to prevent prototype pollution
-      if (typeof payloadJSON !== 'string' || !/^[\[\{].*[\]\}]$/.test(payloadJSON.trim())) {
+      if (typeof payloadJSON !== 'string' || !/^[[{].*[\]}]$/.test(payloadJSON.trim())) {
         console.warn('Invalid JWT payload format');
         return null;
       }

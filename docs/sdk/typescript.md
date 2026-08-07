@@ -351,6 +351,12 @@ global.crypto = webcrypto;
 See the [examples directory](../examples/) for complete working examples:
 
 - [React SPA](../examples/react-spa/)
-- [Express Server](../examples/express-server/)
-- [Next.js App](../examples/nextjs-app/)
-- [Electron App](../examples/electron-app/)
+
+## Source
+
+The SDK lives in the monorepo at `packages/sdk-typescript`. Build it locally with:
+
+```bash
+pnpm install
+pnpm --filter @oauth-mcp-gateway/sdk build
+```

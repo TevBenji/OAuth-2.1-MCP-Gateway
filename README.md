@@ -1,183 +1,108 @@
 # OAuth 2.1 MCP Gateway
 
-An authentication and authorization proxy that transforms the Model Context Protocol (MCP) ecosystem from insecure static API keys to enterprise-grade OAuth 2.1 authentication.
+A self-hosted OAuth 2.1 authorization server and reverse proxy for
+[Model Context Protocol](https://modelcontextprotocol.io) servers. Put it in
+front of your MCP servers and replace static API keys with PKCE-mandatory
+OAuth flows, audience-scoped JWTs, and per-tenant access control.
 
-## Overview
+Built entirely on free, open-source software: Node.js, [Hono](https://hono.dev),
+PostgreSQL, [Drizzle ORM](https://orm.drizzle.team), Next.js, and
+[better-auth](https://better-auth.com). No vendor lock-in — it runs anywhere a
+container and a Postgres database run.
 
-The OAuth 2.1 MCP Gateway acts as a security layer between MCP clients (AI agents like Claude, ChatGPT, Cursor) and MCP servers, implementing OAuth 2.1 with PKCE to solve the critical security gap in MCP deployments.
+## Features
 
-### Key Features
+- **OAuth 2.1 authorization server** — PKCE required (S256), authorization
+  code + refresh token grants with rotation, RFC 7591 dynamic client
+  registration, RFC 8414 discovery, RFC 8707 resource indicators
+- **MCP reverse proxy** — routes `/mcp/:serverId/*` to registered upstream
+  MCP servers behind Bearer-JWT auth and scope checks
+- **Multi-tenant** — tenants, per-tenant OAuth clients, MCP servers, and
+  API keys, with parameterized tenant isolation in every query
+- **Audit logging** — structured, compliance-taggable audit trail with
+  retention policies
+- **Admin dashboard** — Next.js UI for tenants, clients, MCP servers, audit
+  logs, and analytics, authenticated with email/password (better-auth)
+- **Rate limiting** and session management out of the box
 
-- **OAuth 2.1 Compliance**: Full OAuth 2.1 authorization server with mandatory PKCE
-- **Multi-Tenant Architecture**: Complete tenant isolation and management
-- **Edge Computing**: Sub-10ms global latency using Cloudflare Workers
-- **Enterprise Security**: Audit logging, session management, and compliance features
-- **Zero Configuration**: Simple setup with comprehensive documentation
-
-## Quick Start
-
-### Prerequisites
-
-- Node.js 18+ 
-- Cloudflare Workers account
-- Wrangler CLI installed
-
-### Installation
+## Quickstart
 
 ```bash
-# Clone the repository
 git clone https://github.com/your-org/oauth-mcp-gateway.git
 cd oauth-mcp-gateway
-
-# Install dependencies
-npm install
-
-# Configure environment
-cp wrangler.toml.example wrangler.toml
-# Edit wrangler.toml with your configuration
-
-# Run development server
-npm run dev
+docker compose up
 ```
 
-### Development
+- Gateway: http://localhost:8787 (`/health`, discovery at
+  `/.well-known/oauth-authorization-server`)
+- Dashboard: http://localhost:3000 — sign up to create the first admin
+  account, then walk through the onboarding wizard
+
+Register an OAuth client and run a PKCE flow:
 
 ```bash
-# Start development server
-npm run dev
-
-# Run tests
-npm run test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Type checking
-npm run type-check
-
-# Lint code
-npm run lint
-
-# Format code
-npm run format
+curl -X POST http://localhost:8787/oauth/register \
+  -H "Content-Type: application/json" \
+  -d '{"redirect_uris": ["http://localhost:3000/callback"], "client_name": "my-client", "token_endpoint_auth_method": "none"}'
 ```
 
-### Deployment
+See [docs/quickstart.md](docs/quickstart.md) for the full flow.
+
+## Development
+
+Requirements: Node.js 20+, pnpm, Docker (for Postgres).
 
 ```bash
-# Deploy to staging
-npm run deploy:staging
-
-# Deploy to production
-npm run deploy
-
-# Run database migrations
-npm run db:migrate
+docker compose up -d postgres
+pnpm install
+pnpm dev                     # gateway on :8787 (migrations run at boot)
+pnpm --filter @oauth-mcp-gateway/dashboard dev   # dashboard on :3000
 ```
 
-## Architecture
+Copy `.env.example` to `.env` and adjust as needed. Run the test suite with
+`pnpm test` (needs the Postgres container).
 
-The gateway implements a separation of concerns where it acts as the OAuth 2.1 authorization server while MCP servers become stateless resource servers that only validate JWT tokens.
+## Repository layout
 
-### Core Components
+```
+apps/gateway/          # The OAuth 2.1 gateway (Hono on Node.js)
+apps/dashboard/        # Admin dashboard (Next.js + better-auth)
+packages/db/           # Shared PostgreSQL schema + migrations (Drizzle)
+packages/sdk-typescript/
+packages/sdk-python/
+docs/                  # API reference, architecture, deployment guides
+```
 
-- **OAuth 2.1 Authorization Server**: Handles authentication flows with PKCE
-- **Multi-Tenant Management**: Complete tenant isolation and configuration
-- **MCP Request Proxy**: Routes authenticated requests to MCP servers
-- **Audit System**: Comprehensive logging for compliance and security
-- **Edge Runtime**: Cloudflare Workers for global performance
+## Deployment
+
+**Docker (any host):** `docker compose up -d` — see
+[docs/deployment.md](docs/deployment.md) for production notes (TLS, secrets,
+backups).
+
+**Railway:** create a project with a Postgres database and two services built
+from `Dockerfile` (gateway) and `apps/dashboard/Dockerfile` (dashboard).
+Step-by-step in [docs/deployment.md](docs/deployment.md).
 
 ## Configuration
 
-### Environment Variables
+| Variable | Service | Description |
+|---|---|---|
+| `DATABASE_URL` | both | PostgreSQL connection string |
+| `JWT_SECRET` | gateway | JWT signing secret (≥ 32 chars in production) |
+| `JWT_ISSUER` | gateway | Public base URL of the gateway |
+| `CORS_ORIGINS` | gateway | Comma-separated allowed origins |
+| `ADMIN_TOKEN` | gateway | Service token for `/admin/api/*` (required in production) |
+| `BETTER_AUTH_SECRET` | dashboard | Session signing secret |
+| `GATEWAY_URL` / `GATEWAY_ADMIN_TOKEN` | dashboard | How the dashboard reaches the gateway |
+| `DASHBOARD_ALLOW_SIGNUP` | dashboard | Allow account creation (disable after first admin) |
 
-- `JWT_ISSUER`: OAuth issuer URL
-- `CORS_ORIGINS`: Comma-separated list of allowed origins
-- `ENVIRONMENT`: Runtime environment (development/staging/production)
-
-### Cloudflare Workers Bindings
-
-- `SESSIONS`: KV namespace for session storage
-- `CACHE`: KV namespace for caching
-- `DB`: D1 database for persistent storage
-
-## API Documentation
-
-### OAuth 2.1 Endpoints
-
-- `GET /.well-known/oauth-authorization-server`: Authorization server metadata
-- `GET /.well-known/oauth-protected-resource`: Protected resource metadata
-- `GET /authorize`: Authorization endpoint
-- `POST /token`: Token endpoint
-- `POST /register`: Dynamic client registration
-
-### MCP Integration
-
-The gateway automatically handles MCP authentication by:
-
-1. Intercepting unauthenticated MCP requests
-2. Returning 401 with OAuth discovery information
-3. Processing OAuth 2.1 flows with PKCE
-4. Issuing JWT tokens with audience-specific claims
-5. Proxying authenticated requests to MCP servers
-
-## Security
-
-### OAuth 2.1 Compliance
-
-- Mandatory PKCE for all authorization code flows
-- Resource Indicators (RFC 8707) for audience-specific tokens
-- Dynamic Client Registration (RFC 7591)
-- Proper error handling and security headers
-
-### Multi-Tenant Isolation
-
-- Row-level security in database
-- Tenant-specific JWT claims
-- Isolated API key management
-- Separate audit logs per tenant
-
-### Enterprise Features
-
-- Comprehensive audit logging
-- Session management with concurrent limits
-- Risk-based authentication
-- Compliance support (PCI-DSS, HIPAA, GDPR)
-
-## Testing
-
-```bash
-# Run all tests
-npm run test:all
-
-# Run unit tests
-npm run test
-
-# Run integration tests
-npm run test:integration
-
-# Run security tests
-npm run test:security
-
-# Run performance tests
-npm run test:performance
-```
+Full list in [.env.example](.env.example).
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Ensure all tests pass
-6. Submit a pull request
+Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Security issues: see [SECURITY.md](SECURITY.md).
 
 ## License
 
-MIT License - see LICENSE file for details.
-
-## Support
-
-- Documentation: [docs/](./docs/)
-- Issues: [GitHub Issues](https://github.com/your-org/oauth-mcp-gateway/issues)
-- Security: security@your-org.com
+[MIT](LICENSE)

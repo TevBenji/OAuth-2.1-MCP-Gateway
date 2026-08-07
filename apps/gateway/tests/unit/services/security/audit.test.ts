@@ -1,39 +1,22 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { 
-  AuditService, 
-  auditService,
-  AuthenticationAuditHandler,
-  AuthorizationAuditHandler,
-  MCPSecurityAuditHandler,
-  SecurityAuditHandler,
-  logSystemEvent
-} from '../../../src/services/security/audit';
-import { 
+import { describe, it, expect, beforeEach } from 'vitest';
+import { AuditService } from '../../../../src/services/security/audit';
+import {
   AuthenticationAuditHandler as AuthHandler,
   AuthorizationAuditHandler as AuthzHandler,
   MCPSecurityAuditHandler as MCPHandler,
-  SecurityAuditHandler as SecurityHandler
-} from '../../../src/services/security/audit-handlers';
-
-// Mock D1Database for testing
-const mockD1Database = {
-  prepare: vi.fn(() => ({
-    bind: vi.fn(() => ({
-      run: vi.fn(async () => ({})),
-      all: vi.fn(async () => ({ results: [] })),
-      first: vi.fn(async () => null)
-    }))
-  })),
-  exec: vi.fn(async () => ({}))
-};
+  SecurityAuditHandler as SecurityHandler,
+  logSystemEvent,
+} from '../../../../src/services/security/audit-handlers';
+import { getTestDb, createTenant } from '../../../helpers/db';
 
 describe('Audit Logging and Compliance System', () => {
   let auditService: AuditService;
 
-  beforeEach(() => {
-    // Create a new instance for each test
-    auditService = new (AuditService as any)(mockD1Database as any);
-    vi.clearAllMocks();
+  beforeEach(async () => {
+    await createTenant('tenant-123');
+    // Singleton: the same instance is reused across tests; getInstance
+    // attaches the real database on first call.
+    auditService = AuditService.getInstance(getTestDb().db);
   });
 
   describe('AuditService', () => {
@@ -72,7 +55,7 @@ describe('Audit Logging and Compliance System', () => {
       const customPolicy = {
         name: 'Custom Policy',
         description: 'A custom retention policy',
-        complianceTag: 'custom',
+        complianceTag: 'custom' as const,
         retentionPeriodDays: 180,
         autoDelete: true,
         exportRequired: false
@@ -84,50 +67,37 @@ describe('Audit Logging and Compliance System', () => {
     });
 
     it('should query audit logs with filters', async () => {
-      // Mock response for count query
-      mockD1Database.prepare = vi.fn(() => ({
-        bind: vi.fn(() => ({
-          run: vi.fn(async () => ({})),
-          all: vi.fn(async () => ({ 
-            results: [] 
-          })),
-          first: vi.fn(async () => ({ count: 0 }))
-        }))
-      })) as any;
+      await auditService.createLogEntry('tenant-123', 'auth.login', 'User login', true, {
+        userId: 'user-456',
+      });
 
-      const result = await auditService.queryLogs({
+      const matching = await auditService.queryLogs({
+        tenantId: 'tenant-123',
+        userId: 'user-456',
+        event: 'auth.login',
+      });
+      expect(matching.entries).toHaveLength(1);
+      expect(matching.totalCount).toBe(1);
+
+      // Date filters in the past exclude the entry just written
+      const outOfRange = await auditService.queryLogs({
         tenantId: 'tenant-123',
         userId: 'user-456',
         event: 'auth.login',
         startDate: '2023-01-01T00:00:00.000Z',
-        endDate: '2023-12-31T23:59:59.999Z'
+        endDate: '2023-12-31T23:59:59.999Z',
       });
-
-      expect(result).toBeDefined();
-      expect(result.entries).toBeInstanceOf(Array);
-      expect(result.totalCount).toBe(0);
+      expect(outOfRange.entries).toBeInstanceOf(Array);
+      expect(outOfRange.totalCount).toBe(0);
     });
 
     it('should export logs in different formats', async () => {
-      // Mock response for queryLogs
-      vi.spyOn(auditService, 'queryLogs').mockResolvedValue({
-        entries: [{
-          id: 'log-1',
-          timestamp: '2023-01-01T00:00:00.000Z',
-          event: 'auth.login',
-          action: 'User login successful',
-          success: true,
-          tenantId: 'tenant-123',
-          userId: 'user-456',
-          clientId: 'client-789',
-          complianceTags: ['SOC2'],
-          severity: 'medium',
-          source: 'gateway',
-          details: { test: 'value' }
-        }],
-        totalCount: 1,
-        limit: 50,
-        offset: 0
+      await auditService.createLogEntry('tenant-123', 'auth.login', 'User login successful', true, {
+        userId: 'user-456',
+        clientId: 'client-789',
+        complianceTags: ['SOC2'],
+        severity: 'medium',
+        details: { test: 'value' },
       });
 
       // Test JSON export
@@ -155,9 +125,8 @@ describe('Audit Logging and Compliance System', () => {
     });
 
     it('should apply retention policies', async () => {
-      await auditService.applyRetentionPolicies();
-      // The method should execute without errors
-      expect(mockD1Database.prepare).toHaveBeenCalled();
+      // The method should execute without errors against the real database
+      await expect(auditService.applyRetentionPolicies()).resolves.toBeUndefined();
     });
   });
 
@@ -283,20 +252,20 @@ describe('Audit Logging and Compliance System', () => {
     it('should log MCP request', async () => {
       const successLogId = await MCPHandler.logMCPRequest(
         'tenant-123',
-        'user-456',
-        'client-789',
         'mcp-server-1',
         true,
+        'user-456',
+        'client-789',
         { ipAddress: '192.168.1.1' }
       );
       expect(successLogId).toBeDefined();
 
       const failureLogId = await MCPHandler.logMCPRequest(
         'tenant-123',
-        'user-456',
-        'client-789',
         'mcp-server-1',
         false,
+        'user-456',
+        'client-789',
         { ipAddress: '192.168.1.1' }
       );
       expect(failureLogId).toBeDefined();
@@ -305,24 +274,20 @@ describe('Audit Logging and Compliance System', () => {
     it('should log MCP tool invocation', async () => {
       const successLogId = await MCPHandler.logMCPToolInvocation(
         'tenant-123',
-        'user-456',
-        'client-789',
         'read_data_tool',
         true,
+        'user-456',
+        'client-789',
         { ipAddress: '192.168.1.1' }
       );
       expect(successLogId).toBeDefined();
     });
 
     it('should log MCP resource access', async () => {
-      const logId = await MCPHandler.logMCPResourceAccess(
-        'tenant-123',
-        'user-456',
-        'client-789',
-        'user_profile',
-        true,
-        { ipAddress: '192.168.1.1', operation: 'read' }
-      );
+      const logId = await MCPHandler.logMCPResourceAccess('tenant-123', 'user_profile', true, {
+        ipAddress: '192.168.1.1',
+        operation: 'read',
+      });
 
       expect(logId).toBeDefined();
     });
@@ -332,9 +297,9 @@ describe('Audit Logging and Compliance System', () => {
     it('should log rate limit exceeded', async () => {
       const logId = await SecurityHandler.logRateLimitExceeded(
         'tenant-123',
+        'api_requests',
         'user-456',
         'client-789',
-        'api_requests',
         { ipAddress: '192.168.1.1' }
       );
 
@@ -344,10 +309,10 @@ describe('Audit Logging and Compliance System', () => {
     it('should log suspicious activity', async () => {
       const logId = await SecurityHandler.logSuspiciousActivity(
         'tenant-123',
-        'user-456',
-        'client-789',
         'Multiple failed logins',
         'high',
+        'user-456',
+        'client-789',
         { ipAddress: '192.168.1.1' }
       );
 

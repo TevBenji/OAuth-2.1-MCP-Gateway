@@ -5,83 +5,66 @@ OAuth 2.1 MCP Gateway - Production deployment validation checklist
 ## Pre-Deployment Validation
 
 ### Code Quality
-- [ ] All tests passing (unit, integration, security, performance)
-- [ ] Code coverage ≥80% for unit tests, ≥70% for integration tests
-- [ ] No critical or high-severity linter warnings
-- [ ] TypeScript strict mode enabled and passing
-- [ ] All dependencies up to date and security scanned
+- [ ] All tests passing (`pnpm test`)
+- [ ] TypeScript strict mode passing (`pnpm type-check`)
+- [ ] No critical or high-severity linter warnings (`pnpm lint`)
+- [ ] Dependencies up to date and security scanned (`pnpm audit`)
 
 ### Security
 - [ ] OAuth 2.1 compliance verified (PKCE, no implicit flow)
-- [ ] HTTPS enforced on all endpoints
-- [ ] Security headers configured (HSTS, CSP, X-Frame-Options)
-- [ ] Rate limiting configured and tested
-- [ ] Audit logging enabled for all security events
-- [ ] Secrets rotated and stored securely
-- [ ] SOC 2 compliance controls implemented
+- [ ] `JWT_SECRET` is a strong random value (>= 32 characters, not the compose default)
+- [ ] `ADMIN_TOKEN` set to a strong random value (admin API returns 503 in production without it)
+- [ ] `BETTER_AUTH_SECRET` set to a strong random value
+- [ ] `DASHBOARD_ALLOW_SIGNUP=false` after admin accounts are created
+- [ ] TLS terminated at a reverse proxy (Caddy/nginx); gateway not directly exposed over HTTP
+- [ ] `CORS_ORIGINS` restricted to known origins
+- [ ] Audit logging enabled for all tenants
 
-### Performance
-- [ ] Token validation <10ms (P95)
-- [ ] MCP proxy <50ms (P95)
-- [ ] Load testing validated 1000+ concurrent requests
-- [ ] Sub-10ms performance requirements met
-- [ ] CDN and edge caching configured
+### Database
+- [ ] PostgreSQL reachable via `DATABASE_URL` with TLS where applicable
+- [ ] Drizzle migrations verified against a staging database (they auto-run at gateway boot)
+- [ ] `pg_dump` backup schedule in place and restore tested
+- [ ] Database credentials are not the compose defaults
 
 ### Infrastructure
-- [ ] Cloudflare Workers deployment configured
-- [ ] Database migrations tested and ready
-- [ ] KV namespace bindings configured
-- [ ] Environment variables set for production
-- [ ] DNS records configured
-- [ ] SSL certificates valid
+- [ ] Docker images build cleanly (`docker compose build`)
+- [ ] `JWT_ISSUER` and `BETTER_AUTH_URL` set to final public HTTPS URLs
+- [ ] DNS records configured; certificates valid
+- [ ] Note: rate limiting is in-process — limits are per gateway replica
 
 ### Monitoring & Observability
-- [ ] Prometheus metrics endpoint configured
-- [ ] Grafana dashboards deployed
-- [ ] Alert rules configured
-- [ ] Log aggregation configured
-- [ ] Health check endpoints tested
-- [ ] Uptime monitoring enabled
+- [ ] `GET /health` and `GET /mcp/health` wired into uptime monitoring
+- [ ] Container logs aggregated (gateway logs to stdout)
+- [ ] Alerting on error rates and health-check failures
 
 ## Deployment Execution
 
 ### Pre-Flight
 - [ ] Deployment approval obtained
-- [ ] Backup of current production created
-- [ ] Rollback plan documented
-- [ ] Team notified of deployment window
+- [ ] Database backup taken (`pg_dump`)
+- [ ] Rollback plan documented (previous image tag + backup restore)
 
 ### Deployment
-- [ ] Build production bundle
-- [ ] Run security scan
-- [ ] Deploy to Cloudflare Workers
-- [ ] Run database migrations
-- [ ] Verify health check endpoints
+- [ ] Build and push images (or trigger Railway deploy)
+- [ ] Start services; confirm migrations applied at gateway boot
+- [ ] Verify `GET /health` and `GET /.well-known/oauth-authorization-server`
 
 ### Post-Deployment
-- [ ] Smoke tests passed
-- [ ] Health check monitoring green
-- [ ] Performance metrics within targets
+- [ ] Smoke test: client registration, PKCE flow, token exchange, MCP proxy call
+- [ ] Dashboard login and tenant management verified
 - [ ] No error spikes in logs
-- [ ] Rollback plan tested
 
 ## Post-Deployment Monitoring (First 24 hours)
 
 - [ ] Monitor error rates (<1%)
-- [ ] Monitor response times (P95 <50ms)
+- [ ] Monitor response times
 - [ ] Monitor authentication success rate
-- [ ] Monitor resource usage
 - [ ] Review audit logs for anomalies
-- [ ] Check security alerts
 
 ## Sign-Off
 
 - [ ] Technical Lead approval
-- [ ] Security Team approval
-- [ ] Operations Team notified
 - [ ] Documentation updated
-- [ ] Deployment log saved
 
 **Deployment Date**: _____________
 **Deployed By**: _____________
-**Deployment ID**: _____________

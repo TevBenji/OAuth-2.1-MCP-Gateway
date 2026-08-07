@@ -83,6 +83,21 @@ class MockSessionStorage implements SessionStorage {
     return cleaned;
   }
 
+  async regenerateSessionOnAuth(oldSessionId: string): Promise<string> {
+    const oldSession = this.sessions.get(oldSessionId);
+    if (!oldSession) throw new Error('Session not found');
+
+    const newSession: Session = {
+      ...oldSession,
+      session_id: crypto.randomUUID(),
+      created_at: new Date(),
+      last_accessed_at: new Date(),
+    };
+    await this.create(newSession);
+    await this.delete(oldSessionId);
+    return newSession.session_id;
+  }
+
   clear(): void {
     this.sessions.clear();
     this.userSessions.clear();
@@ -464,7 +479,7 @@ describe('Session Lifecycle Tests', () => {
 
       const sessions = await sessionManager.getUserSessions('tenant-123', 'user-456');
       expect(sessions.length).toBe(1);
-      expect(sessions[0].status).toBe(SessionStatus.ACTIVE);
+      expect(sessions[0]!.status).toBe(SessionStatus.ACTIVE);
     });
   });
 });

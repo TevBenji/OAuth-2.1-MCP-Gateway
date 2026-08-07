@@ -20,8 +20,8 @@ import type { KVLike } from '../lib/memory-kv';
 interface Bindings {
   JWT_SECRET: string;
   JWT_ALGORITHM?: 'RS256' | 'HS256';
-  ISSUER?: string;
-  RISK_KV: KVLike;
+  JWT_ISSUER?: string;
+  CACHE?: KVLike;
 }
 
 /**
@@ -65,7 +65,7 @@ export function authMiddleware() {
       const jwtService = getJWTService({
         JWT_SECRET: env.JWT_SECRET,
         JWT_ALGORITHM: env.JWT_ALGORITHM || 'HS256',
-        JWT_ISSUER: env.ISSUER || 'oauth-mcp-gateway',
+        JWT_ISSUER: env.JWT_ISSUER || 'oauth-mcp-gateway',
       });
 
       // Verify the token
@@ -124,7 +124,7 @@ export function authMiddleware() {
         source: 'gateway',
       };
 
-      const riskService = RiskService.getInstance(c.env.RISK_KV);
+      const riskService = RiskService.getInstance(c.env.CACHE);
       const riskAssessment = await riskService.assessRisk(auditLogEntry);
 
       // Log the risk assessment

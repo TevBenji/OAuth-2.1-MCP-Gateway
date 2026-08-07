@@ -1,372 +1,147 @@
 # Quickstart Guide
 
-Get started with the OAuth 2.1 MCP Gateway in minutes.
+Run the OAuth 2.1 MCP Gateway locally and complete a full PKCE flow with curl.
 
 ## Prerequisites
 
-- An OAuth 2.1 MCP Gateway instance (or use our hosted version)
-- A registered OAuth client (see [Client Registration](#client-registration))
-- Basic understanding of OAuth 2.1 and MCP
+- Docker (with Compose)
+- curl and openssl (for the PKCE example)
 
-## Step 1: Register Your Client
+## Step 1: Start the Stack
 
-### Option A: Using Dynamic Client Registration (Recommended)
-
-**TypeScript:**
-```typescript
-import { OAuthMCPClient } from '@oauth-mcp-gateway/sdk';
-
-const registration = await OAuthMCPClient.register(
-  'https://gateway.example.com',
-  {
-    client_name: 'My MCP Client',
-    redirect_uris: ['https://myapp.com/callback'],
-    grant_types: ['authorization_code', 'refresh_token'],
-    scope: 'mcp:read mcp:write',
-  }
-);
-
-console.log('Client ID:', registration.client_id);
-console.log('Client Secret:', registration.client_secret);
+```bash
+git clone <repository-url>
+cd oauth-mcp-gateway
+docker compose up -d
 ```
 
-**Python:**
-```python
-from oauth_mcp_gateway import OAuthMCPClient
+- Gateway: http://localhost:8787
+- Dashboard: http://localhost:3000
 
-registration = OAuthMCPClient.register(
-    gateway_url='https://gateway.example.com',
-    registration={
-        'client_name': 'My MCP Client',
-        'redirect_uris': ['https://myapp.com/callback'],
-        'grant_types': ['authorization_code', 'refresh_token'],
-        'scope': 'mcp:read mcp:write',
-    }
-)
+Verify:
 
-print(f"Client ID: {registration['client_id']}")
-print(f"Client Secret: {registration['client_secret']}")
+```bash
+curl http://localhost:8787/health
+curl http://localhost:8787/.well-known/oauth-authorization-server
 ```
 
-### Option B: Manual Registration
+Alternatively, for development with hot reload:
 
-Contact your gateway administrator to manually register your client.
-
-## Step 2: Initialize the Client
-
-**TypeScript:**
-```typescript
-import { OAuthMCPClient } from '@oauth-mcp-gateway/sdk';
-
-const client = new OAuthMCPClient({
-  gatewayUrl: 'https://gateway.example.com',
-  clientId: 'your-client-id',
-  clientSecret: 'your-client-secret', // Optional for public clients
-  redirectUri: 'https://myapp.com/callback',
-  scopes: ['mcp:read', 'mcp:write'],
-});
+```bash
+docker compose up -d postgres
+pnpm install
+pnpm dev
 ```
 
-**Python:**
-```python
-from oauth_mcp_gateway import OAuthMCPClient
+## Step 2: Register a Client
 
-client = OAuthMCPClient(
-    gateway_url='https://gateway.example.com',
-    client_id='your-client-id',
-    client_secret='your-client-secret',  # Optional for public clients
-    redirect_uri='https://myapp.com/callback',
-    scopes=['mcp:read', 'mcp:write']
-)
+Dynamic client registration (RFC 7591) via `POST /oauth/register`:
+
+```bash
+curl -s -X POST http://localhost:8787/oauth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_name": "Quickstart Client",
+    "redirect_uris": ["http://localhost:3000/callback"],
+    "grant_types": ["authorization_code", "refresh_token"],
+    "response_types": ["code"],
+    "scope": "mcp:tools:read mcp:resources:read"
+  }'
 ```
 
-## Step 3: Implement OAuth Flow
+Save the `client_id` (and `client_secret`, if issued) from the response:
 
-### Authorization Code Flow with PKCE
-
-**TypeScript:**
-```typescript
-// 1. Get authorization URL
-const { url, state, codeVerifier } = await client.getAuthorizationUrl();
-
-// Store state and codeVerifier in session for verification
-sessionStorage.setItem('oauth_state', state);
-sessionStorage.setItem('code_verifier', codeVerifier);
-
-// 2. Redirect user to authorization URL
-window.location.href = url;
-
-// 3. Handle callback (in your /callback route)
-const urlParams = new URLSearchParams(window.location.search);
-const code = urlParams.get('code');
-const returnedState = urlParams.get('state');
-
-// Verify state
-const storedState = sessionStorage.getItem('oauth_state');
-if (returnedState !== storedState) {
-  throw new Error('State mismatch - possible CSRF attack');
-}
-
-// Exchange code for tokens
-const codeVerifier = sessionStorage.getItem('code_verifier')!;
-const tokens = await client.exchangeCode(code!, codeVerifier);
-
-console.log('Access token:', tokens.access_token);
-console.log('Refresh token:', tokens.refresh_token);
+```bash
+CLIENT_ID=<client_id from response>
 ```
 
-**Python:**
-```python
-from flask import Flask, request, redirect, session
+## Step 3: Run the PKCE Flow
 
-app = Flask(__name__)
-app.secret_key = 'your-secret-key'
+Generate a PKCE verifier and challenge:
 
-@app.route('/login')
-def login():
-    # 1. Get authorization URL
-    auth_data = client.get_authorization_url()
-
-    # Store state and code_verifier in session
-    session['oauth_state'] = auth_data['state']
-    session['code_verifier'] = auth_data['code_verifier']
-
-    # 2. Redirect to authorization URL
-    return redirect(auth_data['url'])
-
-@app.route('/callback')
-def callback():
-    # 3. Handle callback
-    code = request.args.get('code')
-    returned_state = request.args.get('state')
-
-    # Verify state
-    if returned_state != session.get('oauth_state'):
-        return 'State mismatch - possible CSRF attack', 400
-
-    # Exchange code for tokens
-    code_verifier = session.get('code_verifier')
-    tokens = client.exchange_code(code, code_verifier)
-
-    # Store tokens in session
-    session['access_token'] = tokens['access_token']
-    session['refresh_token'] = tokens.get('refresh_token')
-
-    return 'Authentication successful!'
+```bash
+CODE_VERIFIER=$(openssl rand -hex 32)
+CODE_CHALLENGE=$(printf %s "$CODE_VERIFIER" | openssl dgst -binary -sha256 | openssl base64 -A | tr '+/' '-_' | tr -d '=')
 ```
 
-## Step 4: Make MCP Requests
+Request an authorization code from `GET /oauth/authorize`. The gateway redirects to your `redirect_uri` with `code` in the query string — capture the `Location` header:
 
-**TypeScript:**
-```typescript
-// Make authenticated MCP request
-const response = await client.mcpRequest({
-  method: 'tools/list',
-  params: {},
-});
-
-console.log('Available tools:', response.result);
-
-// Invoke a tool
-const toolResponse = await client.mcpRequest({
-  method: 'tools/call',
-  params: {
-    name: 'get_weather',
-    arguments: {
-      location: 'San Francisco',
-    },
-  },
-});
-
-console.log('Weather data:', toolResponse.result);
+```bash
+curl -si "http://localhost:8787/oauth/authorize?response_type=code&client_id=$CLIENT_ID&redirect_uri=http://localhost:3000/callback&scope=mcp:tools:read%20mcp:resources:read&state=xyz123&code_challenge=$CODE_CHALLENGE&code_challenge_method=S256" \
+  | grep -i '^location'
+# location: http://localhost:3000/callback?code=auth_...&state=xyz123
 ```
 
-**Python:**
-```python
-# Make authenticated MCP request
-response = client.mcp_request(
-    method='tools/list',
-    params={}
-)
-
-print('Available tools:', response['result'])
-
-# Invoke a tool
-tool_response = client.mcp_request(
-    method='tools/call',
-    params={
-        'name': 'get_weather',
-        'arguments': {
-            'location': 'San Francisco'
-        }
-    }
-)
-
-print('Weather data:', tool_response['result'])
+```bash
+CODE=<code from the Location header>
 ```
 
-## Step 5: Handle Token Refresh
+Exchange the code for tokens at `POST /oauth/token` (form-encoded):
 
-**TypeScript:**
-```typescript
-// The SDK automatically refreshes tokens, but you can do it manually:
-try {
-  await client.mcpRequest({ method: 'tools/list' });
-} catch (error) {
-  if (error instanceof TokenExpiredError) {
-    // Token expired, refresh it
-    await client.refreshAccessToken();
+```bash
+curl -s -X POST http://localhost:8787/oauth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=authorization_code" \
+  -d "code=$CODE" \
+  -d "redirect_uri=http://localhost:3000/callback" \
+  -d "client_id=$CLIENT_ID" \
+  -d "code_verifier=$CODE_VERIFIER"
+```
 
-    // Retry request
-    const response = await client.mcpRequest({ method: 'tools/list' });
-  }
+Response:
+
+```json
+{
+  "access_token": "eyJ...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "refresh_token": "...",
+  "scope": "mcp:tools:read mcp:resources:read"
 }
 ```
 
-**Python:**
-```python
-from oauth_mcp_gateway import TokenExpiredError
+Refresh later with:
 
-# The SDK automatically refreshes tokens, but you can do it manually:
-try:
-    response = client.mcp_request(method='tools/list')
-except TokenExpiredError:
-    # Token expired, refresh it
-    client.refresh_access_token()
-
-    # Retry request
-    response = client.mcp_request(method='tools/list')
+```bash
+curl -s -X POST http://localhost:8787/oauth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=refresh_token" \
+  -d "refresh_token=$REFRESH_TOKEN" \
+  -d "client_id=$CLIENT_ID"
 ```
 
-## Complete Examples
+## Step 4: Register an MCP Server and Proxy Requests
 
-### TypeScript Express Server
+Register an upstream MCP server through the admin API (Bearer `ADMIN_TOKEN`; the compose default is `dev-admin-token`):
 
-```typescript
-import express from 'express';
-import { OAuthMCPClient } from '@oauth-mcp-gateway/sdk';
-
-const app = express();
-const client = new OAuthMCPClient({
-  gatewayUrl: process.env.GATEWAY_URL!,
-  clientId: process.env.CLIENT_ID!,
-  clientSecret: process.env.CLIENT_SECRET,
-  redirectUri: 'http://localhost:3000/callback',
-  scopes: ['mcp:read', 'mcp:write'],
-});
-
-app.get('/login', async (req, res) => {
-  const { url, state, codeVerifier } = await client.getAuthorizationUrl();
-  req.session.oauth_state = state;
-  req.session.code_verifier = codeVerifier;
-  res.redirect(url);
-});
-
-app.get('/callback', async (req, res) => {
-  const { code, state } = req.query;
-
-  if (state !== req.session.oauth_state) {
-    return res.status(400).send('State mismatch');
-  }
-
-  const tokens = await client.exchangeCode(
-    code as string,
-    req.session.code_verifier
-  );
-
-  req.session.access_token = tokens.access_token;
-  req.session.refresh_token = tokens.refresh_token;
-
-  res.redirect('/dashboard');
-});
-
-app.get('/api/tools', async (req, res) => {
-  client.setAccessToken(req.session.access_token);
-
-  try {
-    const response = await client.mcpRequest({ method: 'tools/list' });
-    res.json(response.result);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.listen(3000, () => {
-  console.log('Server running on http://localhost:3000');
-});
+```bash
+curl -s -X POST http://localhost:8787/admin/api/tenants/default/servers \
+  -H "Authorization: Bearer dev-admin-token" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "My MCP Server",
+    "endpoint_url": "https://my-mcp-server.example.com",
+    "resource_identifier": "https://my-mcp-server.example.com",
+    "required_scopes": ["mcp:tools:read"]
+  }'
 ```
 
-### Python Flask Application
+The response includes the server's ID. Proxy MCP requests through the gateway with your access token:
 
-```python
-from flask import Flask, request, redirect, session, jsonify
-from oauth_mcp_gateway import OAuthMCPClient, TokenExpiredError
-import os
-
-app = Flask(__name__)
-app.secret_key = os.urandom(24)
-
-client = OAuthMCPClient(
-    gateway_url=os.environ['GATEWAY_URL'],
-    client_id=os.environ['CLIENT_ID'],
-    client_secret=os.environ.get('CLIENT_SECRET'),
-    redirect_uri='http://localhost:5000/callback',
-    scopes=['mcp:read', 'mcp:write']
-)
-
-@app.route('/login')
-def login():
-    auth_data = client.get_authorization_url()
-    session['oauth_state'] = auth_data['state']
-    session['code_verifier'] = auth_data['code_verifier']
-    return redirect(auth_data['url'])
-
-@app.route('/callback')
-def callback():
-    code = request.args.get('code')
-    state = request.args.get('state')
-
-    if state != session.get('oauth_state'):
-        return 'State mismatch', 400
-
-    tokens = client.exchange_code(code, session['code_verifier'])
-    session['access_token'] = tokens['access_token']
-    session['refresh_token'] = tokens.get('refresh_token')
-
-    return redirect('/dashboard')
-
-@app.route('/api/tools')
-def get_tools():
-    client.set_access_token(session['access_token'])
-
-    try:
-        response = client.mcp_request(method='tools/list')
-        return jsonify(response['result'])
-    except TokenExpiredError:
-        client.refresh_access_token(session['refresh_token'])
-        session['access_token'] = client.get_access_token()
-        response = client.mcp_request(method='tools/list')
-        return jsonify(response['result'])
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-if __name__ == '__main__':
-    app.run(debug=True)
+```bash
+curl -s -X POST http://localhost:8787/mcp/<serverId>/ \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}'
 ```
+
+## Step 5: Use the Dashboard
+
+Open http://localhost:3000, sign up (email/password), and manage tenants, OAuth clients, MCP servers, and audit logs from the UI. The dashboard talks to the gateway's admin API using `GATEWAY_ADMIN_TOKEN`.
 
 ## Next Steps
 
-- [API Reference](./api-reference.md) - Detailed API documentation
-- [Authentication Guide](./authentication.md) - Deep dive into OAuth 2.1 flows
-- [MCP Integration](./mcp-integration.md) - Advanced MCP server integration
-- [Security Best Practices](./security.md) - Secure your implementation
-- [Troubleshooting](./troubleshooting.md) - Common issues and solutions
-
-## Support
-
-Need help? Check out:
-
-- [Documentation](https://docs.oauth-mcp-gateway.com)
-- [GitHub Issues](https://github.com/oauth-mcp-gateway/gateway/issues)
-- [Community Forum](https://community.oauth-mcp-gateway.com)
-- [Email Support](mailto:support@oauth-mcp-gateway.com)
+- [API Reference](./api-reference.md) - Endpoint documentation
+- [Deployment Guide](./deployment.md) - Docker and Railway deployment
+- [Getting Started Tutorial](./tutorials/getting-started.md) - SDK-based integration
+- [TypeScript SDK](./sdk/typescript.md) / [Python SDK](./sdk/python.md)

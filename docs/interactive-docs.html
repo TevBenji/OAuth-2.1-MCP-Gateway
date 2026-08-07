@@ -221,10 +221,10 @@ yarn add @oauth-mcp-gateway/sdk</pre>
 
 // Initialize client
 const client = new OAuthMCPClient({
-  gatewayUrl: 'https://gateway.example.com',
+  gatewayUrl: 'http://localhost:8787',
   clientId: 'your-client-id',
   redirectUri: 'https://yourapp.com/callback',
-  scopes: ['mcp:read', 'mcp:write']
+  scopes: ['mcp:tools:read', 'mcp:resources:read']
 });
 
 // Get authorization URL
@@ -246,10 +246,10 @@ const response = await client.mcpRequest({
 
 # Initialize client
 client = OAuthMCPClient(
-    gateway_url='https://gateway.example.com',
+    gateway_url='http://localhost:8787',
     client_id='your-client-id',
     redirect_uri='https://yourapp.com/callback',
-    scopes=['mcp:read', 'mcp:write']
+    scopes=['mcp:tools:read', 'mcp:resources:read']
 )
 
 # Get authorization URL
@@ -273,7 +273,7 @@ response = client.mcp_request(
 
             <div class="form-group">
                 <label for="gateway-url">Gateway URL:</label>
-                <input type="text" id="gateway-url" value="https://gateway.example.com" placeholder="https://gateway.example.com">
+                <input type="text" id="gateway-url" value="http://localhost:8787" placeholder="http://localhost:8787">
             </div>
 
             <button class="btn" onclick="testDiscovery()">Send Request</button>

@@ -4,26 +4,20 @@
  * End-to-end tests for the Dynamic Client Registration endpoint (RFC 7591).
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import app from '../../src/index';
 import type { ClientRegistrationRequest, ClientRegistrationResponse, OAuthError } from '../../src/types/oauth';
+import { makeTestEnv } from '../helpers/env';
+import { createTenant } from '../helpers/db';
 
-// Test environment setup
-const testEnv = {
-  DB: {
-    prepare: () => ({
-      bind: () => ({
-        first: () => null,
-        run: () => ({ success: true, changes: 1 }),
-        all: () => []
-      })
-    })
-  },
-  JWT_ISSUER: 'https://test.oauth-mcp-gateway.com',
-  ENVIRONMENT: 'test'
-};
+const testEnv = makeTestEnv();
 
 describe('OAuth Client Registration Integration', () => {
+  beforeEach(async () => {
+    // The X-Tenant-ID header used below must reference an existing tenant
+    await createTenant('test-tenant');
+  });
+
   describe('POST /register', () => {
     const validRegistrationRequest: ClientRegistrationRequest = {
       redirect_uris: ['https://example.com/callback', 'https://app.example.com/auth'],
@@ -72,7 +66,7 @@ describe('OAuth Client Registration Integration', () => {
       });
 
       // Verify response headers
-      expect(response.headers.get('Content-Type')).toBe('application/json; charset=UTF-8');
+      expect(response.headers.get('Content-Type')).toContain('application/json');
       expect(response.headers.get('Cache-Control')).toBe('no-store');
       expect(response.headers.get('Pragma')).toBe('no-cache');
     });

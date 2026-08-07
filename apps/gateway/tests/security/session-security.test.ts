@@ -58,6 +58,21 @@ class MockSessionStorage implements SessionStorage {
   async cleanupExpiredSessions(): Promise<number> {
     return 0;
   }
+
+  async regenerateSessionOnAuth(oldSessionId: string): Promise<string> {
+    const oldSession = this.sessions.get(oldSessionId);
+    if (!oldSession) throw new Error('Session not found');
+
+    const newSession: Session = {
+      ...oldSession,
+      session_id: crypto.randomUUID(),
+      created_at: new Date(),
+      last_accessed_at: new Date(),
+    };
+    await this.create(newSession);
+    await this.delete(oldSessionId);
+    return newSession.session_id;
+  }
 }
 
 describe('Session Security Policy Tests', () => {
@@ -182,7 +197,7 @@ describe('Session Security Policy Tests', () => {
       // Verify oldest was revoked
       const revokedSessions = sessions.filter(s => s.status === SessionStatus.REVOKED);
       expect(revokedSessions.length).toBe(1);
-      expect(revokedSessions[0].revocation_reason).toBe('concurrent_limit_exceeded');
+      expect(revokedSessions[0]!.revocation_reason).toBe('concurrent_limit_exceeded');
     });
 
     it('should enforce per-user limits across different clients', async () => {
@@ -305,8 +320,8 @@ describe('Session Security Policy Tests', () => {
 
       expect(tenant1Sessions.length).toBe(1);
       expect(tenant2Sessions.length).toBe(1);
-      expect(tenant1Sessions[0].tenant_id).toBe('tenant-123');
-      expect(tenant2Sessions[0].tenant_id).toBe('tenant-456');
+      expect(tenant1Sessions[0]!.tenant_id).toBe('tenant-123');
+      expect(tenant2Sessions[0]!.tenant_id).toBe('tenant-456');
     });
 
     it('should prevent cross-tenant session access', async () => {

@@ -7,18 +7,12 @@
 import { describe, it, expect } from 'vitest';
 import { loadEnvironmentConfig, validateEnvironment, getTenantConfig } from '@/config/environment';
 import type { Bindings } from '@/types/bindings';
+import { makeTestEnv } from '../../helpers/env';
 
 describe('Environment Configuration', () => {
   describe('loadEnvironmentConfig', () => {
     it('should load configuration with default values', () => {
-      const mockEnv: Bindings = {
-        SESSIONS: {} as KVNamespace,
-        CACHE: {} as KVNamespace,
-        DB: {} as D1Database,
-        ENVIRONMENT: 'development',
-        JWT_ISSUER: 'https://test.oauth-mcp-gateway.com',
-        CORS_ORIGINS: 'http://localhost:3000,https://example.com'
-      };
+      const mockEnv: Bindings = makeTestEnv({ ENVIRONMENT: 'development', JWT_ISSUER: 'https://test.oauth-mcp-gateway.com', CORS_ORIGINS: 'http://localhost:3000,https://example.com' });
       
       const config = loadEnvironmentConfig(mockEnv);
       
@@ -30,14 +24,7 @@ describe('Environment Configuration', () => {
     });
     
     it('should handle production environment settings', () => {
-      const mockEnv: Bindings = {
-        SESSIONS: {} as KVNamespace,
-        CACHE: {} as KVNamespace,
-        DB: {} as D1Database,
-        ENVIRONMENT: 'production',
-        JWT_ISSUER: 'https://oauth-mcp-gateway.com',
-        CORS_ORIGINS: 'https://claude.ai,https://chatgpt.com'
-      };
+      const mockEnv: Bindings = makeTestEnv({ ENVIRONMENT: 'production', JWT_ISSUER: 'https://oauth-mcp-gateway.com', CORS_ORIGINS: 'https://claude.ai,https://chatgpt.com' });
       
       const config = loadEnvironmentConfig(mockEnv);
       
@@ -48,14 +35,7 @@ describe('Environment Configuration', () => {
     });
     
     it('should parse CORS origins correctly', () => {
-      const mockEnv: Bindings = {
-        SESSIONS: {} as KVNamespace,
-        CACHE: {} as KVNamespace,
-        DB: {} as D1Database,
-        ENVIRONMENT: 'development',
-        JWT_ISSUER: 'https://test.oauth-mcp-gateway.com',
-        CORS_ORIGINS: 'http://localhost:3000, https://example.com , https://test.com'
-      };
+      const mockEnv: Bindings = makeTestEnv({ ENVIRONMENT: 'development', JWT_ISSUER: 'https://test.oauth-mcp-gateway.com', CORS_ORIGINS: 'http://localhost:3000, https://example.com , https://test.com' });
       
       const config = loadEnvironmentConfig(mockEnv);
       
@@ -67,14 +47,7 @@ describe('Environment Configuration', () => {
     });
     
     it('should use default CORS origins when not provided', () => {
-      const mockEnv: Bindings = {
-        SESSIONS: {} as KVNamespace,
-        CACHE: {} as KVNamespace,
-        DB: {} as D1Database,
-        ENVIRONMENT: 'development',
-        JWT_ISSUER: 'https://test.oauth-mcp-gateway.com',
-        CORS_ORIGINS: ''
-      };
+      const mockEnv: Bindings = makeTestEnv({ ENVIRONMENT: 'development', JWT_ISSUER: 'https://test.oauth-mcp-gateway.com', CORS_ORIGINS: '' });
       
       const config = loadEnvironmentConfig(mockEnv);
       
@@ -84,39 +57,20 @@ describe('Environment Configuration', () => {
   
   describe('validateEnvironment', () => {
     it('should pass validation with required variables', () => {
-      const mockEnv: Bindings = {
-        SESSIONS: {} as KVNamespace,
-        CACHE: {} as KVNamespace,
-        DB: {} as D1Database,
-        ENVIRONMENT: 'development',
-        JWT_ISSUER: 'https://test.oauth-mcp-gateway.com',
-        CORS_ORIGINS: 'http://localhost:3000'
-      };
+      const mockEnv: Bindings = makeTestEnv({ ENVIRONMENT: 'development', JWT_ISSUER: 'https://test.oauth-mcp-gateway.com', CORS_ORIGINS: 'http://localhost:3000' });
       
       expect(() => validateEnvironment(mockEnv)).not.toThrow();
     });
     
     it('should throw error for missing JWT_ISSUER', () => {
-      const mockEnv = {
-        SESSIONS: {} as KVNamespace,
-        CACHE: {} as KVNamespace,
-        DB: {} as D1Database,
-        ENVIRONMENT: 'development',
-        CORS_ORIGINS: 'http://localhost:3000'
-      } as Bindings;
-      
+      const mockEnv: Bindings = makeTestEnv({ ENVIRONMENT: 'development', CORS_ORIGINS: 'http://localhost:3000' });
+      mockEnv.JWT_ISSUER = '';
+
       expect(() => validateEnvironment(mockEnv)).toThrow('Missing required environment variables: JWT_ISSUER');
     });
     
     it('should throw error for invalid JWT_ISSUER URL', () => {
-      const mockEnv: Bindings = {
-        SESSIONS: {} as KVNamespace,
-        CACHE: {} as KVNamespace,
-        DB: {} as D1Database,
-        ENVIRONMENT: 'development',
-        JWT_ISSUER: 'not-a-valid-url',
-        CORS_ORIGINS: 'http://localhost:3000'
-      };
+      const mockEnv: Bindings = makeTestEnv({ ENVIRONMENT: 'development', JWT_ISSUER: 'not-a-valid-url', CORS_ORIGINS: 'http://localhost:3000' });
       
       expect(() => validateEnvironment(mockEnv)).toThrow('JWT_ISSUER must be a valid URL');
     });
@@ -124,14 +78,7 @@ describe('Environment Configuration', () => {
   
   describe('getTenantConfig', () => {
     it('should return base config when no overrides provided', () => {
-      const mockEnv: Bindings = {
-        SESSIONS: {} as KVNamespace,
-        CACHE: {} as KVNamespace,
-        DB: {} as D1Database,
-        ENVIRONMENT: 'development',
-        JWT_ISSUER: 'https://test.oauth-mcp-gateway.com',
-        CORS_ORIGINS: 'http://localhost:3000'
-      };
+      const mockEnv: Bindings = makeTestEnv({ ENVIRONMENT: 'development', JWT_ISSUER: 'https://test.oauth-mcp-gateway.com', CORS_ORIGINS: 'http://localhost:3000' });
       
       const baseConfig = loadEnvironmentConfig(mockEnv);
       const tenantConfig = getTenantConfig(baseConfig);
@@ -140,14 +87,7 @@ describe('Environment Configuration', () => {
     });
     
     it('should apply tenant overrides correctly', () => {
-      const mockEnv: Bindings = {
-        SESSIONS: {} as KVNamespace,
-        CACHE: {} as KVNamespace,
-        DB: {} as D1Database,
-        ENVIRONMENT: 'development',
-        JWT_ISSUER: 'https://test.oauth-mcp-gateway.com',
-        CORS_ORIGINS: 'http://localhost:3000'
-      };
+      const mockEnv: Bindings = makeTestEnv({ ENVIRONMENT: 'development', JWT_ISSUER: 'https://test.oauth-mcp-gateway.com', CORS_ORIGINS: 'http://localhost:3000' });
       
       const baseConfig = loadEnvironmentConfig(mockEnv);
       const overrides = {
@@ -173,14 +113,7 @@ describe('Environment Configuration', () => {
     });
     
     it('should merge nested configuration objects', () => {
-      const mockEnv: Bindings = {
-        SESSIONS: {} as KVNamespace,
-        CACHE: {} as KVNamespace,
-        DB: {} as D1Database,
-        ENVIRONMENT: 'development',
-        JWT_ISSUER: 'https://test.oauth-mcp-gateway.com',
-        CORS_ORIGINS: 'http://localhost:3000'
-      };
+      const mockEnv: Bindings = makeTestEnv({ ENVIRONMENT: 'development', JWT_ISSUER: 'https://test.oauth-mcp-gateway.com', CORS_ORIGINS: 'http://localhost:3000' });
       
       const baseConfig = loadEnvironmentConfig(mockEnv);
       const overrides = {

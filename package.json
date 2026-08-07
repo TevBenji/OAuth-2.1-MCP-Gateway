@@ -11,7 +11,9 @@
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "type-check": "pnpm -r type-check",
-    "format": "pnpm -r format"
+    "format": "pnpm -r format",
+    "db:generate": "pnpm --filter @oauth-mcp-gateway/db generate",
+    "db:migrate": "pnpm --filter @oauth-mcp-gateway/db migrate"
   },
   "engines": {
     "node": ">=20.0.0"

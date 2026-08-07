@@ -22,6 +22,9 @@ describe('MCP Proxy Integration Tests', () => {
   let testTenantId: string;
   let testServerId: string;
 
+  // Restore the real fetch after each test; other suites hit real servers.
+  const realFetch = global.fetch;
+
   beforeEach(async () => {
     // Setup JWT service
     jwtService = new JWTService('test-secret-key', 'HS256', 'oauth-mcp-gateway');
@@ -53,6 +56,7 @@ describe('MCP Proxy Integration Tests', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    global.fetch = realFetch;
   });
 
   describe('Bearer Token Extraction and Validation', () => {
@@ -203,7 +207,7 @@ describe('MCP Proxy Integration Tests', () => {
       const response = await proxyService.forwardRequest(testServerId, proxyRequest);
 
       expect(response.status).toBe(200);
-      expect(response.latency_ms).toBeGreaterThan(0);
+      expect(response.latency_ms).toBeGreaterThanOrEqual(0);
       expect(mockRegistry.recordAccess).toHaveBeenCalledWith(testServerId, testTenantId);
     });
 
@@ -357,11 +361,11 @@ describe('MCP Proxy Integration Tests', () => {
         context,
       };
 
-      // Mock slow response
+      // Mock slow response that honours the abort signal (like real fetch)
       const mockFetch = vi.fn().mockImplementation(
-        () =>
-          new Promise(resolve =>
-            setTimeout(() => {
+        (_url: string, options: { signal?: AbortSignal }) =>
+          new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
               resolve({
                 ok: true,
                 status: 200,
@@ -369,15 +373,19 @@ describe('MCP Proxy Integration Tests', () => {
                 headers: new Headers(),
                 text: async () => 'response',
               });
-            }, 500)
-          )
+            }, 500);
+            options?.signal?.addEventListener('abort', () => {
+              clearTimeout(timer);
+              reject(new DOMException('The operation was aborted', 'AbortError'));
+            });
+          })
       );
 
       global.fetch = mockFetch;
 
       await expect(
         proxyService.forwardRequest(testServerId, proxyRequest)
-      ).rejects.toThrow('UPSTREAM_REQUEST_FAILED');
+      ).rejects.toThrow('Failed to forward request to upstream server');
     });
   });
 

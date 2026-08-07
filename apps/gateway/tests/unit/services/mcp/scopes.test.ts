@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ScopeRegistry, ScopeValidator, scopeValidator, MCPTollInvocationRequest } from '../../../src/services/mcp/scopes';
+import { ScopeRegistry, ScopeValidator, scopeValidator, MCPTollInvocationRequest } from '../../../../src/services/mcp/scopes';
 
 describe('Scope-based Authorization System', () => {
   let scopeRegistry: ScopeRegistry;
@@ -136,7 +136,7 @@ describe('Scope-based Authorization System', () => {
 
       expect(result.isValid).toBe(true);
       // Should have 'read' only once
-      expect(result.grantedPermissions.filter(p => p === 'read')).toHaveLength(1);
+      expect(result.grantedPermissions.filter((p: string) => p === 'read')).toHaveLength(1);
       expect(result.mcpPermissions).toEqual(expect.arrayContaining(['read_tools', 'read_resources']));
     });
   });

@@ -54,7 +54,7 @@ export function CompletionStep({ onFinish }: CompletionStepProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
           >
-            <CardTitle className="text-4xl mb-3">You're All Set!</CardTitle>
+            <CardTitle className="text-4xl mb-3">You&apos;re All Set!</CardTitle>
             <CardDescription className="text-lg">
               Your OAuth 2.1 gateway is configured and ready to use. Start building secure
               applications today.

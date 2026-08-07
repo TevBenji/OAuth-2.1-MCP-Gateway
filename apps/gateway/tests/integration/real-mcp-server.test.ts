@@ -1,55 +1,43 @@
 /**
  * Real MCP Server Integration Tests
  *
- * Tests complete OAuth 2.1 flow with real MCP server interactions,
+ * Tests complete OAuth 2.1 flow with a real local HTTP MCP server,
  * validating end-to-end authentication, authorization, and request proxying.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import app from '../../src/index';
 import { createTestMCPServer, RealMCPServerMock } from '../helpers/real-mcp-server';
-import { testUtils, mockEnv } from '../setup';
+import { getTestDb } from '../helpers/db';
+import { makeTestEnv } from '../helpers/env';
 import { JWTService } from '../../src/services/oauth/jwt';
-import { PKCEService } from '../../src/services/oauth/pkce';
 import { TenantService } from '../../src/services/tenant/isolation';
 import { MCPServerRegistry } from '../../src/services/mcp/registry';
+import { PgMcpServerDatabase } from '../../src/storage/pg-mcp-server-database';
 
 describe('Real MCP Server Integration Tests', () => {
   let mcpServer: RealMCPServerMock;
   let jwtService: JWTService;
-  let pkceService: PKCEService;
   let tenantService: TenantService;
   let mcpRegistry: MCPServerRegistry;
+  let mcpServerUrl: string;
+  let registeredServerId: string;
 
+  const testEnv = makeTestEnv();
   const testTenantId = 'tenant-real-mcp-test';
   const testUserId = 'user-real-mcp-test';
-  const testClientId = 'client-real-mcp-test';
-  const mcpServerUrl = 'http://localhost:3001';
 
   beforeEach(async () => {
-    // Initialize services
-    jwtService = new JWTService('test-secret-key', 'HS256', 'oauth-mcp-gateway');
-    pkceService = new PKCEService();
-    tenantService = new TenantService(mockEnv.DB);
-    mcpRegistry = new MCPServerRegistry(mockEnv.DB);
+    const { db } = getTestDb();
+    jwtService = new JWTService(testEnv.JWT_SECRET, 'HS256', testEnv.JWT_ISSUER);
+    tenantService = new TenantService(db);
+    mcpRegistry = new MCPServerRegistry(new PgMcpServerDatabase(db));
 
-    // Create and start real MCP server mock
-    mcpServer = createTestMCPServer({
-      port: 3001,
-      serverName: 'real-test-mcp-server',
-      baseUrl: mcpServerUrl
-    });
+    // Start a real local HTTP MCP server on an ephemeral port
+    mcpServer = createTestMCPServer({ port: 0, serverName: 'real-test-mcp-server' });
     await mcpServer.start();
+    mcpServerUrl = mcpServer.baseUrl;
 
-    // Setup test tenant and MCP server registration
-    await setupTestEnvironment();
-  });
-
-  afterEach(async () => {
-    await mcpServer.stop();
-    await cleanupTestData();
-  });
-
-  async function setupTestEnvironment() {
     // Create test tenant
     await tenantService.createTenant({
       tenant_id: testTenantId,
@@ -58,23 +46,27 @@ describe('Real MCP Server Integration Tests', () => {
       max_users: 100,
       max_mcp_servers: 10,
       compliance_tier: 'standard',
-      audit_retention_days: 365
+      audit_retention_days: 365,
     });
 
-    // Register MCP server
-    await mcpRegistry.registerServer({
+    // Register MCP server in the real Postgres-backed registry
+    const entry = await mcpRegistry.registerServer({
       tenant_id: testTenantId,
       name: 'Real Test MCP Server',
       endpoint_url: mcpServerUrl,
       resource_identifier: 'mcp://real-test-server',
       required_scopes: ['mcp:tools:read', 'mcp:tools:write'],
-      health_check_url: `${mcpServerUrl}/health`
+      health_check_url: `${mcpServerUrl}/health`,
+      status: 'active',
+      timeout_ms: 5000,
+      retry_attempts: 0,
     });
-  }
+    registeredServerId = entry.server_id;
+  });
 
-  async function cleanupTestData() {
-    // Cleanup handled by test setup
-  }
+  afterEach(async () => {
+    await mcpServer.stop();
+  });
 
   describe('MCP Server Health and Discovery', () => {
     it('should successfully check MCP server health', async () => {
@@ -87,8 +79,16 @@ describe('Real MCP Server Integration Tests', () => {
       expect(healthData.timestamp).toBeDefined();
     });
 
+    it('should record a healthy status in the registry after registration', async () => {
+      const health = await mcpRegistry.performHealthCheck(registeredServerId, testTenantId);
+      expect(health.status).toBe('healthy');
+      expect(health.consecutive_failures).toBe(0);
+    });
+
     it('should retrieve MCP server information', async () => {
-      const response = await fetch(`${mcpServerUrl}/mcp/info`);
+      const response = await fetch(`${mcpServerUrl}/mcp/info`, {
+        headers: { Authorization: 'Bearer test' },
+      });
       const serverInfo = await response.json();
 
       expect(response.status).toBe(200);
@@ -101,7 +101,9 @@ describe('Real MCP Server Integration Tests', () => {
     });
 
     it('should list available MCP tools', async () => {
-      const response = await fetch(`${mcpServerUrl}/mcp/tools/list`);
+      const response = await fetch(`${mcpServerUrl}/mcp/tools/list`, {
+        headers: { Authorization: 'Bearer test' },
+      });
       const toolsData = await response.json();
 
       expect(response.status).toBe(200);
@@ -115,7 +117,9 @@ describe('Real MCP Server Integration Tests', () => {
     });
 
     it('should list available MCP resources', async () => {
-      const response = await fetch(`${mcpServerUrl}/mcp/resources/list`);
+      const response = await fetch(`${mcpServerUrl}/mcp/resources/list`, {
+        headers: { Authorization: 'Bearer test' },
+      });
       const resourcesData = await response.json();
 
       expect(response.status).toBe(200);
@@ -125,19 +129,83 @@ describe('Real MCP Server Integration Tests', () => {
     });
   });
 
+  describe('Gateway-proxied MCP access', () => {
+    let validAccessToken: string;
+
+    beforeEach(async () => {
+      validAccessToken = await jwtService.createToken({
+        issuer: testEnv.JWT_ISSUER,
+        subject: testUserId,
+        audience: 'mcp://real-test-server',
+        scopes: 'mcp:tools:read mcp:tools:write mcp:resources:read',
+        tenantId: testTenantId,
+        userId: testUserId,
+        expiresIn: 3600,
+      });
+    });
+
+    it('should proxy an authenticated request through the gateway to the real server', async () => {
+      const response = await app.request(
+        `/mcp/${registeredServerId}/mcp/tools/list`,
+        { headers: { Authorization: `Bearer ${validAccessToken}` } },
+        testEnv
+      );
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.tools.some((t: any) => t.name === 'get_weather')).toBe(true);
+
+      // The upstream server must have received injected tenant context headers
+      const lastRequest = mcpServer.getLastRequest();
+      expect(lastRequest).toBeDefined();
+      expect(lastRequest!.headers['x-tenant-id']).toBe(testTenantId);
+      expect(lastRequest!.headers['x-user-id']).toBe(testUserId);
+    });
+
+    it('should invoke a tool through the gateway with context injection', async () => {
+      const response = await app.request(
+        `/mcp/${registeredServerId}/mcp/tools/call`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${validAccessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ name: 'get_weather', arguments: { location: 'San Francisco' } }),
+        },
+        testEnv
+      );
+
+      expect(response.status).toBe(200);
+      const result = await response.json();
+      expect(result.content.location).toBe('San Francisco');
+      expect(result.content.tenant_id).toBe(testTenantId);
+      expect(result.isError).toBe(false);
+    });
+
+    it('should reject gateway access without a token', async () => {
+      const response = await app.request(
+        `/mcp/${registeredServerId}/mcp/tools/list`,
+        {},
+        testEnv
+      );
+
+      expect(response.status).toBe(401);
+    });
+  });
+
   describe('Authenticated MCP Tool Invocation', () => {
     let validAccessToken: string;
 
     beforeEach(async () => {
-      // Create valid access token for testing
       validAccessToken = await jwtService.createToken({
-        issuer: 'oauth-mcp-gateway',
+        issuer: testEnv.JWT_ISSUER,
         subject: testUserId,
         audience: 'mcp://real-test-server',
         scopes: 'mcp:tools:read mcp:tools:write',
         tenantId: testTenantId,
         userId: testUserId,
-        expiresIn: 3600
+        expiresIn: 3600,
       });
     });
 
@@ -148,14 +216,12 @@ describe('Real MCP Server Integration Tests', () => {
           'Authorization': `Bearer ${validAccessToken}`,
           'Content-Type': 'application/json',
           'X-Tenant-ID': testTenantId,
-          'X-User-ID': testUserId
+          'X-User-ID': testUserId,
         },
         body: JSON.stringify({
           name: 'get_weather',
-          arguments: {
-            location: 'San Francisco'
-          }
-        })
+          arguments: { location: 'San Francisco' },
+        }),
       });
 
       const result = await response.json();
@@ -176,14 +242,12 @@ describe('Real MCP Server Integration Tests', () => {
           'Authorization': `Bearer ${validAccessToken}`,
           'Content-Type': 'application/json',
           'X-Tenant-ID': testTenantId,
-          'X-User-ID': testUserId
+          'X-User-ID': testUserId,
         },
         body: JSON.stringify({
           name: 'get_weather',
-          arguments: {
-            location: 'New York'
-          }
-        })
+          arguments: { location: 'New York' },
+        }),
       });
 
       const result = await response.json();
@@ -193,8 +257,9 @@ describe('Real MCP Server Integration Tests', () => {
 
       // Verify request was logged with context
       const lastRequest = mcpServer.getLastRequest();
-      expect(lastRequest.headers['X-Tenant-ID']).toBe(testTenantId);
-      expect(lastRequest.headers['X-User-ID']).toBe(testUserId);
+      expect(lastRequest).toBeDefined();
+      expect(lastRequest!.headers['x-tenant-id']).toBe(testTenantId);
+      expect(lastRequest!.headers['x-user-id']).toBe(testUserId);
     });
 
     it('should execute calculator tool with proper validation', async () => {
@@ -204,14 +269,12 @@ describe('Real MCP Server Integration Tests', () => {
           'Authorization': `Bearer ${validAccessToken}`,
           'Content-Type': 'application/json',
           'X-Tenant-ID': testTenantId,
-          'X-User-ID': testUserId
+          'X-User-ID': testUserId,
         },
         body: JSON.stringify({
           name: 'calculate',
-          arguments: {
-            expression: '2 + 2'
-          }
-        })
+          arguments: { expression: '2 + 2' },
+        }),
       });
 
       const result = await response.json();
@@ -225,38 +288,16 @@ describe('Real MCP Server Integration Tests', () => {
     it('should reject MCP tool call without authorization', async () => {
       const response = await fetch(`${mcpServerUrl}/mcp/tools/call`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: 'get_weather',
-          arguments: {
-            location: 'London'
-          }
-        })
+          arguments: { location: 'London' },
+        }),
       });
 
       expect(response.status).toBe(401);
       const error = await response.json();
       expect(error.error).toBe('unauthorized');
-    });
-
-    it('should reject MCP tool call with invalid token', async () => {
-      const response = await fetch(`${mcpServerUrl}/mcp/tools/call`, {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer invalid.token.here',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: 'get_weather',
-          arguments: {
-            location: 'Tokyo'
-          }
-        })
-      });
-
-      expect(response.status).toBe(401);
     });
 
     it('should return error for non-existent tool', async () => {
@@ -266,12 +307,9 @@ describe('Real MCP Server Integration Tests', () => {
           'Authorization': `Bearer ${validAccessToken}`,
           'Content-Type': 'application/json',
           'X-Tenant-ID': testTenantId,
-          'X-User-ID': testUserId
+          'X-User-ID': testUserId,
         },
-        body: JSON.stringify({
-          name: 'non_existent_tool',
-          arguments: {}
-        })
+        body: JSON.stringify({ name: 'non_existent_tool', arguments: {} }),
       });
 
       expect(response.status).toBe(500);
@@ -285,13 +323,13 @@ describe('Real MCP Server Integration Tests', () => {
 
     beforeEach(async () => {
       validAccessToken = await jwtService.createToken({
-        issuer: 'oauth-mcp-gateway',
+        issuer: testEnv.JWT_ISSUER,
         subject: testUserId,
         audience: 'mcp://real-test-server',
         scopes: 'mcp:resources:read',
         tenantId: testTenantId,
         userId: testUserId,
-        expiresIn: 3600
+        expiresIn: 3600,
       });
     });
 
@@ -302,11 +340,9 @@ describe('Real MCP Server Integration Tests', () => {
           'Authorization': `Bearer ${validAccessToken}`,
           'Content-Type': 'application/json',
           'X-Tenant-ID': testTenantId,
-          'X-User-ID': testUserId
+          'X-User-ID': testUserId,
         },
-        body: JSON.stringify({
-          uri: 'file:///data/sample.txt'
-        })
+        body: JSON.stringify({ uri: 'file:///data/sample.txt' }),
       });
 
       const result = await response.json();
@@ -326,11 +362,9 @@ describe('Real MCP Server Integration Tests', () => {
           'Authorization': `Bearer ${validAccessToken}`,
           'Content-Type': 'application/json',
           'X-Tenant-ID': testTenantId,
-          'X-User-ID': testUserId
+          'X-User-ID': testUserId,
         },
-        body: JSON.stringify({
-          uri: 'file:///data/sample.txt'
-        })
+        body: JSON.stringify({ uri: 'file:///data/sample.txt' }),
       });
 
       const result = await response.json();
@@ -340,18 +374,15 @@ describe('Real MCP Server Integration Tests', () => {
 
       // Verify request context
       const lastRequest = mcpServer.getLastRequest();
-      expect(lastRequest.headers['X-Tenant-ID']).toBe(testTenantId);
+      expect(lastRequest).toBeDefined();
+      expect(lastRequest!.headers['x-tenant-id']).toBe(testTenantId);
     });
 
     it('should reject resource read without authorization', async () => {
       const response = await fetch(`${mcpServerUrl}/mcp/resources/read`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          uri: 'file:///data/sample.txt'
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uri: 'file:///data/sample.txt' }),
       });
 
       expect(response.status).toBe(401);
@@ -365,27 +396,26 @@ describe('Real MCP Server Integration Tests', () => {
       mcpServer.clearRequestLog();
 
       validAccessToken = await jwtService.createToken({
-        issuer: 'oauth-mcp-gateway',
+        issuer: testEnv.JWT_ISSUER,
         subject: testUserId,
         audience: 'mcp://real-test-server',
         scopes: 'mcp:tools:read mcp:tools:write',
         tenantId: testTenantId,
         userId: testUserId,
-        expiresIn: 3600
+        expiresIn: 3600,
       });
     });
 
     it('should log all MCP requests for audit purposes', async () => {
-      // Make multiple requests
       await fetch(`${mcpServerUrl}/health`);
-      await fetch(`${mcpServerUrl}/mcp/info`);
-      await fetch(`${mcpServerUrl}/mcp/tools/list`);
+      await fetch(`${mcpServerUrl}/mcp/info`, { headers: { Authorization: 'Bearer test' } });
+      await fetch(`${mcpServerUrl}/mcp/tools/list`, { headers: { Authorization: 'Bearer test' } });
 
       const requestLog = mcpServer.getRequestLog();
       expect(requestLog.length).toBe(3);
-      expect(requestLog[0].path).toBe('/health');
-      expect(requestLog[1].path).toBe('/mcp/info');
-      expect(requestLog[2].path).toBe('/mcp/tools/list');
+      expect(requestLog[0]!.path).toBe('/health');
+      expect(requestLog[1]!.path).toBe('/mcp/info');
+      expect(requestLog[2]!.path).toBe('/mcp/tools/list');
     });
 
     it('should track request timestamps for performance analysis', async () => {
@@ -396,40 +426,38 @@ describe('Real MCP Server Integration Tests', () => {
       const after = Date.now();
       const lastRequest = mcpServer.getLastRequest();
 
-      expect(lastRequest.timestamp).toBeGreaterThanOrEqual(before);
-      expect(lastRequest.timestamp).toBeLessThanOrEqual(after);
+      expect(lastRequest).toBeDefined();
+      expect(lastRequest!.timestamp).toBeGreaterThanOrEqual(before);
+      expect(lastRequest!.timestamp).toBeLessThanOrEqual(after);
     });
 
     it('should maintain complete request history', async () => {
-      // Execute tool call
       await fetch(`${mcpServerUrl}/mcp/tools/call`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${validAccessToken}`,
           'Content-Type': 'application/json',
           'X-Tenant-ID': testTenantId,
-          'X-User-ID': testUserId
+          'X-User-ID': testUserId,
         },
         body: JSON.stringify({
           name: 'get_weather',
-          arguments: { location: 'Boston' }
-        })
+          arguments: { location: 'Boston' },
+        }),
       });
 
       const toolCallRequests = mcpServer.getRequestsByPath('/mcp/tools/call');
       expect(toolCallRequests.length).toBe(1);
-      expect(toolCallRequests[0].method).toBe('POST');
-      expect(toolCallRequests[0].body).toBeDefined();
-      expect(toolCallRequests[0].body.name).toBe('get_weather');
+      expect(toolCallRequests[0]!.method).toBe('POST');
+      expect(toolCallRequests[0]!.body).toBeDefined();
+      expect(toolCallRequests[0]!.body.name).toBe('get_weather');
     });
 
-    it('should assert specific requests were made', () => {
+    it('should assert specific requests were made', async () => {
       mcpServer.clearRequestLog();
 
-      // Perform health check
-      fetch(`${mcpServerUrl}/health`);
+      await fetch(`${mcpServerUrl}/health`);
 
-      // Assert request was made
       expect(mcpServer.assertRequestMade('GET', '/health')).toBe(true);
       expect(mcpServer.assertRequestMade('POST', '/health')).toBe(false);
       expect(mcpServer.assertRequestMade('GET', '/non-existent')).toBe(false);

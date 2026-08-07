@@ -54,7 +54,7 @@ export function WelcomeStep({ onNext }: WelcomeStepProps) {
           </motion.div>
           <CardTitle className="text-4xl">Welcome to OAuth 2.1 MCP Gateway</CardTitle>
           <CardDescription className="text-lg mt-4">
-            Let's get you set up with secure, modern authentication for your applications.
+            Let&apos;s get you set up with secure, modern authentication for your applications.
             This wizard will guide you through the setup process in just a few minutes.
           </CardDescription>
         </CardHeader>

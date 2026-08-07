@@ -23,8 +23,8 @@ sequenceDiagram
     participant User as End User
     participant AI as AI Client
     participant Gateway as OAuth Gateway
-    participant D1 as D1 Database
-    participant KV as KV Store
+    participant DB as PostgreSQL
+    participant Mem as In-Memory Store
     participant MCP as MCP Server
 
     Note over AI: Generate PKCE challenge
@@ -33,10 +33,10 @@ sequenceDiagram
 
     Note over User,Gateway: Authorization Phase
     User->>AI: Initiate OAuth flow
-    AI->>Gateway: GET /authorize?client_id=...&<br/>redirect_uri=...&<br/>response_type=code&<br/>scope=read write&<br/>state=random123&<br/>code_challenge=...&<br/>code_challenge_method=S256
+    AI->>Gateway: GET /oauth/authorize?client_id=...&<br/>redirect_uri=...&<br/>response_type=code&<br/>scope=read write&<br/>state=random123&<br/>code_challenge=...&<br/>code_challenge_method=S256
 
-    Gateway->>D1: SELECT * FROM clients<br/>WHERE client_id = ?
-    D1-->>Gateway: Client details
+    Gateway->>DB: SELECT * FROM clients<br/>WHERE client_id = ?
+    DB-->>Gateway: Client details
 
     alt Client not found
         Gateway-->>AI: 401 Unauthorized<br/>(invalid_client error)
@@ -49,24 +49,24 @@ sequenceDiagram
     Gateway->>User: Show consent screen
     User->>Gateway: Grant consent
 
-    Note over Gateway,D1: Store authorization code with PKCE
+    Note over Gateway,DB: Store authorization code with PKCE
     Gateway->>Gateway: Generate auth code
-    Gateway->>D1: INSERT INTO authorization_codes<br/>(code, client_id, user_id,<br/>code_challenge, code_challenge_method,<br/>expires_at)
-    D1-->>Gateway: Success
+    Gateway->>DB: INSERT INTO authorization_codes<br/>(code, client_id, user_id,<br/>code_challenge, code_challenge_method,<br/>expires_at)
+    DB-->>Gateway: Success
 
     Gateway->>Gateway: Build redirect URL
     Gateway-->>AI: 302 Redirect to<br/>redirect_uri?code=AUTH_CODE&state=random123
 
     Note over AI,Gateway: Token Exchange Phase
-    AI->>Gateway: POST /token<br/>grant_type=authorization_code&<br/>code=AUTH_CODE&<br/>redirect_uri=...&<br/>client_id=...&<br/>client_secret=...&<br/>code_verifier=CODE_VERIFIER
+    AI->>Gateway: POST /oauth/token<br/>grant_type=authorization_code&<br/>code=AUTH_CODE&<br/>redirect_uri=...&<br/>client_id=...&<br/>client_secret=...&<br/>code_verifier=CODE_VERIFIER
 
-    Gateway->>D1: SELECT * FROM authorization_codes<br/>WHERE code = ? AND used = false
-    D1-->>Gateway: Code details + PKCE challenge
+    Gateway->>DB: SELECT * FROM authorization_codes<br/>WHERE code = ? AND used = false
+    DB-->>Gateway: Code details + PKCE challenge
 
     alt Code not found or used
         Gateway-->>AI: 400 Bad Request<br/>(invalid_grant error)
     else Code expired
-        Gateway->>D1: DELETE FROM authorization_codes<br/>WHERE code = ?
+        Gateway->>DB: DELETE FROM authorization_codes<br/>WHERE code = ?
         Gateway-->>AI: 400 Bad Request<br/>(invalid_grant error)
     end
 
@@ -79,19 +79,19 @@ sequenceDiagram
     end
 
     Note over Gateway: Validate client credentials
-    Gateway->>D1: SELECT * FROM clients<br/>WHERE client_id = ? AND client_secret = ?
-    D1-->>Gateway: Client valid
+    Gateway->>DB: SELECT * FROM clients<br/>WHERE client_id = ? AND client_secret = ?
+    DB-->>Gateway: Client valid
 
     Note over Gateway: Generate tokens
     Gateway->>Gateway: Generate access_token (JWT)<br/>Claims: sub, aud, scope, tenant_id<br/>Expiry: 15 minutes
     Gateway->>Gateway: Generate refresh_token<br/>Expiry: 30 days
 
-    Gateway->>D1: INSERT INTO tokens<br/>(access_token, refresh_token,<br/>client_id, user_id, expires_at)
-    Gateway->>D1: UPDATE authorization_codes<br/>SET used = true<br/>WHERE code = ?
-    D1-->>Gateway: Success
+    Gateway->>DB: INSERT INTO tokens<br/>(access_token, refresh_token,<br/>client_id, user_id, expires_at)
+    Gateway->>DB: UPDATE authorization_codes<br/>SET used = true<br/>WHERE code = ?
+    DB-->>Gateway: Success
 
-    Gateway->>KV: PUT token:<TOKEN_ID><br/>TTL: 900 seconds
-    KV-->>Gateway: Cached
+    Gateway->>Mem: PUT token:<TOKEN_ID><br/>TTL: 900 seconds
+    Mem-->>Gateway: Cached
 
     Gateway-->>AI: 200 OK<br/>{<br/>  "access_token": "eyJ...",<br/>  "token_type": "Bearer",<br/>  "expires_in": 900,<br/>  "refresh_token": "ref_...",<br/>  "scope": "read write"<br/>}
 
@@ -120,25 +120,25 @@ sequenceDiagram
     autonumber
     participant AI as AI Client
     participant Gateway as OAuth Gateway
-    participant KV as KV Store
-    participant D1 as D1 Database
+    participant Mem as In-Memory Store
+    participant DB as PostgreSQL
 
-    AI->>Gateway: POST /token<br/>grant_type=refresh_token&<br/>refresh_token=ref_...&<br/>client_id=...&<br/>client_secret=...&<br/>scope=read
+    AI->>Gateway: POST /oauth/token<br/>grant_type=refresh_token&<br/>refresh_token=ref_...&<br/>client_id=...&<br/>client_secret=...&<br/>scope=read
 
     Note over Gateway: Validate client credentials
-    Gateway->>D1: SELECT * FROM clients<br/>WHERE client_id = ? AND client_secret = ?
-    D1-->>Gateway: Client valid
+    Gateway->>DB: SELECT * FROM clients<br/>WHERE client_id = ? AND client_secret = ?
+    DB-->>Gateway: Client valid
 
     Note over Gateway: Validate refresh token
-    Gateway->>D1: SELECT * FROM tokens<br/>WHERE refresh_token = ? AND revoked = false
-    D1-->>Gateway: Token details
+    Gateway->>DB: SELECT * FROM tokens<br/>WHERE refresh_token = ? AND revoked = false
+    DB-->>Gateway: Token details
 
     alt Refresh token not found
         Gateway-->>AI: 400 Bad Request<br/>(invalid_grant error)
     else Refresh token revoked
         Gateway-->>AI: 400 Bad Request<br/>(invalid_grant - token revoked)
     else Refresh token expired
-        Gateway->>D1: DELETE FROM tokens<br/>WHERE refresh_token = ?
+        Gateway->>DB: DELETE FROM tokens<br/>WHERE refresh_token = ?
         Gateway-->>AI: 400 Bad Request<br/>(invalid_grant - token expired)
     end
 
@@ -150,11 +150,11 @@ sequenceDiagram
     Note over Gateway: Generate new access token
     Gateway->>Gateway: Generate new access_token (JWT)<br/>Claims: sub, aud, scope, tenant_id<br/>Expiry: 15 minutes
 
-    Gateway->>D1: UPDATE tokens<br/>SET access_token = ?,<br/>    access_token_expires_at = ?<br/>WHERE refresh_token = ?
-    D1-->>Gateway: Success
+    Gateway->>DB: UPDATE tokens<br/>SET access_token = ?,<br/>    access_token_expires_at = ?<br/>WHERE refresh_token = ?
+    DB-->>Gateway: Success
 
-    Gateway->>KV: PUT token:<TOKEN_ID><br/>TTL: 900 seconds
-    KV-->>Gateway: Cached
+    Gateway->>Mem: PUT token:<TOKEN_ID><br/>TTL: 900 seconds
+    Mem-->>Gateway: Cached
 
     Gateway-->>AI: 200 OK<br/>{<br/>  "access_token": "eyJ...",<br/>  "token_type": "Bearer",<br/>  "expires_in": 900,<br/>  "scope": "read"<br/>}
 ```
@@ -176,8 +176,8 @@ sequenceDiagram
     autonumber
     participant AI as AI Client
     participant Gateway as OAuth Gateway
-    participant KV as KV Store
-    participant D1 as D1 Database
+    participant Mem as In-Memory Store
+    participant DB as PostgreSQL
     participant Rate as Rate Limiter
     participant Audit as Audit Service
     participant MCP as MCP Server
@@ -186,21 +186,21 @@ sequenceDiagram
 
     Note over Gateway: Extract and validate token
     Gateway->>Gateway: Extract token from header
-    Gateway->>KV: GET token:<TOKEN_ID>
+    Gateway->>Mem: GET token:<TOKEN_ID>
 
     alt Token in cache
-        KV-->>Gateway: Token data (cached)
+        Mem-->>Gateway: Token data (cached)
     else Token not in cache
         Gateway->>Gateway: Verify JWT signature
         Gateway->>Gateway: Validate claims:<br/>- exp (not expired)<br/>- aud (correct audience)<br/>- iss (correct issuer)
-        Gateway->>D1: SELECT * FROM tokens<br/>WHERE access_token_hash = ?
-        D1-->>Gateway: Token details
+        Gateway->>DB: SELECT * FROM tokens<br/>WHERE access_token_hash = ?
+        DB-->>Gateway: Token details
 
         alt Token revoked
             Gateway-->>AI: 401 Unauthorized<br/>(token_revoked error)
         end
 
-        Gateway->>KV: PUT token:<TOKEN_ID><br/>TTL: remaining time
+        Gateway->>Mem: PUT token:<TOKEN_ID><br/>TTL: remaining time
     end
 
     Note over Gateway: Extract tenant context
@@ -215,8 +215,8 @@ sequenceDiagram
 
     Note over Gateway: Check rate limits
     Gateway->>Rate: Check rate limit<br/>Key: tenant:<TENANT_ID>:user:<USER_ID>
-    Rate->>KV: INCR rate:tenant:<TENANT_ID>:...
-    KV-->>Rate: Current count
+    Rate->>Mem: INCR rate:tenant:<TENANT_ID>:...
+    Mem-->>Rate: Current count
 
     alt Rate limit exceeded
         Rate-->>Gateway: 429 Rate Limit<br/>Retry-After: 60
@@ -225,8 +225,8 @@ sequenceDiagram
     end
 
     Note over Gateway: Get MCP endpoint
-    Gateway->>D1: SELECT endpoint FROM mcp_servers<br/>WHERE tenant_id = ? AND active = true
-    D1-->>Gateway: MCP endpoint URL
+    Gateway->>DB: SELECT endpoint FROM mcp_servers<br/>WHERE tenant_id = ? AND active = true
+    DB-->>Gateway: MCP endpoint URL
 
     Note over Gateway: Transform request
     Gateway->>Gateway: Add headers:<br/>- X-Tenant-ID<br/>- X-User-ID<br/>- X-Request-ID<br/>- X-Original-Scopes
@@ -250,7 +250,7 @@ sequenceDiagram
     Gateway->>Gateway: Add response headers:<br/>- X-Request-ID<br/>- X-RateLimit-Remaining
 
     Gateway->>Audit: LOG successful_request<br/>Details: tenant, user, endpoint, latency
-    Audit->>D1: INSERT INTO audit_logs
+    Audit->>DB: INSERT INTO audit_logs
 
     Gateway-->>AI: 200 OK + Transformed response
 ```
@@ -274,7 +274,7 @@ sequenceDiagram
     participant Dev as Developer
     participant Dashboard as Admin Dashboard
     participant Gateway as OAuth Gateway
-    participant D1 as D1 Database
+    participant DB as PostgreSQL
     participant Audit as Audit Service
 
     Dev->>Dashboard: Navigate to /clients/new
@@ -283,11 +283,11 @@ sequenceDiagram
 
     Dev->>Dashboard: Submit form:<br/>- name: "My App"<br/>- redirect_uris: [...]<br/>- application_type: "web"<br/>- description: "..."
 
-    Dashboard->>Gateway: POST /register<br/>Authorization: Bearer <ADMIN_TOKEN><br/>{<br/>  "client_name": "My App",<br/>  "redirect_uris": [...],<br/>  "grant_types": ["authorization_code"],<br/>  "response_types": ["code"],<br/>  "token_endpoint_auth_method": "client_secret_post"<br/>}
+    Dashboard->>Gateway: POST /admin/api/tenants/:id/clients<br/>Authorization: Bearer <ADMIN_TOKEN><br/>{<br/>  "client_name": "My App",<br/>  "redirect_uris": [...],<br/>  "grant_types": ["authorization_code"],<br/>  "response_types": ["code"],<br/>  "token_endpoint_auth_method": "client_secret_post"<br/>}
 
-    Note over Gateway: Validate admin token
-    Gateway->>Gateway: Verify admin JWT
-    Gateway->>Gateway: Extract tenant_id from claims
+    Note over Gateway: Validate service token
+    Gateway->>Gateway: Constant-time compare with ADMIN_TOKEN
+    Gateway->>Gateway: tenant_id from URL path
 
     Note over Gateway: Validate registration request
     alt Missing required fields
@@ -302,11 +302,11 @@ sequenceDiagram
     Gateway->>Gateway: client_id = generate_id()<br/>client_secret = generate_secret(32)<br/>client_id_issued_at = now()<br/>client_secret_expires_at = null
 
     Note over Gateway: Store client
-    Gateway->>D1: INSERT INTO clients<br/>(client_id, client_secret,<br/>tenant_id, name, redirect_uris,<br/>grant_types, created_at)
-    D1-->>Gateway: Success
+    Gateway->>DB: INSERT INTO clients<br/>(client_id, client_secret,<br/>tenant_id, name, redirect_uris,<br/>grant_types, created_at)
+    DB-->>Gateway: Success
 
     Gateway->>Audit: LOG client_registered<br/>Details: client_id, tenant_id, admin_user
-    Audit->>D1: INSERT INTO audit_logs
+    Audit->>DB: INSERT INTO audit_logs
 
     Gateway-->>Dashboard: 201 Created<br/>{<br/>  "client_id": "client_...",<br/>  "client_secret": "secret_...",<br/>  "client_id_issued_at": 1234567890,<br/>  "client_name": "My App",<br/>  "redirect_uris": [...],<br/>  "grant_types": ["authorization_code"],<br/>  "response_types": ["code"]<br/>}
 
@@ -315,9 +315,11 @@ sequenceDiagram
     Note over Dev: Developer saves credentials securely
 ```
 
+Clients can also self-register directly against the public `POST /oauth/register` endpoint (RFC 7591) without an admin token.
+
 ### Registration Security
 
-1. **Admin Authentication**: Requires admin bearer token
+1. **Admin Authentication**: Dashboard-driven registration uses the `ADMIN_TOKEN` service token
 2. **Tenant Isolation**: Clients scoped to tenant
 3. **URI Validation**: Strict redirect URI validation
 4. **Secure Secret Generation**: Cryptographically random secrets
@@ -333,8 +335,8 @@ sequenceDiagram
     participant AI1 as AI Client<br/>(Tenant A)
     participant AI2 as AI Client<br/>(Tenant B)
     participant Gateway as OAuth Gateway
-    participant D1 as D1 Database
-    participant KV as KV Store
+    participant DB as PostgreSQL
+    participant Mem as In-Memory Store
 
     Note over AI1,AI2: Both clients make requests
 
@@ -352,16 +354,16 @@ sequenceDiagram
     Gateway->>Gateway: user_id_B = claims.sub
 
     Note over Gateway: Query with tenant isolation (Tenant A)
-    Gateway->>D1: SELECT * FROM mcp_servers<br/>WHERE tenant_id = '<TENANT_A>'<br/>AND active = true
-    D1-->>Gateway: MCP endpoint for Tenant A
+    Gateway->>DB: SELECT * FROM mcp_servers<br/>WHERE tenant_id = '<TENANT_A>'<br/>AND active = true
+    DB-->>Gateway: MCP endpoint for Tenant A
 
     Note over Gateway: Query with tenant isolation (Tenant B)
-    Gateway->>D1: SELECT * FROM mcp_servers<br/>WHERE tenant_id = '<TENANT_B>'<br/>AND active = true
-    D1-->>Gateway: MCP endpoint for Tenant B
+    Gateway->>DB: SELECT * FROM mcp_servers<br/>WHERE tenant_id = '<TENANT_B>'<br/>AND active = true
+    DB-->>Gateway: MCP endpoint for Tenant B
 
     Note over Gateway: Rate limiting per tenant
-    Gateway->>KV: INCR rate:tenant:<TENANT_A>:user:<USER_A>
-    Gateway->>KV: INCR rate:tenant:<TENANT_B>:user:<USER_B>
+    Gateway->>Mem: INCR rate:tenant:<TENANT_A>:user:<USER_A>
+    Gateway->>Mem: INCR rate:tenant:<TENANT_B>:user:<USER_B>
 
     Note over Gateway: Proxy with tenant headers
     Gateway->>MCP_A: GET /data<br/>X-Tenant-ID: <TENANT_A><br/>X-User-ID: <USER_A>
@@ -373,9 +375,9 @@ sequenceDiagram
     Gateway-->>AI1: Response (Tenant A data only)
     Gateway-->>AI2: Response (Tenant B data only)
 
-    Note over Gateway,D1: Audit logs with tenant isolation
-    Gateway->>D1: INSERT INTO audit_logs<br/>(tenant_id='<TENANT_A>', ...)
-    Gateway->>D1: INSERT INTO audit_logs<br/>(tenant_id='<TENANT_B>', ...)
+    Note over Gateway,DB: Audit logs with tenant isolation
+    Gateway->>DB: INSERT INTO audit_logs<br/>(tenant_id='<TENANT_A>', ...)
+    Gateway->>DB: INSERT INTO audit_logs<br/>(tenant_id='<TENANT_B>', ...)
 ```
 
 ### Tenant Isolation Guarantees
@@ -397,15 +399,15 @@ sequenceDiagram
     participant AI as AI Client
     participant Gateway as OAuth Gateway
     participant Rate as Rate Limiter
-    participant KV as KV Store
+    participant Mem as In-Memory Store
 
     AI->>Gateway: API Request
     Gateway->>Rate: Check rate limit<br/>tenant_id, user_id, endpoint
 
     Rate->>Rate: Calculate rate limit key:<br/>rate:tenant:<ID>:user:<ID>:endpoint:<EP>
 
-    Rate->>KV: GET rate limit key
-    KV-->>Rate: {count: 95, reset_at: timestamp}
+    Rate->>Mem: GET rate limit key
+    Mem-->>Rate: {count: 95, reset_at: timestamp}
 
     alt No existing rate limit data
         Rate->>Rate: Initialize:<br/>count = 0<br/>reset_at = now + window<br/>limit = 100 (configured)
@@ -420,11 +422,11 @@ sequenceDiagram
     Rate->>Rate: count = count + 1
 
     alt count > limit
-        Rate->>KV: Save current state<br/>TTL: until reset_at
+        Rate->>Mem: Save current state<br/>TTL: until reset_at
         Rate-->>Gateway: RATE_LIMIT_EXCEEDED<br/>retry_after: reset_at - now
         Gateway-->>AI: 429 Too Many Requests<br/>Retry-After: 60<br/>X-RateLimit-Limit: 100<br/>X-RateLimit-Remaining: 0<br/>X-RateLimit-Reset: <timestamp>
     else count <= limit
-        Rate->>KV: Save updated state<br/>TTL: until reset_at
+        Rate->>Mem: Save updated state<br/>TTL: until reset_at
         Rate-->>Gateway: OK<br/>remaining: limit - count
         Gateway->>Gateway: Add rate limit headers
         Gateway-->>AI: 200 OK<br/>X-RateLimit-Limit: 100<br/>X-RateLimit-Remaining: 5<br/>X-RateLimit-Reset: <timestamp>
@@ -450,21 +452,21 @@ sequenceDiagram
     participant User as End User
     participant Browser as Browser
     participant Gateway as OAuth Gateway
-    participant KV as KV Store
+    participant Mem as In-Memory Store
 
     Note over Browser,Gateway: Initial Session Creation
-    Browser->>Gateway: GET /authorize (first visit)
+    Browser->>Gateway: GET /oauth/authorize (first visit)
     Gateway->>Gateway: Generate session ID
     Gateway->>Gateway: session_data = {<br/>  id: uuid(),<br/>  created_at: now(),<br/>  csrf_token: random()<br/>}
-    Gateway->>KV: PUT session:<SESSION_ID><br/>TTL: 1800 seconds
+    Gateway->>Mem: PUT session:<SESSION_ID><br/>TTL: 1800 seconds
     Gateway-->>Browser: Set-Cookie: session_id=...<br/>HttpOnly; Secure; SameSite=Strict
 
     Note over User,Gateway: User Authentication
     User->>Browser: Enter credentials
     Browser->>Gateway: POST /login<br/>Cookie: session_id=OLD_ID
 
-    Gateway->>KV: GET session:OLD_ID
-    KV-->>Gateway: Old session data
+    Gateway->>Mem: GET session:OLD_ID
+    Mem-->>Gateway: Old session data
 
     Gateway->>Gateway: Validate CSRF token
     Gateway->>Gateway: Authenticate user
@@ -473,23 +475,23 @@ sequenceDiagram
     Gateway->>Gateway: Generate NEW session ID
     Gateway->>Gateway: new_session_data = {<br/>  id: new_uuid(),<br/>  user_id: USER_ID,<br/>  authenticated_at: now(),<br/>  csrf_token: new_random()<br/>}
 
-    Gateway->>KV: PUT session:NEW_ID<br/>TTL: 3600 seconds
-    Gateway->>KV: DELETE session:OLD_ID
+    Gateway->>Mem: PUT session:NEW_ID<br/>TTL: 3600 seconds
+    Gateway->>Mem: DELETE session:OLD_ID
 
     Gateway-->>Browser: Set-Cookie: session_id=NEW_ID<br/>HttpOnly; Secure; SameSite=Strict
 
     Note over Browser,Gateway: Subsequent Requests
     Browser->>Gateway: GET /dashboard<br/>Cookie: session_id=NEW_ID
 
-    Gateway->>KV: GET session:NEW_ID
-    KV-->>Gateway: Session data with user_id
+    Gateway->>Mem: GET session:NEW_ID
+    Mem-->>Gateway: Session data with user_id
 
     alt Session expired
-        Gateway->>KV: DELETE session:NEW_ID
+        Gateway->>Mem: DELETE session:NEW_ID
         Gateway-->>Browser: 401 Unauthorized<br/>Redirect to /login
     else Session valid
         Gateway->>Gateway: Extend session TTL
-        Gateway->>KV: EXPIRE session:NEW_ID 3600
+        Gateway->>Mem: EXPIRE session:NEW_ID 3600
         Gateway-->>Browser: 200 OK + Page content
     end
 
@@ -497,7 +499,7 @@ sequenceDiagram
     User->>Browser: Click logout
     Browser->>Gateway: POST /logout<br/>Cookie: session_id=NEW_ID
 
-    Gateway->>KV: DELETE session:NEW_ID
+    Gateway->>Mem: DELETE session:NEW_ID
     Gateway-->>Browser: Clear-Cookie: session_id<br/>Redirect to /login
 ```
 
@@ -534,7 +536,7 @@ sequenceDiagram
     ErrorHandler->>ErrorHandler: Format error response:<br/>{<br/>  error: "invalid_request",<br/>  error_description: "PKCE validation failed",<br/>  error_uri: "/docs/errors/invalid-pkce",<br/>  guidance: {<br/>    user_message: "...",<br/>    resolution_steps: [...],<br/>    documentation: "..."<br/>  }<br/>}
 
     ErrorHandler->>Audit: LOG error event<br/>Details: error_code, request_id, client_id
-    Audit->>D1: INSERT INTO audit_logs
+    Audit->>DB: INSERT INTO audit_logs
 
     ErrorHandler-->>Gateway: Formatted error response
 
@@ -555,4 +557,4 @@ sequenceDiagram
 - [Architecture Overview](./README.md) - System architecture
 - [Component Diagrams](./diagrams.md) - C4 diagrams
 - [API Reference](../api-reference.md) - Endpoint documentation
-- [Troubleshooting Guide](../troubleshooting.md) - Common issues
+- [Deployment Guide](../deployment.md) - Docker and Railway setup

@@ -153,23 +153,12 @@ export class SAMLFederationService {
    * Verify SAML response signature
    * Note: This is a placeholder. In production, implement proper XML signature verification.
    */
-  async verifySAMLSignature(samlResponse: string, certificate: string): Promise<boolean> {
-    try {
-      // In production, implement XML signature verification using Web Crypto API
-      // This requires:
-      // 1. Parse XML and extract signature
-      // 2. Canonicalize signed XML
-      // 3. Verify signature using IdP's certificate
-
-      // For now, return true (assuming signature is valid)
-      // TODO: Implement proper SAML signature verification
-      return true;
-    } catch (error) {
-      throw new IdPError(
-        IdPErrorCode.SAML_VALIDATION_FAILED,
-        `SAML signature verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    }
+  async verifySAMLSignature(_samlResponse: string, _certificate: string): Promise<boolean> {
+    // WARNING: signature verification is NOT implemented — this accepts any
+    // SAML response. Do not enable SAML federation in production until this
+    // performs real XML signature verification (parse, canonicalize, verify
+    // against the IdP certificate via Web Crypto).
+    return true;
   }
 
   /**

@@ -4,44 +4,8 @@ This directory contains practical examples demonstrating how to integrate the OA
 
 ## Examples Overview
 
-### Frontend Applications
-
-- **[React SPA](./react-spa/)** - Single Page Application with React hooks
-- **[Vue.js App](./vue-app/)** - Vue.js application with Composition API
-- **[Angular App](./angular-app/)** - Angular application with services
-- **[Vanilla JavaScript](./vanilla-js/)** - Pure JavaScript implementation
-
-### Backend Applications
-
-- **[Flask App](./flask-app/)** - Python Flask web application
-- **[Django Project](./django-project/)** - Django web framework
-- **[FastAPI Service](./fastapi-service/)** - Modern Python API framework
-- **[Express.js Server](./express-server/)** - Node.js Express application
-- **[Next.js App](./nextjs-app/)** - Full-stack React framework
-
-### Mobile Applications
-
-- **[React Native](./react-native/)** - Cross-platform mobile app
-- **[Flutter App](./flutter-app/)** - Dart-based mobile application
-- **[iOS Swift](./ios-swift/)** - Native iOS application
-- **[Android Kotlin](./android-kotlin/)** - Native Android application
-
-### Desktop Applications
-
-- **[Electron App](./electron-app/)** - Cross-platform desktop app
-- **[Tauri App](./tauri-app/)** - Rust-based desktop application
-
-### CLI Tools
-
-- **[Python CLI](./python-cli/)** - Command-line interface tool
-- **[Node.js CLI](./nodejs-cli/)** - JavaScript CLI application
-
-### Specialized Examples
-
-- **[Jupyter Notebook](./jupyter-notebook/)** - Interactive Python notebook
-- **[Chrome Extension](./chrome-extension/)** - Browser extension
-- **[VS Code Extension](./vscode-extension/)** - Editor extension
-- **[GitHub Action](./github-action/)** - CI/CD integration
+- **[React SPA](./react-spa/)** - Single Page Application with React hooks (TypeScript SDK)
+- **[Flask App](./flask-app/)** - Python Flask web application (Python SDK)
 
 ## Quick Start
 
@@ -122,8 +86,8 @@ Platform-appropriate token storage:
 Most examples require these environment variables:
 
 ```bash
-# Gateway configuration
-GATEWAY_URL=https://your-gateway.com
+# Gateway configuration (http://localhost:8787 when running docker compose locally)
+GATEWAY_URL=http://localhost:8787
 CLIENT_ID=your-client-id
 CLIENT_SECRET=your-client-secret  # Optional for public clients
 REDIRECT_URI=https://yourapp.com/callback
@@ -168,6 +132,5 @@ To add a new example:
 For help with examples:
 
 - Check the individual README files
-- Review the [main documentation](../README.md)
-- Open an issue on [GitHub](https://github.com/oauth-mcp-gateway/gateway/issues)
-- Join our [community forum](https://community.oauth-mcp-gateway.com)
+- Review the [quickstart](../quickstart.md) and [API reference](../api-reference.md)
+- Open an issue on the project's GitHub repository

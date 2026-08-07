@@ -1,24 +1,23 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Hono } from 'hono';
-import { healthCheck, detailedHealthCheck, metricsCollector, alertingSystem } from '../../../src/handlers/admin/health';
-import { 
-  metricsEndpoint, 
-  authMetricsEndpoint, 
-  tokenLatencyEndpoint, 
-  MetricsCollector 
-} from '../../../src/handlers/admin/metrics';
-import { 
-  ConsoleAlertHandler, 
-  EmailAlertHandler, 
-  WebhookAlertHandler 
-} from '../../../src/services/security/alerts';
+import { healthCheck, detailedHealthCheck } from '../../../../src/handlers/admin/health';
+import {
+  metricsEndpoint,
+  authMetricsEndpoint,
+  tokenLatencyEndpoint,
+  MetricsCollector,
+  metricsCollector as appMetricsCollector,
+} from '../../../../src/handlers/admin/metrics';
+import {
+  ConsoleAlertHandler,
+  EmailAlertHandler,
+  WebhookAlertHandler,
+  alertingSystem,
+} from '../../../../src/services/security/alerts';
 
 describe('Monitoring and Health Check System', () => {
-  let app: Hono;
-
   beforeEach(() => {
-    app = new Hono();
     vi.clearAllMocks();
+    alertingSystem.clearAlertHistory();
   });
 
   describe('Health Check Endpoints', () => {
@@ -112,8 +111,8 @@ describe('Monitoring and Health Check System', () => {
       expect(metrics.authentication.success).toBe(3);
       expect(metrics.authentication.failure).toBe(1);
       expect(metrics.authentication.successRate).toBe(75);
-      expect(metrics.authentication.byMethod.password.total).toBe(2);
-      expect(metrics.authentication.byMethod.password.success).toBe(1);
+      expect(metrics.authentication.byMethod.password!.total).toBe(2);
+      expect(metrics.authentication.byMethod.password!.success).toBe(1);
     });
 
     it('should record authorization metrics', () => {
@@ -250,8 +249,8 @@ describe('Monitoring and Health Check System', () => {
       };
 
       // Force an error by mocking a dependency that throws
-      const originalGetMetrics = metricsCollector.getMetrics;
-      metricsCollector.getMetrics = vi.fn(() => { throw new Error('Metrics collection failed'); });
+      const originalGetMetrics = appMetricsCollector.getMetrics;
+      appMetricsCollector.getMetrics = vi.fn(() => { throw new Error('Metrics collection failed'); });
 
       const response = await metricsEndpoint(mockContext);
       const result = await response.json();
@@ -260,7 +259,7 @@ describe('Monitoring and Health Check System', () => {
       expect(result.error).toBe('Failed to collect metrics');
 
       // Restore original function
-      metricsCollector.getMetrics = originalGetMetrics;
+      appMetricsCollector.getMetrics = originalGetMetrics;
     });
   });
 
@@ -273,8 +272,8 @@ describe('Monitoring and Health Check System', () => {
       
       const alert = {
         id: 'test-alert-1',
-        type: 'security',
-        severity: 'high',
+        type: 'security' as const,
+        severity: 'high' as const,
         message: 'Test security alert',
         timestamp: new Date().toISOString(),
         metadata: { test: 'data' }
@@ -291,16 +290,16 @@ describe('Monitoring and Health Check System', () => {
       
       const alert1 = {
         id: 'test-alert-1',
-        type: 'security',
-        severity: 'high',
+        type: 'security' as const,
+        severity: 'high' as const,
         message: 'Test alert 1',
         timestamp: new Date().toISOString()
       };
       
       const alert2 = {
         id: 'test-alert-2',
-        type: 'performance',
-        severity: 'medium',
+        type: 'performance' as const,
+        severity: 'medium' as const,
         message: 'Test alert 2',
         timestamp: new Date().toISOString()
       };
@@ -310,12 +309,12 @@ describe('Monitoring and Health Check System', () => {
       
       const history = alertingSystem.getAlertHistory();
       expect(history).toHaveLength(2);
-      expect(history[0].id).toBe('test-alert-1');
-      expect(history[1].id).toBe('test-alert-2');
+      expect(history[0]!.id).toBe('test-alert-1');
+      expect(history[1]!.id).toBe('test-alert-2');
       
       const highSeverityAlerts = alertingSystem.getAlertHistory('high');
       expect(highSeverityAlerts).toHaveLength(1);
-      expect(highSeverityAlerts[0].severity).toBe('high');
+      expect(highSeverityAlerts[0]!.severity).toBe('high');
     });
 
     it('should handle errors in alert handlers gracefully', async () => {
@@ -327,8 +326,8 @@ describe('Monitoring and Health Check System', () => {
       
       const alert = {
         id: 'test-alert-1',
-        type: 'security',
-        severity: 'high',
+        type: 'security' as const,
+        severity: 'high' as const,
         message: 'Test alert',
         timestamp: new Date().toISOString()
       };
@@ -343,8 +342,8 @@ describe('Monitoring and Health Check System', () => {
       
       const alert = {
         id: 'test-alert-1',
-        type: 'security',
-        severity: 'high',
+        type: 'security' as const,
+        severity: 'high' as const,
         message: 'Test alert',
         timestamp: new Date().toISOString()
       };
@@ -370,8 +369,8 @@ describe('Monitoring and Health Check System', () => {
       
       const alert = {
         id: 'test-alert-1',
-        type: 'availability',
-        severity: 'critical',
+        type: 'availability' as const,
+        severity: 'critical' as const,
         message: 'Gateway is down',
         timestamp: new Date().toISOString(),
         metadata: { downtime: '5 minutes' }

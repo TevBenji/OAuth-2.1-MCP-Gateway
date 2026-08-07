@@ -260,7 +260,7 @@ function decodeState(state: string): any {
     const decoded = atob(state);
     
     // Validate the decoded string before parsing
-    if (typeof decoded !== 'string' || !/^[\[\{].*[\]\}]$/.test(decoded.trim())) {
+    if (typeof decoded !== 'string' || !/^[[{].*[\]}]$/.test(decoded.trim())) {
       console.warn('Invalid JSON format detected in state parameter');
       return {};
     }

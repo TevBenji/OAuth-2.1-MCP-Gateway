@@ -162,6 +162,7 @@ function validateClientRegistrationRequest(request: ClientRegistrationRequest): 
  */
 function isValidRedirectUri(uri: string): boolean {
   // Reject dangerous schemes immediately
+  // eslint-disable-next-line no-script-url -- literal used only to reject the scheme
   const dangerousSchemes = ['javascript:', 'data:', 'vbscript:', 'file:'];
   for (const scheme of dangerousSchemes) {
     if (uri.toLowerCase().startsWith(scheme)) {
@@ -239,7 +240,7 @@ function isValidScopeString(scope: string): boolean {
   
   for (const s of scopes) {
     // Each scope must be a valid token (no spaces, control characters)
-    if (!/^[!#-\[\]-~]+$/.test(s)) {
+    if (!/^[!#-[\]-~]+$/.test(s)) {
       return false;
     }
   }

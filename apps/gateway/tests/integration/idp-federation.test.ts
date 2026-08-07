@@ -4,7 +4,7 @@
  * Tests for OIDC/SAML federation with mock IdP responses.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
 import { OIDCFederationService } from '../../src/services/idp/oidc';
 import { SAMLFederationService } from '../../src/services/idp/saml';
 import { AttributeMappingService, RoleSynchronizationService } from '../../src/services/idp/mapping';
@@ -17,12 +17,17 @@ import {
   OIDCDiscoveryMetadata,
 } from '../../src/types/idp';
 
-// Mock fetch globally
+// Mock fetch globally for this suite; restore it afterwards
+const realFetch = global.fetch;
 global.fetch = vi.fn();
 
 describe('IdP Federation Integration Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterAll(() => {
+    global.fetch = realFetch;
   });
 
   describe('OIDC Federation', () => {

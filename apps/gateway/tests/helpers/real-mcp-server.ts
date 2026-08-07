@@ -1,15 +1,16 @@
 /**
  * Real MCP Server Test Utilities
  *
- * Provides utilities for testing with real MCP server implementations
- * to validate end-to-end OAuth 2.1 flows and request proxying.
+ * Spins up a real local Node HTTP server that speaks a minimal MCP-style
+ * protocol, so tests exercise genuine network I/O through the gateway proxy.
  */
 
-import { vi } from 'vitest';
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
 
 export interface MCPServerConfig {
-  port: number;
-  serverName: string;
+  port?: number;
+  serverName?: string;
   baseUrl?: string;
   supportedTools?: MCPTool[];
   supportedResources?: MCPResource[];
@@ -41,116 +42,177 @@ export interface MCPRequestContext {
   headers: Record<string, string>;
 }
 
+interface LoggedRequest {
+  timestamp: number;
+  method: string;
+  path: string;
+  headers: Record<string, string>;
+  body?: any;
+}
+
+interface HandlerRequest {
+  method: string;
+  path: string;
+  headers: Record<string, string>;
+  body?: string;
+}
+
 /**
- * Real MCP Server Mock for Integration Testing
- *
- * Simulates a production MCP server with full protocol support
+ * Real MCP server for integration testing: a plain Node http.Server with a
+ * minimal MCP-flavoured routing table and a request log for assertions.
  */
 export class RealMCPServerMock {
-  private config: MCPServerConfig;
-  private isRunning: boolean = false;
-  private requestLog: Array<{
-    timestamp: number;
-    method: string;
-    path: string;
-    headers: Record<string, string>;
-    body?: any;
-    context?: MCPRequestContext;
-  }> = [];
-  private responseHandlers: Map<string, (req: any) => Promise<any>> = new Map();
+  private config: Required<Pick<MCPServerConfig, 'port' | 'serverName' | 'requireAuth'>> &
+    MCPServerConfig;
+  private server?: http.Server;
+  private requestLog: LoggedRequest[] = [];
+  private responseHandlers: Map<string, (req: HandlerRequest) => Promise<any>> = new Map();
 
-  constructor(config: MCPServerConfig) {
+  constructor(config: MCPServerConfig = {}) {
     this.config = {
       port: 3001,
       serverName: 'test-mcp-server',
       requireAuth: true,
-      ...config
+      ...config,
     };
   }
 
-  /**
-   * Start the mock MCP server
-   */
+  /** The port the server is actually listening on. */
+  get port(): number {
+    if (!this.server) return this.config.port;
+    return (this.server.address() as AddressInfo).port;
+  }
+
+  get baseUrl(): string {
+    return `http://127.0.0.1:${this.port}`;
+  }
+
   async start(): Promise<void> {
-    if (this.isRunning) {
+    if (this.server) {
       throw new Error('MCP server is already running');
     }
 
-    // Mock fetch globally to intercept requests
-    const originalFetch = global.fetch;
-
-    global.fetch = vi.fn().mockImplementation(async (url: string | URL, options: any = {}) => {
-      const urlObj = typeof url === 'string' ? new URL(url) : url;
-      const baseUrl = this.config.baseUrl || `http://localhost:${this.config.port}`;
-
-      // Only intercept requests to this MCP server
-      if (!urlObj.href.startsWith(baseUrl)) {
-        return originalFetch(url, options);
-      }
-
-      const path = urlObj.pathname;
-      const method = options.method || 'GET';
-
-      // Log the request
-      this.requestLog.push({
-        timestamp: Date.now(),
-        method,
-        path,
-        headers: options.headers || {},
-        body: options.body ? JSON.parse(options.body) : undefined
-      });
-
-      // Handle authentication if required
-      if (this.config.requireAuth) {
-        const authHeader = options.headers?.['Authorization'] || options.headers?.['authorization'];
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-          return this.createResponse(401, {
-            error: 'unauthorized',
-            error_description: 'Missing or invalid authorization header'
-          });
-        }
-      }
-
-      // Route the request
-      return this.routeRequest(method, path, options);
-    });
-
-    // Register default handlers
     this.registerDefaultHandlers();
 
-    this.isRunning = true;
-    console.log(`✅ Mock MCP Server '${this.config.serverName}' started on port ${this.config.port}`);
+    this.server = http.createServer((req, res) => {
+      void this.handleHttpRequest(req, res);
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      this.server!.once('error', reject);
+      this.server!.listen(this.config.port, '127.0.0.1', () => resolve());
+    });
   }
 
-  /**
-   * Stop the mock MCP server
-   */
   async stop(): Promise<void> {
-    if (!this.isRunning) {
-      return;
-    }
+    if (!this.server) return;
 
-    vi.restoreAllMocks();
-    this.isRunning = false;
+    await new Promise<void>((resolve, reject) => {
+      this.server!.close(err => (err ? reject(err) : resolve()));
+    });
+    this.server = undefined;
     this.requestLog = [];
     this.responseHandlers.clear();
-
-    console.log(`✅ Mock MCP Server '${this.config.serverName}' stopped`);
   }
 
-  /**
-   * Register default MCP protocol handlers
-   */
+  private async handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse) {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(chunk as Buffer);
+    }
+    const bodyText = Buffer.concat(chunks).toString('utf8') || undefined;
+
+    const url = new URL(req.url ?? '/', this.baseUrl);
+    const path = url.pathname;
+    const method = req.method ?? 'GET';
+    const headers: Record<string, string> = {};
+    for (const [key, value] of Object.entries(req.headers)) {
+      headers[key] = Array.isArray(value) ? value.join(', ') : (value ?? '');
+    }
+
+    // Log the request
+    let parsedBody: any;
+    try {
+      parsedBody = bodyText ? JSON.parse(bodyText) : undefined;
+    } catch {
+      parsedBody = bodyText;
+    }
+    this.requestLog.push({ timestamp: Date.now(), method, path, headers, body: parsedBody });
+
+    // Handle authentication if required (health endpoint stays public)
+    if (this.config.requireAuth && path !== '/health') {
+      const authHeader = headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return this.send(res, 401, {
+          error: 'unauthorized',
+          error_description: 'Missing or invalid authorization header',
+        });
+      }
+    }
+
+    const handlerReq: HandlerRequest = { method, path, headers, body: bodyText };
+
+    // Exact match, then pattern match
+    const handler =
+      this.responseHandlers.get(`${method}:${path}`) ?? this.findPatternHandler(method, path);
+
+    if (!handler) {
+      return this.send(res, 404, {
+        error: 'not_found',
+        error_description: `Endpoint not found: ${method} ${path}`,
+      });
+    }
+
+    try {
+      const result = await handler(handlerReq);
+      return this.send(res, 200, result);
+    } catch (error: any) {
+      return this.send(res, 500, {
+        error: 'internal_server_error',
+        error_description: error.message,
+      });
+    }
+  }
+
+  private findPatternHandler(method: string, path: string) {
+    for (const [key, handler] of this.responseHandlers.entries()) {
+      const sep = key.indexOf(':');
+      const handlerMethod = key.slice(0, sep);
+      const handlerPath = key.slice(sep + 1);
+      if (handlerMethod === method && this.matchPath(path, handlerPath)) {
+        return handler;
+      }
+    }
+    return undefined;
+  }
+
+  private matchPath(requestPath: string, handlerPath: string): boolean {
+    const requestParts = requestPath.split('/').filter(p => p);
+    const handlerParts = handlerPath.split('/').filter(p => p);
+
+    if (requestParts.length !== handlerParts.length) {
+      return false;
+    }
+
+    return handlerParts.every((part, index) => part.startsWith(':') || part === requestParts[index]);
+  }
+
+  private send(res: http.ServerResponse, status: number, data: any): void {
+    res.statusCode = status;
+    res.setHeader('content-type', 'application/json');
+    res.setHeader('x-mcp-server', this.config.serverName);
+    res.end(JSON.stringify(data));
+  }
+
+  /** Register default MCP protocol handlers */
   private registerDefaultHandlers(): void {
-    // Health check endpoint
     this.setHandler('GET', '/health', async () => ({
       status: 'healthy',
       server: this.config.serverName,
       timestamp: new Date().toISOString(),
-      uptime: process.uptime()
+      uptime: process.uptime(),
     }));
 
-    // MCP server info endpoint
     this.setHandler('GET', '/mcp/info', async () => ({
       name: this.config.serverName,
       version: '1.0.0',
@@ -158,17 +220,15 @@ export class RealMCPServerMock {
       capabilities: {
         tools: !!this.config.supportedTools && this.config.supportedTools.length > 0,
         resources: !!this.config.supportedResources && this.config.supportedResources.length > 0,
-        prompts: false
-      }
+        prompts: false,
+      },
     }));
 
-    // List tools endpoint
     this.setHandler('GET', '/mcp/tools/list', async () => ({
-      tools: this.config.supportedTools || []
+      tools: (this.config.supportedTools || []).map(({ handler, ...tool }) => tool),
     }));
 
-    // Call tool endpoint
-    this.setHandler('POST', '/mcp/tools/call', async (req) => {
+    this.setHandler('POST', '/mcp/tools/call', async req => {
       const { name, arguments: toolArgs } = JSON.parse(req.body || '{}');
 
       const tool = this.config.supportedTools?.find(t => t.name === name);
@@ -180,23 +240,21 @@ export class RealMCPServerMock {
         const context = this.extractContext(req.headers);
         return {
           content: await tool.handler(toolArgs, context),
-          isError: false
+          isError: false,
         };
       }
 
       return {
         content: { message: `Tool ${name} executed successfully` },
-        isError: false
+        isError: false,
       };
     });
 
-    // List resources endpoint
     this.setHandler('GET', '/mcp/resources/list', async () => ({
-      resources: this.config.supportedResources || []
+      resources: (this.config.supportedResources || []).map(({ handler, ...resource }) => resource),
     }));
 
-    // Read resource endpoint
-    this.setHandler('POST', '/mcp/resources/read', async (req) => {
+    this.setHandler('POST', '/mcp/resources/read', async req => {
       const { uri } = JSON.parse(req.body || '{}');
 
       const resource = this.config.supportedResources?.find(r => r.uri === uri);
@@ -204,156 +262,55 @@ export class RealMCPServerMock {
         throw new Error(`Resource not found: ${uri}`);
       }
 
-      if (resource.handler) {
-        const context = this.extractContext(req.headers);
-        return {
-          contents: [
-            {
-              uri: resource.uri,
-              mimeType: resource.mimeType || 'text/plain',
-              text: await resource.handler(context)
-            }
-          ]
-        };
-      }
+      const text = resource.handler
+        ? await resource.handler(this.extractContext(req.headers))
+        : `Resource content for ${uri}`;
 
       return {
         contents: [
           {
             uri: resource.uri,
             mimeType: resource.mimeType || 'text/plain',
-            text: `Resource content for ${uri}`
-          }
-        ]
+            text,
+          },
+        ],
       };
     });
   }
 
-  /**
-   * Route incoming request to appropriate handler
-   */
-  private async routeRequest(method: string, path: string, options: any): Promise<Response> {
-    const handlerKey = `${method}:${path}`;
-    const handler = this.responseHandlers.get(handlerKey);
-
-    if (handler) {
-      try {
-        const result = await handler(options);
-        return this.createResponse(200, result);
-      } catch (error: any) {
-        return this.createResponse(500, {
-          error: 'internal_server_error',
-          error_description: error.message
-        });
-      }
-    }
-
-    // Try pattern matching for dynamic paths
-    for (const [key, handler] of this.responseHandlers.entries()) {
-      const [handlerMethod, handlerPath] = key.split(':');
-      if (handlerMethod === method && this.matchPath(path, handlerPath)) {
-        try {
-          const result = await handler(options);
-          return this.createResponse(200, result);
-        } catch (error: any) {
-          return this.createResponse(500, {
-            error: 'internal_server_error',
-            error_description: error.message
-          });
-        }
-      }
-    }
-
-    return this.createResponse(404, {
-      error: 'not_found',
-      error_description: `Endpoint not found: ${method} ${path}`
-    });
-  }
-
-  /**
-   * Match request path against handler path pattern
-   */
-  private matchPath(requestPath: string, handlerPath: string): boolean {
-    // Simple pattern matching - can be enhanced for wildcards
-    const requestParts = requestPath.split('/').filter(p => p);
-    const handlerParts = handlerPath.split('/').filter(p => p);
-
-    if (requestParts.length !== handlerParts.length) {
-      return false;
-    }
-
-    return handlerParts.every((part, index) => {
-      return part.startsWith(':') || part === requestParts[index];
-    });
-  }
-
-  /**
-   * Create HTTP response
-   */
-  private createResponse(status: number, data: any): Response {
-    return new Response(JSON.stringify(data), {
-      status,
-      statusText: status === 200 ? 'OK' : status === 401 ? 'Unauthorized' : status === 404 ? 'Not Found' : 'Internal Server Error',
-      headers: new Headers({
-        'content-type': 'application/json',
-        'x-mcp-server': this.config.serverName
-      })
-    });
-  }
-
-  /**
-   * Extract MCP request context from headers
-   */
+  /** Extract MCP request context from (lowercased http) headers */
   private extractContext(headers: Record<string, string>): MCPRequestContext {
     return {
-      tenant_id: headers['X-Tenant-ID'] || headers['x-tenant-id'] || 'unknown',
-      user_id: headers['X-User-ID'] || headers['x-user-id'] || 'unknown',
-      client_id: headers['X-Client-ID'] || headers['x-client-id'] || 'unknown',
-      session_id: headers['X-Session-ID'] || headers['x-session-id'] || 'unknown',
-      scopes: (headers['X-Scopes'] || headers['x-scopes'] || '').split(' ').filter(s => s),
-      headers
+      tenant_id: headers['x-tenant-id'] || 'unknown',
+      user_id: headers['x-user-id'] || 'unknown',
+      client_id: headers['x-client-id'] || 'unknown',
+      session_id: headers['x-session-id'] || 'unknown',
+      scopes: (headers['x-oauth-scopes'] || headers['x-scopes'] || '').split(' ').filter(s => s),
+      headers,
     };
   }
 
-  /**
-   * Register custom request handler
-   */
-  setHandler(method: string, path: string, handler: (req: any) => Promise<any>): void {
-    const key = `${method}:${path}`;
-    this.responseHandlers.set(key, handler);
+  /** Register custom request handler */
+  setHandler(method: string, path: string, handler: (req: HandlerRequest) => Promise<any>): void {
+    this.responseHandlers.set(`${method}:${path}`, handler);
   }
 
-  /**
-   * Get request log for testing
-   */
-  getRequestLog() {
+  getRequestLog(): LoggedRequest[] {
     return [...this.requestLog];
   }
 
-  /**
-   * Clear request log
-   */
   clearRequestLog(): void {
     this.requestLog = [];
   }
 
-  /**
-   * Get last request
-   */
-  getLastRequest() {
+  getLastRequest(): LoggedRequest | undefined {
     return this.requestLog[this.requestLog.length - 1];
   }
 
-  /**
-   * Get requests by path
-   */
-  getRequestsByPath(path: string) {
+  getRequestsByPath(path: string): LoggedRequest[] {
     return this.requestLog.filter(req => req.path === path);
   }
 
-  /**
-   * Assert request was made
-   */
   assertRequestMade(method: string, path: string): boolean {
     return this.requestLog.some(req => req.method === method && req.path === path);
   }
@@ -370,17 +327,17 @@ export function createTestMCPServer(config?: Partial<MCPServerConfig>): RealMCPS
       inputSchema: {
         type: 'object',
         properties: {
-          location: { type: 'string', description: 'City name or coordinates' }
+          location: { type: 'string', description: 'City name or coordinates' },
         },
-        required: ['location']
+        required: ['location'],
       },
       handler: async (input, context) => ({
         location: input.location,
         temperature: 22,
         condition: 'sunny',
         humidity: 65,
-        tenant_id: context.tenant_id
-      })
+        tenant_id: context.tenant_id,
+      }),
     },
     {
       name: 'calculate',
@@ -388,15 +345,16 @@ export function createTestMCPServer(config?: Partial<MCPServerConfig>): RealMCPS
       inputSchema: {
         type: 'object',
         properties: {
-          expression: { type: 'string', description: 'Mathematical expression to evaluate' }
+          expression: { type: 'string', description: 'Mathematical expression to evaluate' },
         },
-        required: ['expression']
+        required: ['expression'],
       },
-      handler: async (input) => ({
+      handler: async input => ({
         expression: input.expression,
-        result: eval(input.expression) // Note: In production, use safe math parser
-      })
-    }
+        // ponytail: eval is fine for test fixtures with hard-coded expressions
+        result: eval(input.expression),
+      }),
+    },
   ];
 
   const defaultResources: MCPResource[] = [
@@ -405,16 +363,15 @@ export function createTestMCPServer(config?: Partial<MCPServerConfig>): RealMCPS
       name: 'Sample Data',
       description: 'Sample text data resource',
       mimeType: 'text/plain',
-      handler: async (context) => `Sample data for tenant: ${context.tenant_id}`
-    }
+      handler: async context => `Sample data for tenant: ${context.tenant_id}`,
+    },
   ];
 
   return new RealMCPServerMock({
-    port: 3001,
     serverName: 'test-mcp-server',
     supportedTools: defaultTools,
     supportedResources: defaultResources,
     requireAuth: true,
-    ...config
+    ...config,
   });
 }

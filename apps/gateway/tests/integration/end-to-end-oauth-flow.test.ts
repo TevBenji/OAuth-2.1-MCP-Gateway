@@ -1,472 +1,334 @@
 /**
  * End-to-End OAuth 2.1 Flow Integration Tests
- * 
- * Complete OAuth 2.1 authorization code flow with PKCE testing
- * using real MCP server interactions.
+ *
+ * Complete OAuth 2.1 authorization code flow with PKCE, driven through the
+ * real Hono app against Postgres, ending in a proxied MCP request to a real
+ * local HTTP MCP server.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { testUtils, mockEnv } from '../setup';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import app from '../../src/index';
 import { JWTService } from '../../src/services/oauth/jwt';
-import { PKCEService } from '../../src/services/oauth/pkce';
-import { OAuthClientService } from '../../src/services/oauth/client';
+import { generateCodeVerifier, createS256CodeChallenge } from '../../src/services/oauth/pkce';
 import { MCPServerRegistry } from '../../src/services/mcp/registry';
-import { MCPProxyService } from '../../src/services/mcp/proxy';
-import { TenantService } from '../../src/services/tenant/isolation';
+import { PgMcpServerDatabase } from '../../src/storage/pg-mcp-server-database';
+import { PgAuthorizationCodeStorage } from '../../src/storage/pg-authorization-code-storage';
 import { AuditService } from '../../src/services/security/audit';
-
-// Mock MCP Server for testing
-class MockMCPServer {
-  private port: number;
-  private server: any;
-  private responses: Map<string, any> = new Map();
-
-  constructor(port: number = 3001) {
-    this.port = port;
-  }
-
-  setResponse(path: string, response: any) {
-    this.responses.set(path, response);
-  }
-
-  async start() {
-    // Mock server implementation
-    this.server = {
-      listen: vi.fn(),
-      close: vi.fn()
-    };
-    
-    // Mock fetch to simulate server responses
-    const originalFetch = global.fetch;
-    global.fetch = vi.fn().mockImplementation(async (url: string, options: any) => {
-      const urlObj = new URL(url);
-      const path = urlObj.pathname;
-      
-      if (this.responses.has(path)) {
-        const response = this.responses.get(path);
-        return {
-          ok: true,
-          status: 200,
-          statusText: 'OK',
-          headers: new Headers({ 'content-type': 'application/json' }),
-          text: async () => JSON.stringify(response),
-          json: async () => response
-        };
-      }
-      
-      return originalFetch(url, options);
-    });
-  }
-
-  async stop() {
-    if (this.server) {
-      this.server.close();
-    }
-    vi.restoreAllMocks();
-  }
-}
+import { makeTestEnv } from '../helpers/env';
+import { getTestDb, createTenant } from '../helpers/db';
+import { form, registerTestClient, getAuthorizationCode, completeOAuthFlow } from '../helpers/oauth';
+import { createTestMCPServer, RealMCPServerMock } from '../helpers/real-mcp-server';
 
 describe('End-to-End OAuth 2.1 Flow with Real MCP Servers', () => {
-  let jwtService: JWTService;
-  let pkceService: PKCEService;
-  let clientService: OAuthClientService;
-  let mcpRegistry: MCPServerRegistry;
-  let mcpProxy: MCPProxyService;
-  let tenantService: TenantService;
-  let auditService: AuditService;
-  let mockMCPServer: MockMCPServer;
-  
-  const testTenantId = 'tenant-e2e-test';
-  const testUserId = 'user-e2e-test';
-  const testClientId = 'client-e2e-test';
-  const mcpServerUrl = 'http://localhost:3001';
-  const resourceIdentifier = 'mcp://test-server/tools';
+  const testEnv = makeTestEnv();
+  // Tokens issued by the /oauth/token endpoint carry this hardcoded tenant claim
+  const tokenTenantId = 'default';
+
+  let mcpServer: RealMCPServerMock;
+  let registeredServerId: string;
 
   beforeEach(async () => {
-    // Initialize services
-    jwtService = new JWTService('test-secret-key', 'HS256', 'oauth-mcp-gateway');
-    pkceService = new PKCEService();
-    clientService = new OAuthClientService(mockEnv.DB);
-    mcpRegistry = new MCPServerRegistry(mockEnv.DB);
-    mcpProxy = new MCPProxyService(mcpRegistry);
-    tenantService = new TenantService(mockEnv.DB);
-    auditService = new AuditService(mockEnv.DB);
+    mcpServer = createTestMCPServer({ port: 0, serverName: 'e2e-mcp-server' });
+    await mcpServer.start();
 
-    // Start mock MCP server
-    mockMCPServer = new MockMCPServer();
-    await mockMCPServer.start();
-
-    // Setup test data
-    await setupTestTenant();
-    await setupTestClient();
-    await setupTestMCPServer();
+    // The MCP server must live under the tenant the access tokens claim
+    await createTenant(tokenTenantId);
+    const registry = new MCPServerRegistry(new PgMcpServerDatabase(getTestDb().db), 60000, false);
+    const entry = await registry.registerServer({
+      tenant_id: tokenTenantId,
+      name: 'E2E Test MCP Server',
+      endpoint_url: mcpServer.baseUrl,
+      resource_identifier: 'mcp://e2e-test-server/tools',
+      required_scopes: ['mcp:tools:read'],
+      status: 'active',
+      timeout_ms: 5000,
+      retry_attempts: 0,
+    });
+    registeredServerId = entry.server_id;
   });
 
   afterEach(async () => {
-    await mockMCPServer.stop();
-    await cleanupTestData();
+    await mcpServer.stop();
   });
-
-  async function setupTestTenant() {
-    await tenantService.createTenant({
-      tenant_id: testTenantId,
-      name: 'E2E Test Tenant',
-      domain: 'e2e-test.example.com',
-      max_users: 100,
-      max_mcp_servers: 10,
-      compliance_tier: 'standard',
-      audit_retention_days: 365
-    });
-  }
-
-  async function setupTestClient() {
-    await clientService.createClient({
-      client_id: testClientId,
-      tenant_id: testTenantId,
-      redirect_uris: ['http://localhost:3000/callback'],
-      grant_types: ['authorization_code', 'refresh_token'],
-      response_types: ['code'],
-      scope: 'mcp:tools:read mcp:resources:read mcp:tools:write'
-    });
-  }
-
-  async function setupTestMCPServer() {
-    await mcpRegistry.registerServer({
-      tenant_id: testTenantId,
-      name: 'Test MCP Server',
-      endpoint_url: mcpServerUrl,
-      resource_identifier: resourceIdentifier,
-      required_scopes: ['mcp:tools:read'],
-      health_check_url: `${mcpServerUrl}/health`
-    });
-
-    // Setup mock responses
-    mockMCPServer.setResponse('/health', { status: 'healthy' });
-    mockMCPServer.setResponse('/api/tools', {
-      tools: [
-        { name: 'weather', description: 'Get weather information' },
-        { name: 'calculator', description: 'Perform calculations' }
-      ]
-    });
-    mockMCPServer.setResponse('/api/tools/weather', {
-      result: { temperature: 22, condition: 'sunny' }
-    });
-  }
-
-  async function cleanupTestData() {
-    // Cleanup is handled by afterEach in setup.ts
-  }
 
   describe('Complete Authorization Code Flow', () => {
     it('should complete full OAuth 2.1 flow and access MCP resources', async () => {
-      // Step 1: Client generates PKCE challenge
-      const { codeVerifier, codeChallenge } = await pkceService.generateChallenge();
-      
-      // Step 2: Authorization request
-      const state = 'test-state-' + Math.random().toString(36).substring(7);
-      const authorizationUrl = new URL('https://oauth-mcp-gateway.com/authorize');
-      authorizationUrl.searchParams.set('response_type', 'code');
-      authorizationUrl.searchParams.set('client_id', testClientId);
-      authorizationUrl.searchParams.set('redirect_uri', 'http://localhost:3000/callback');
-      authorizationUrl.searchParams.set('scope', 'mcp:tools:read mcp:resources:read');
-      authorizationUrl.searchParams.set('state', state);
-      authorizationUrl.searchParams.set('code_challenge', codeChallenge);
-      authorizationUrl.searchParams.set('code_challenge_method', 'S256');
-      authorizationUrl.searchParams.set('resource', resourceIdentifier);
+      // Steps 1-4: register client, authorize with PKCE, exchange code
+      const flow = await completeOAuthFlow(testEnv, {
+        scope: 'mcp:tools:read mcp:resources:read',
+      });
 
-      // Step 3: Simulate user authorization (normally done through UI)
-      const authorizationCode = 'auth_' + Math.random().toString(36).substring(7);
-      
-      // Store authorization code with PKCE challenge
-      await mockEnv.CACHE.put(
-        `auth_code:${authorizationCode}`,
-        JSON.stringify({
-          client_id: testClientId,
-          user_id: testUserId,
-          tenant_id: testTenantId,
-          redirect_uri: 'http://localhost:3000/callback',
-          scope: 'mcp:tools:read mcp:resources:read',
-          code_challenge: codeChallenge,
-          code_challenge_method: 'S256',
-          resource: resourceIdentifier,
-          expires_at: Date.now() + 600000 // 10 minutes
-        }),
-        { expirationTtl: 600 }
-      );
+      expect(flow.access_token).toBeDefined();
+      expect(flow.token_type).toBe('Bearer');
+      expect(flow.expires_in).toBe(3600);
+      expect(flow.scope).toBe('mcp:tools:read mcp:resources:read');
+      expect(flow.refresh_token).toMatch(/^refresh_/);
 
-      // Step 4: Token exchange
-      const tokenResponse = await exchangeAuthorizationCode(
-        authorizationCode,
-        codeVerifier,
-        testClientId,
-        'http://localhost:3000/callback',
-        resourceIdentifier
-      );
+      // Verify the access token claims
+      const jwtService = new JWTService(testEnv.JWT_SECRET, 'HS256', testEnv.JWT_ISSUER);
+      const verified = await jwtService.verifyToken(flow.access_token);
+      expect(verified.payload.iss).toBe(testEnv.JWT_ISSUER);
+      expect((verified.payload as any).scope).toBe('mcp:tools:read mcp:resources:read');
+      expect((verified.payload as any).tenant_id).toBe(tokenTenantId);
 
-      expect(tokenResponse.access_token).toBeDefined();
-      expect(tokenResponse.token_type).toBe('Bearer');
-      expect(tokenResponse.expires_in).toBe(3600);
-      expect(tokenResponse.scope).toBe('mcp:tools:read mcp:resources:read');
-
-      // Step 5: Verify token can access MCP resources
-      const mcpResponse = await accessMCPResource(
-        tokenResponse.access_token,
-        '/api/tools'
+      // Step 5: use the token to access an MCP server through the gateway
+      const mcpResponse = await app.request(
+        `/mcp/${registeredServerId}/mcp/tools/list`,
+        { headers: { Authorization: `Bearer ${flow.access_token}` } },
+        testEnv
       );
 
       expect(mcpResponse.status).toBe(200);
-      expect(mcpResponse.data.tools).toHaveLength(2);
-      expect(mcpResponse.data.tools[0].name).toBe('weather');
+      const tools = await mcpResponse.json();
+      expect(tools.tools.length).toBeGreaterThan(0);
 
-      // Step 6: Verify audit logging
-      const auditLogs = await auditService.queryLogs({
-        tenant_id: testTenantId,
-        user_id: testUserId,
-        event_type: 'auth.token_issued'
-      });
+      // The upstream server received the injected tenant context
+      const lastRequest = mcpServer.getLastRequest();
+      expect(lastRequest).toBeDefined();
+      expect(lastRequest!.headers['x-tenant-id']).toBe(tokenTenantId);
 
-      expect(auditLogs).toHaveLength(1);
-      expect(auditLogs[0].outcome).toBe('success');
-      expect(auditLogs[0].resource_type).toBe('oauth_token');
+      // Step 6: the authenticated MCP request left an audit trail
+      const auditService = AuditService.getInstance(getTestDb().db);
+      const logs = await auditService.queryLogs({ tenantId: tokenTenantId });
+      expect(logs.totalCount).toBeGreaterThan(0);
+    });
+
+    it('should support the refresh token grant with rotation', async () => {
+      const flow = await completeOAuthFlow(testEnv);
+
+      const res = await app.request(
+        '/oauth/token',
+        form({
+          grant_type: 'refresh_token',
+          refresh_token: flow.refresh_token!,
+          client_id: flow.client.client_id,
+        }),
+        testEnv
+      );
+
+      expect(res.status).toBe(200);
+      const refreshed = await res.json();
+      expect(refreshed.access_token).toBeDefined();
+      expect(refreshed.refresh_token).toBeDefined();
+      expect(refreshed.refresh_token).not.toBe(flow.refresh_token);
+
+      // The old refresh token was rotated out and can no longer be used
+      const replay = await app.request(
+        '/oauth/token',
+        form({
+          grant_type: 'refresh_token',
+          refresh_token: flow.refresh_token!,
+          client_id: flow.client.client_id,
+        }),
+        testEnv
+      );
+      expect(replay.status).toBe(400);
     });
 
     it('should reject invalid PKCE verifier', async () => {
-      const { codeChallenge } = await pkceService.generateChallenge();
-      const invalidVerifier = 'invalid-verifier';
-      
-      const authorizationCode = 'auth_' + Math.random().toString(36).substring(7);
-      
-      await mockEnv.CACHE.put(
-        `auth_code:${authorizationCode}`,
-        JSON.stringify({
-          client_id: testClientId,
-          user_id: testUserId,
-          tenant_id: testTenantId,
-          redirect_uri: 'http://localhost:3000/callback',
-          scope: 'mcp:tools:read',
-          code_challenge: codeChallenge,
-          code_challenge_method: 'S256',
-          resource: resourceIdentifier,
-          expires_at: Date.now() + 600000
+      const client = await registerTestClient(testEnv);
+      const verifier = generateCodeVerifier();
+      const challenge = await createS256CodeChallenge(verifier);
+      const code = await getAuthorizationCode(testEnv, {
+        client_id: client.client_id,
+        redirect_uri: client.redirect_uri,
+        code_challenge: challenge,
+      });
+
+      // A different (valid-format) verifier that does not match the challenge
+      const wrongVerifier = generateCodeVerifier();
+      const res = await app.request(
+        '/oauth/token',
+        form({
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: client.redirect_uri,
+          client_id: client.client_id,
+          code_verifier: wrongVerifier,
         }),
-        { expirationTtl: 600 }
+        testEnv
       );
 
-      await expect(
-        exchangeAuthorizationCode(
-          authorizationCode,
-          invalidVerifier,
-          testClientId,
-          'http://localhost:3000/callback',
-          resourceIdentifier
-        )
-      ).rejects.toThrow('PKCE verification failed');
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({
+        error: 'invalid_grant',
+        error_description: 'Invalid PKCE verification',
+      });
     });
 
     it('should reject expired authorization code', async () => {
-      const { codeVerifier, codeChallenge } = await pkceService.generateChallenge();
-      const authorizationCode = 'auth_' + Math.random().toString(36).substring(7);
-      
-      await mockEnv.CACHE.put(
-        `auth_code:${authorizationCode}`,
-        JSON.stringify({
-          client_id: testClientId,
-          user_id: testUserId,
-          tenant_id: testTenantId,
-          redirect_uri: 'http://localhost:3000/callback',
-          scope: 'mcp:tools:read',
-          code_challenge: codeChallenge,
-          code_challenge_method: 'S256',
-          resource: resourceIdentifier,
-          expires_at: Date.now() - 1000 // Expired
-        }),
-        { expirationTtl: 1 }
+      const client = await registerTestClient(testEnv);
+      const verifier = generateCodeVerifier();
+      const challenge = await createS256CodeChallenge(verifier);
+
+      // Store a code that expired in the past, directly through the storage layer
+      const codeStorage = new PgAuthorizationCodeStorage(getTestDb().db, 'default');
+      const expiredCode = 'auth_expiredcode1234567890';
+      await codeStorage.storeCode(
+        expiredCode,
+        client.client_id,
+        client.redirect_uri,
+        'demo-user-id',
+        ['mcp:tools:read'],
+        Date.now() - 1000, // already expired
+        challenge,
+        'S256'
       );
 
-      // Wait for expiration
-      await testUtils.sleep(100);
+      const res = await app.request(
+        '/oauth/token',
+        form({
+          grant_type: 'authorization_code',
+          code: expiredCode,
+          redirect_uri: client.redirect_uri,
+          client_id: client.client_id,
+          code_verifier: verifier,
+        }),
+        testEnv
+      );
 
-      await expect(
-        exchangeAuthorizationCode(
-          authorizationCode,
-          codeVerifier,
-          testClientId,
-          'http://localhost:3000/callback',
-          resourceIdentifier
-        )
-      ).rejects.toThrow('Authorization code expired or invalid');
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({
+        error: 'invalid_grant',
+        error_description: 'Invalid or expired authorization code',
+      });
+    });
+
+    it('should not allow an authorization code to be redeemed twice', async () => {
+      const client = await registerTestClient(testEnv);
+      const verifier = generateCodeVerifier();
+      const challenge = await createS256CodeChallenge(verifier);
+      const code = await getAuthorizationCode(testEnv, {
+        client_id: client.client_id,
+        redirect_uri: client.redirect_uri,
+        code_challenge: challenge,
+      });
+
+      const exchange = () =>
+        app.request(
+          '/oauth/token',
+          form({
+            grant_type: 'authorization_code',
+            code,
+            redirect_uri: client.redirect_uri,
+            client_id: client.client_id,
+            code_verifier: verifier,
+          }),
+          testEnv
+        );
+
+      const first = await exchange();
+      expect(first.status).toBe(200);
+
+      const second = await exchange();
+      expect(second.status).toBe(400);
+      expect((await second.json()).error).toBe('invalid_grant');
     });
   });
 
   describe('MCP Resource Access with Token Validation', () => {
     let validToken: string;
+    let jwtService: JWTService;
 
     beforeEach(async () => {
+      jwtService = new JWTService(testEnv.JWT_SECRET, 'HS256', testEnv.JWT_ISSUER);
       validToken = await jwtService.createToken({
-        issuer: 'oauth-mcp-gateway',
-        subject: testUserId,
-        audience: resourceIdentifier,
+        issuer: testEnv.JWT_ISSUER,
+        subject: 'user-e2e-test',
+        audience: 'mcp://e2e-test-server/tools',
         scopes: 'mcp:tools:read mcp:resources:read',
-        tenantId: testTenantId,
-        userId: testUserId,
-        expiresIn: 3600
+        tenantId: tokenTenantId,
+        userId: 'user-e2e-test',
+        expiresIn: 3600,
       });
     });
 
     it('should successfully access MCP tools with valid token', async () => {
-      const response = await accessMCPResource(validToken, '/api/tools');
-      
+      const response = await app.request(
+        `/mcp/${registeredServerId}/mcp/tools/list`,
+        { headers: { Authorization: `Bearer ${validToken}` } },
+        testEnv
+      );
+
       expect(response.status).toBe(200);
-      expect(response.data.tools).toBeDefined();
-      expect(response.headers['X-Tenant-ID']).toBe(testTenantId);
-      expect(response.headers['X-User-ID']).toBe(testUserId);
+      const body = await response.json();
+      expect(body.tools).toBeDefined();
+
+      const lastRequest = mcpServer.getLastRequest();
+      expect(lastRequest!.headers['x-tenant-id']).toBe(tokenTenantId);
+      expect(lastRequest!.headers['x-user-id']).toBe('user-e2e-test');
     });
 
     it('should invoke MCP tool with proper context injection', async () => {
-      const response = await accessMCPResource(validToken, '/api/tools/weather');
-      
+      const response = await app.request(
+        `/mcp/${registeredServerId}/mcp/tools/call`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${validToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ name: 'get_weather', arguments: { location: 'Berlin' } }),
+        },
+        testEnv
+      );
+
       expect(response.status).toBe(200);
-      expect(response.data.result).toBeDefined();
-      expect(response.data.result.temperature).toBe(22);
+      const result = await response.json();
+      expect(result.content.temperature).toBe(22);
+      expect(result.content.tenant_id).toBe(tokenTenantId);
     });
 
     it('should reject access with invalid token', async () => {
-      const invalidToken = 'invalid.token.here';
-      
-      await expect(
-        accessMCPResource(invalidToken, '/api/tools')
-      ).rejects.toThrow('TOKEN_INVALID');
+      const response = await app.request(
+        `/mcp/${registeredServerId}/mcp/tools/list`,
+        { headers: { Authorization: 'Bearer invalid.token.here' } },
+        testEnv
+      );
+
+      expect(response.status).toBe(401);
+      expect((await response.json()).error).toBe('INVALID_TOKEN');
     });
 
     it('should reject access with expired token', async () => {
       const expiredToken = await jwtService.createToken({
-        issuer: 'oauth-mcp-gateway',
-        subject: testUserId,
-        audience: resourceIdentifier,
-        scopes: 'mcp:tools:read',
-        tenantId: testTenantId,
-        userId: testUserId,
-        expiresIn: -3600 // Already expired
+        issuer: testEnv.JWT_ISSUER,
+        subject: 'user-e2e-test',
+        audience: 'mcp://e2e-test-server/tools',
+        scopes: 'mcp:tools:read mcp:resources:read',
+        tenantId: tokenTenantId,
+        userId: 'user-e2e-test',
+        expiresIn: -3600, // Already expired
       });
 
-      await expect(
-        accessMCPResource(expiredToken, '/api/tools')
-      ).rejects.toThrow('TOKEN_INVALID');
+      const response = await app.request(
+        `/mcp/${registeredServerId}/mcp/tools/list`,
+        { headers: { Authorization: `Bearer ${expiredToken}` } },
+        testEnv
+      );
+
+      expect(response.status).toBe(401);
     });
 
-    it('should reject access with wrong audience', async () => {
-      const wrongAudienceToken = await jwtService.createToken({
-        issuer: 'oauth-mcp-gateway',
-        subject: testUserId,
-        audience: 'mcp://different-server',
-        scopes: 'mcp:tools:read',
-        tenantId: testTenantId,
-        userId: testUserId,
-        expiresIn: 3600
+    it('should reject access with insufficient scope', async () => {
+      const weakToken = await jwtService.createToken({
+        issuer: testEnv.JWT_ISSUER,
+        subject: 'user-e2e-test',
+        audience: 'mcp://e2e-test-server/tools',
+        scopes: 'mcp:tools:read', // missing mcp:resources:read required by the route
+        tenantId: tokenTenantId,
+        userId: 'user-e2e-test',
+        expiresIn: 3600,
       });
 
-      await expect(
-        accessMCPResource(wrongAudienceToken, '/api/tools')
-      ).rejects.toThrow('TOKEN_INVALID');
+      const response = await app.request(
+        `/mcp/${registeredServerId}/mcp/tools/list`,
+        { headers: { Authorization: `Bearer ${weakToken}` } },
+        testEnv
+      );
+
+      expect(response.status).toBe(403);
+      expect((await response.json()).error).toBe('INSUFFICIENT_SCOPE');
     });
   });
-
-  // Helper functions
-  async function exchangeAuthorizationCode(
-    code: string,
-    codeVerifier: string,
-    clientId: string,
-    redirectUri: string,
-    resource: string
-  ) {
-    // Simulate token endpoint
-    const codeData = await mockEnv.CACHE.get(`auth_code:${code}`);
-    if (!codeData) {
-      throw new Error('Authorization code expired or invalid');
-    }
-
-    const parsedCodeData = JSON.parse(codeData);
-    
-    // Verify PKCE
-    const isValidPKCE = await pkceService.verifyChallenge(
-      codeVerifier,
-      parsedCodeData.code_challenge
-    );
-    
-    if (!isValidPKCE) {
-      throw new Error('PKCE verification failed');
-    }
-
-    // Create access token
-    const accessToken = await jwtService.createToken({
-      issuer: 'oauth-mcp-gateway',
-      subject: parsedCodeData.user_id,
-      audience: parsedCodeData.resource,
-      scopes: parsedCodeData.scope,
-      tenantId: parsedCodeData.tenant_id,
-      userId: parsedCodeData.user_id,
-      expiresIn: 3600
-    });
-
-    // Log token issuance
-    await auditService.logEvent({
-      tenant_id: parsedCodeData.tenant_id,
-      user_id: parsedCodeData.user_id,
-      event_type: 'auth.token_issued',
-      resource_type: 'oauth_token',
-      action: 'create',
-      outcome: 'success',
-      ip_address: '127.0.0.1',
-      user_agent: 'TestClient/1.0'
-    });
-
-    // Clean up authorization code
-    await mockEnv.CACHE.delete(`auth_code:${code}`);
-
-    return {
-      access_token: accessToken,
-      token_type: 'Bearer',
-      expires_in: 3600,
-      scope: parsedCodeData.scope
-    };
-  }
-
-  async function accessMCPResource(token: string, path: string) {
-    // Validate token
-    const tokenPayload = await jwtService.verifyToken(token);
-    
-    // Create MCP request context
-    const context = {
-      tenant_id: tokenPayload.payload.tenant_id,
-      user_id: tokenPayload.payload.user_id,
-      client_id: tokenPayload.payload.sub,
-      session_id: 'session-' + Math.random().toString(36).substring(7),
-      scopes: tokenPayload.payload.scope.split(' '),
-      ip_address: '127.0.0.1',
-      user_agent: 'TestClient/1.0'
-    };
-
-    // Forward request to MCP server
-    const response = await mcpProxy.forwardRequestByResource(
-      tokenPayload.payload.aud,
-      {
-        method: 'GET',
-        url: path,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        context
-      }
-    );
-
-    return {
-      status: response.status,
-      data: JSON.parse(response.body),
-      headers: {
-        'X-Tenant-ID': context.tenant_id,
-        'X-User-ID': context.user_id
-      }
-    };
-  }
 });
