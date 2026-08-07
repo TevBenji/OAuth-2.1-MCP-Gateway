@@ -1,5 +1,7 @@
 # OAuth 2.1 MCP Gateway
 
+![CI](https://github.com/TevBenji/OAuth-2.1-MCP-Gateway/actions/workflows/ci.yml/badge.svg) ![license](https://img.shields.io/badge/license-MIT-22c55e?style=flat-square) ![oauth](https://img.shields.io/badge/OAuth_2.1-PKCE_required-f97316?style=flat-square) ![mcp](https://img.shields.io/badge/MCP-gateway-8b5cf6?style=flat-square) ![pg](https://img.shields.io/badge/PostgreSQL-self--hosted-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+
 A self-hosted OAuth 2.1 authorization server and reverse proxy for
 [Model Context Protocol](https://modelcontextprotocol.io) servers. Put it in
 front of your MCP servers and replace static API keys with PKCE-mandatory
