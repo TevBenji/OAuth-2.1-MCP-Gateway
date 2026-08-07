@@ -159,6 +159,8 @@ export interface SessionStorage {
   getUserSessions(tenantId: string, userId: string): Promise<Session[]>;
   deleteUserSessions(tenantId: string, userId: string): Promise<number>;
   cleanupExpiredSessions(): Promise<number>;
+  /** Issue a new session ID on authentication (prevents session fixation). */
+  regenerateSessionOnAuth(oldSessionId: string): Promise<string>;
 }
 
 /**

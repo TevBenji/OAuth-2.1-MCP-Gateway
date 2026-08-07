@@ -125,12 +125,11 @@ export const authorizationCodes = pgTable(
       .references(() => tenants.tenantId, { onDelete: 'cascade' }),
     redirectUri: text('redirect_uri').notNull(),
     scope: text('scope'),
-    codeChallenge: text('code_challenge').notNull(),
+    codeChallenge: text('code_challenge'),
     codeChallengeMethod: text('code_challenge_method').$type<'S256'>().notNull().default('S256'),
     // RFC 8707 resource indicator
     resource: text('resource'),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-    usedAt: timestamp('used_at', { withTimezone: true }),
     createdAt: createdAt(),
   },
   t => [

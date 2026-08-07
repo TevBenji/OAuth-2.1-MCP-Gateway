@@ -2,7 +2,7 @@ import { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { v4 as uuidv4 } from 'uuid';
 import type { Bindings } from '../../types/bindings';
-import { D1AuthorizationCodeStorage } from '../../storage/d1-authorization-code-storage';
+import { PgAuthorizationCodeStorage } from '../../storage/pg-authorization-code-storage';
 import {
   createInvalidRequestError,
   createUnsupportedResponseTypeError,
@@ -31,16 +31,15 @@ export interface AuthorizationRequest {
  */
 export const handleAuthorization = async (c: Context<{ Bindings: Bindings }>) => {
   try {
-    // Initialize D1 storage (production-ready)
     const db = c.env?.DB;
-    const tenantId = c.env?.TENANT_ID || 'default-tenant';
+    const tenantId = c.env?.TENANT_ID || 'default';
 
     if (!db) {
-      console.error('D1 database not configured');
+      console.error('Database not configured');
       throw new HTTPException(500, { message: 'Database configuration error' });
     }
 
-    const codeStorage = new D1AuthorizationCodeStorage(db, tenantId);
+    const codeStorage = new PgAuthorizationCodeStorage(db, tenantId);
 
     // Extract query parameters
     const request: AuthorizationRequest = {
@@ -111,11 +110,9 @@ export const handleAuthorization = async (c: Context<{ Bindings: Bindings }>) =>
     // SECURITY FIX: Regenerate session ID after successful authentication
     // This prevents session fixation attacks
     const sessionId = c.req.header('X-Session-ID') || c.req.header('Cookie')?.match(/session_id=([^;]+)/)?.[1];
-    if (sessionId && c.env?.SESSION_KV) {
+    if (sessionId && c.env?.SESSIONS) {
       try {
-        const { SessionStorageKV } = await import('../../services/security/session-storage-kv');
-        const sessionStorage = new SessionStorageKV(c.env.SESSION_KV);
-        const newSessionId = await sessionStorage.regenerateSessionOnAuth(sessionId);
+        const newSessionId = await c.env.SESSIONS.regenerateSessionOnAuth(sessionId);
         // Set new session ID in response cookie
         c.header('Set-Cookie', `session_id=${newSessionId}; HttpOnly; Secure; SameSite=Strict; Path=/`);
       } catch (error) {

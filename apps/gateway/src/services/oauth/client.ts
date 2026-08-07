@@ -5,14 +5,16 @@
  * with multi-tenant support and security features.
  */
 
+import { and, eq } from 'drizzle-orm';
+import { oauthClients, type Db } from '@oauth-mcp-gateway/db';
 import type { ClientRegistrationRequest, ClientRegistrationResponse, OAuthClient } from '@/types/oauth';
-import { OAUTH_CONSTANTS, DATABASE_CONSTANTS } from '@/utils/constants';
+import { OAUTH_CONSTANTS } from '@/utils/constants';
 
 /**
  * OAuth Client Service
  */
 export class ClientService {
-  constructor(private db: D1Database) {}
+  constructor(private db: Db) {}
 
   /**
    * Register a new OAuth client with secure ID generation
@@ -90,30 +92,36 @@ export class ClientService {
    * Retrieve client by client_id with tenant isolation
    */
   async getClient(clientId: string, tenantId?: string): Promise<OAuthClient | null> {
-    let query = `
-      SELECT * FROM ${DATABASE_CONSTANTS.TABLES.OAUTH_CLIENTS}
-      WHERE client_id = ?
-    `;
-    const params: any[] = [clientId];
-    
-    if (tenantId) {
-      query += ' AND tenant_id = ?';
-      params.push(tenantId);
-    }
-    
-    const result = await this.db.prepare(query).bind(...params).first<OAuthClient>();
-    
-    if (!result) {
+    const where = tenantId
+      ? and(eq(oauthClients.clientId, clientId), eq(oauthClients.tenantId, tenantId))
+      : eq(oauthClients.clientId, clientId);
+
+    const [row] = await this.db.select().from(oauthClients).where(where).limit(1);
+    if (!row) {
       return null;
     }
-    
-    // Parse JSON arrays
+
     return {
-      ...result,
-      redirect_uris: JSON.parse(result.redirect_uris as any),
-      grant_types: JSON.parse(result.grant_types as any),
-      response_types: JSON.parse(result.response_types as any),
-      contacts: result.contacts ? JSON.parse(result.contacts as any) : undefined
+      client_id: row.clientId,
+      client_secret: row.clientSecret ?? undefined,
+      tenant_id: row.tenantId,
+      redirect_uris: row.redirectUris,
+      grant_types: row.grantTypes,
+      response_types: row.responseTypes,
+      scope: row.scope ?? undefined,
+      client_name: row.clientName ?? undefined,
+      client_uri: row.clientUri ?? undefined,
+      logo_uri: row.logoUri ?? undefined,
+      contacts: row.contacts ?? undefined,
+      tos_uri: row.tosUri ?? undefined,
+      policy_uri: row.policyUri ?? undefined,
+      token_endpoint_auth_method: row.tokenEndpointAuthMethod,
+      client_id_issued_at: Math.floor(row.clientIdIssuedAt.getTime() / 1000),
+      client_secret_expires_at: row.clientSecretExpiresAt
+        ? Math.floor(row.clientSecretExpiresAt.getTime() / 1000)
+        : undefined,
+      created_at: row.createdAt.toISOString(),
+      updated_at: row.updatedAt.toISOString(),
     };
   }
 
@@ -204,12 +212,11 @@ export class ClientService {
    * Delete client registration
    */
   async deleteClient(clientId: string, tenantId: string): Promise<boolean> {
-    const result = await this.db
-      .prepare(`DELETE FROM ${DATABASE_CONSTANTS.TABLES.OAUTH_CLIENTS} WHERE client_id = ? AND tenant_id = ?`)
-      .bind(clientId, tenantId)
-      .run();
-    
-    return result.meta.changes > 0;
+    const rows = await this.db
+      .delete(oauthClients)
+      .where(and(eq(oauthClients.clientId, clientId), eq(oauthClients.tenantId, tenantId)))
+      .returning({ clientId: oauthClients.clientId });
+    return rows.length > 0;
   }
 
   /**
@@ -248,38 +255,35 @@ export class ClientService {
    * Store client in database
    */
   private async storeClient(client: Omit<OAuthClient, 'created_at' | 'updated_at'>): Promise<void> {
-    const now = new Date().toISOString();
-    
+    const values = {
+      clientId: client.client_id,
+      clientSecret: client.client_secret ?? null,
+      tenantId: client.tenant_id,
+      redirectUris: client.redirect_uris,
+      grantTypes: client.grant_types,
+      responseTypes: client.response_types,
+      scope: client.scope ?? null,
+      clientName: client.client_name ?? null,
+      clientUri: client.client_uri ?? null,
+      logoUri: client.logo_uri ?? null,
+      contacts: client.contacts ?? null,
+      tosUri: client.tos_uri ?? null,
+      policyUri: client.policy_uri ?? null,
+      tokenEndpointAuthMethod:
+        client.token_endpoint_auth_method as 'none' | 'client_secret_post' | 'client_secret_basic',
+      clientType: (client.token_endpoint_auth_method === 'none'
+        ? 'public'
+        : 'confidential') as 'public' | 'confidential',
+      clientIdIssuedAt: new Date(client.client_id_issued_at * 1000),
+      clientSecretExpiresAt: client.client_secret_expires_at
+        ? new Date(client.client_secret_expires_at * 1000)
+        : null,
+    };
+
     await this.db
-      .prepare(`
-        INSERT OR REPLACE INTO ${DATABASE_CONSTANTS.TABLES.OAUTH_CLIENTS} (
-          client_id, client_secret, tenant_id, redirect_uris, grant_types,
-          response_types, scope, client_name, client_uri, logo_uri,
-          contacts, tos_uri, policy_uri, token_endpoint_auth_method,
-          client_id_issued_at, client_secret_expires_at, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `)
-      .bind(
-        client.client_id,
-        client.client_secret,
-        client.tenant_id,
-        JSON.stringify(client.redirect_uris),
-        JSON.stringify(client.grant_types),
-        JSON.stringify(client.response_types),
-        client.scope,
-        client.client_name,
-        client.client_uri,
-        client.logo_uri,
-        client.contacts ? JSON.stringify(client.contacts) : null,
-        client.tos_uri,
-        client.policy_uri,
-        client.token_endpoint_auth_method,
-        client.client_id_issued_at,
-        client.client_secret_expires_at,
-        now,
-        now
-      )
-      .run();
+      .insert(oauthClients)
+      .values(values)
+      .onConflictDoUpdate({ target: oauthClients.clientId, set: values });
   }
 
   /**

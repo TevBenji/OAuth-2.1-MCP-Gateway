@@ -264,8 +264,8 @@ export const registerPreflight = async (c: Context) => {
     const allowedOrigins = process.env.CORS_ORIGINS
       ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
       : ['http://localhost:3000', 'https://localhost:3000'];
-    
-    if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+
+    if (allowedOrigins.includes(origin)) {
       c.header('Access-Control-Allow-Origin', origin);
     }
   } else {
@@ -275,5 +275,5 @@ export const registerPreflight = async (c: Context) => {
   c.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
   c.header('Access-Control-Allow-Headers', 'Content-Type, X-Tenant-ID');
   c.header('Vary', 'Origin'); // Important for caching when using origin-based CORS
-  return c.text('', HTTP_STATUS.NO_CONTENT);
+  return c.body(null, 204);
 };

@@ -14,14 +14,14 @@ import type { MCPRequestContext } from '../types/mcp';
 import { RiskService } from '../services/security/risk';
 import { auditService } from '../services/security/audit';
 import { AuditLogEntry } from '../types/audit';
-import { KVNamespace } from '@cloudflare/workers-types';
+import type { KVLike } from '../lib/memory-kv';
 
 // Environment bindings type
 interface Bindings {
   JWT_SECRET: string;
   JWT_ALGORITHM?: 'RS256' | 'HS256';
   ISSUER?: string;
-  RISK_KV: KVNamespace;
+  RISK_KV: KVLike;
 }
 
 /**

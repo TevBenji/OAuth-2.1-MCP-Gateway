@@ -1,5 +1,5 @@
 {
-  "id": "b9fcc8d0-3197-473e-98a8-c65fe127b257",
+  "id": "fc297d4b-983b-4e9c-b438-f7da83d6705d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -305,7 +305,7 @@
           "name": "code_challenge",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "code_challenge_method": {
           "name": "code_challenge_method",
@@ -325,12 +325,6 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
-        },
-        "used_at": {
-          "name": "used_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         },
         "created_at": {
           "name": "created_at",

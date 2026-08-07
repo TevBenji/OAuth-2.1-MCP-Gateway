@@ -1,36 +1,27 @@
 /**
- * Cloudflare Workers Bindings
- * 
- * Type definitions for Cloudflare Workers environment bindings
- * including KV namespaces, D1 databases, and environment variables.
+ * Per-request environment passed to Hono via `app.fetch(request, env)`.
+ *
+ * In production this is built once at startup (see server.ts); tests build
+ * lightweight fakes of the same shape.
  */
+import type { Db } from '@oauth-mcp-gateway/db';
+import type { SessionStorage } from './session';
+import type { KVLike } from '../lib/memory-kv';
 
 export interface Bindings {
-  // KV Namespaces
-  SESSIONS: KVNamespace;
-  CACHE: KVNamespace;
-  SESSION_KV?: KVNamespace; // Optional session KV namespace
-  
-  // D1 Database
-  DB: D1Database;
-  
-  // Environment Variables
   ENVIRONMENT: 'development' | 'staging' | 'production';
   JWT_ISSUER: string;
-  JWT_SECRET?: string; // Optional JWT secret for token generation
-  JWT_ALGORITHM?: string; // Optional JWT algorithm
-  TENANT_ID?: string; // Optional tenant ID
+  JWT_SECRET: string;
+  JWT_ALGORITHM?: string;
+  TENANT_ID?: string;
   CORS_ORIGINS: string;
-  
-  // Rate limiting Durable Objects
-  RATE_LIMIT_DO?: DurableObjectNamespace; // Optional rate limit DO
-  RATE_LIMIT_KV?: KVNamespace; // Optional rate limit KV
-  
-  // Optional secrets (set via wrangler secret)
-  JWT_PRIVATE_KEY?: string;
-  JWT_PUBLIC_KEY?: string;
-  DATABASE_URL?: string;
-  
+  /** Bearer token protecting /admin/api/* */
+  ADMIN_TOKEN?: string;
+
+  DB: Db;
+  SESSIONS: SessionStorage;
+  CACHE: KVLike;
+
   // Index signature for Hono compatibility
   [key: string]: unknown;
 }

@@ -1,8 +1,8 @@
 /**
- * OAuth 2.1 MCP Gateway - Main Entry Point
+ * OAuth 2.1 MCP Gateway - Hono application.
  *
- * This is the main entry point for the Cloudflare Workers runtime.
- * It sets up the Hono application with all middleware and routes.
+ * Runtime-agnostic: the Node entry point (server.ts) injects the environment
+ * via app.fetch(request, env); tests inject fakes the same way.
  */
 
 import { Hono } from 'hono';
@@ -17,8 +17,10 @@ import adminApi from './handlers/admin/api';
 import { authMiddleware, requireScopes } from './middleware/auth';
 import { rateLimitMiddleware, ipRateLimitMiddleware } from './middleware/rate-limit';
 import { RateLimiter } from './services/security/rate-limiter';
-import { RateLimitStorageKV } from './services/security/rate-limit-storage-kv';
-import { createRateLimitStorageDO } from './services/security/rate-limit-storage-do';
+import { RateLimitStorageMemory } from './services/security/rate-limit-storage-memory';
+import { MCPServerRegistry } from './services/mcp/registry';
+import { MCPProxyService } from './services/mcp/proxy';
+import { PgMcpServerDatabase } from './storage/pg-mcp-server-database';
 
 // Define context variables for type safety
 type Variables = {
@@ -29,26 +31,21 @@ type Variables = {
   tokenPayload?: any;
   session?: any;
   deviceInfo?: any;
+  proxyService?: MCPProxyService;
 };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
-// CORS middleware
+// CORS middleware — allowed origins come from CORS_ORIGINS (comma-separated)
 app.use(
   '*',
   cors({
-    origin: origin => {
-      // Allow requests from MCP clients and admin interfaces
-      const allowedOrigins = [
-        'http://localhost:3000',
-        'https://claude.ai',
-        'https://chatgpt.com',
-        'https://cursor.sh',
-      ];
-      if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
-        return origin;
-      }
-      return null;
+    origin: (origin, c) => {
+      const allowed = String(c.env?.CORS_ORIGINS ?? '')
+        .split(',')
+        .map(o => o.trim())
+        .filter(Boolean);
+      return allowed.includes(origin) ? origin : null;
     },
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
@@ -64,9 +61,9 @@ app.get('/.well-known/oauth-authorization-server', c => {
   const issuer = c.env?.JWT_ISSUER || 'https://test.oauth-mcp-gateway.com';
   return c.json({
     issuer,
-    authorization_endpoint: `${issuer}/authorize`,
-    token_endpoint: `${issuer}/token`,
-    registration_endpoint: `${issuer}/register`,
+    authorization_endpoint: `${issuer}/oauth/authorize`,
+    token_endpoint: `${issuer}/oauth/token`,
+    registration_endpoint: `${issuer}/oauth/register`,
     scopes_supported: [
       'mcp:tools:read',
       'mcp:tools:write',
@@ -80,38 +77,26 @@ app.get('/.well-known/oauth-authorization-server', c => {
   });
 });
 
-// Create rate limiter with Durable Objects storage (falls back to KV if DO not available)
-const createRateLimiter = (env: any) => {
-  // Handle undefined env for testing
-  if (!env) {
-    // Create a mock storage for testing
-    const mockStorage = {
-      get: async () => 0,
-      put: async () => {},
-      delete: async () => {},
-      increment: async () => 1,
-      isBlocked: async () => false,
-      block: async () => {},
-      unblock: async () => {},
-      getBlockInfo: async () => null,
-      reset: async () => {},
-    };
-    return new RateLimiter(mockStorage as any);
-  }
+// Process-wide rate limiter backed by in-memory counters.
+const rateLimiter = new RateLimiter(new RateLimitStorageMemory());
+const createRateLimiter = (_env: unknown) => rateLimiter;
 
-  // Prefer Durable Objects for atomic consistency, fallback to KV
-  if (env.RATE_LIMIT_DO) {
-    const storage = createRateLimitStorageDO(
-      env.RATE_LIMIT_DO,
-      env.RATE_LIMIT_KV || env.CACHE
-    );
-    return new RateLimiter(storage);
-  }
+// Proxy service per environment (one per process; tests get one per fake env).
+const proxyServices = new WeakMap<object, MCPProxyService>();
 
-  // Fallback to KV storage
-  const storage = new RateLimitStorageKV(env.RATE_LIMIT_KV || env.CACHE, 'oauth-gateway');
-  return new RateLimiter(storage);
-};
+// Make the MCP proxy service available to /mcp/* handlers.
+app.use('/mcp/*', async (c, next) => {
+  if (c.env?.DB) {
+    let service = proxyServices.get(c.env);
+    if (!service) {
+      const registry = new MCPServerRegistry(new PgMcpServerDatabase(c.env.DB), 60000, false);
+      service = new MCPProxyService(registry);
+      proxyServices.set(c.env, service);
+    }
+    c.set('proxyService', service);
+  }
+  await next();
+});
 
 // OAuth 2.1 Authorization Endpoint
 app.post(

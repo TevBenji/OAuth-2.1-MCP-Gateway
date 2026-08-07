@@ -6,6 +6,7 @@
  */
 
 import { Context } from 'hono';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { MCPProxyService } from '../../services/mcp/proxy';
 import { MCPRequestContext, MCPProxyRequest, MCPError } from '../../types/mcp';
 
@@ -74,12 +75,12 @@ export async function proxyToMCPServer(c: Context) {
       }).forEach(([key, value]) => {
         c.header(key, value);
       });
-      return c.body(proxyResponse.body, proxyResponse.status);
+      return c.body(proxyResponse.body, proxyResponse.status as ContentfulStatusCode);
     } else if (typeof proxyResponse.body === 'string') {
       // Try to parse as JSON for proper response handling, otherwise return as text
       try {
         const parsedBody = JSON.parse(proxyResponse.body);
-        return c.json(parsedBody, proxyResponse.status);
+        return c.json(parsedBody, proxyResponse.status as ContentfulStatusCode);
       } catch {
         // If not valid JSON, set headers and return as text
         Object.entries({
@@ -88,7 +89,7 @@ export async function proxyToMCPServer(c: Context) {
         }).forEach(([key, value]) => {
           c.header(key, value);
         });
-        return c.body(proxyResponse.body, proxyResponse.status);
+        return c.body(proxyResponse.body, proxyResponse.status as ContentfulStatusCode);
       }
     } else if (proxyResponse.body) {
       // For other body types (like ReadableStream), set headers and return the body
@@ -98,13 +99,13 @@ export async function proxyToMCPServer(c: Context) {
       }).forEach(([key, value]) => {
         c.header(key, value);
       });
-      return c.body(proxyResponse.body, proxyResponse.status);
+      return c.body(proxyResponse.body, proxyResponse.status as ContentfulStatusCode);
     } else {
       // No body - set headers and return null body
       Object.entries(proxyResponse.headers).forEach(([key, value]) => {
         c.header(key, value);
       });
-      return c.body(null, proxyResponse.status);
+      return c.body(null, proxyResponse.status as ContentfulStatusCode);
     }
   } catch (error) {
     return handleProxyError(c, error);
@@ -183,12 +184,12 @@ export async function proxyByResourceIdentifier(c: Context) {
       }).forEach(([key, value]) => {
         c.header(key, value);
       });
-      return c.body(proxyResponse.body, proxyResponse.status);
+      return c.body(proxyResponse.body, proxyResponse.status as ContentfulStatusCode);
     } else if (typeof proxyResponse.body === 'string') {
       // Try to parse as JSON for proper response handling, otherwise return as text
       try {
         const parsedBody = JSON.parse(proxyResponse.body);
-        return c.json(parsedBody, proxyResponse.status);
+        return c.json(parsedBody, proxyResponse.status as ContentfulStatusCode);
       } catch {
         // If not valid JSON, set headers and return as text
         Object.entries({
@@ -197,7 +198,7 @@ export async function proxyByResourceIdentifier(c: Context) {
         }).forEach(([key, value]) => {
           c.header(key, value);
         });
-        return c.body(proxyResponse.body, proxyResponse.status);
+        return c.body(proxyResponse.body, proxyResponse.status as ContentfulStatusCode);
       }
     } else if (proxyResponse.body) {
       // For other body types (like ReadableStream), set headers and return the body
@@ -207,13 +208,13 @@ export async function proxyByResourceIdentifier(c: Context) {
       }).forEach(([key, value]) => {
         c.header(key, value);
       });
-      return c.body(proxyResponse.body, proxyResponse.status);
+      return c.body(proxyResponse.body, proxyResponse.status as ContentfulStatusCode);
     } else {
       // No body - set headers and return null body
       Object.entries(proxyResponse.headers).forEach(([key, value]) => {
         c.header(key, value);
       });
-      return c.body(null, proxyResponse.status);
+      return c.body(null, proxyResponse.status as ContentfulStatusCode);
     }
   } catch (error) {
     return handleProxyError(c, error);

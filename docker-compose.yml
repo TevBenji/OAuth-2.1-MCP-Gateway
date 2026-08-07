@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: gateway
+      POSTGRES_PASSWORD: gateway
+      POSTGRES_DB: gateway
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gateway"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  gateway:
+    build: .
+    environment:
+      ENVIRONMENT: development
+      PORT: 8787
+      DATABASE_URL: postgres://gateway:gateway@postgres:5432/gateway
+      JWT_SECRET: dev-only-secret-change-me-in-production
+      JWT_ISSUER: http://localhost:8787
+      CORS_ORIGINS: http://localhost:3000
+      ADMIN_TOKEN: dev-admin-token
+    ports:
+      - "8787:8787"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

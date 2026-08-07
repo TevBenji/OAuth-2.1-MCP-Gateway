@@ -5,8 +5,8 @@ import type { Bindings } from '../../types/bindings';
 import { validatePKCE } from '../../services/oauth/pkce';
 import { JWTService, TokenClaims, TokenType, JWT_CONFIG } from '../../services/oauth/jwt';
 import { getJWTService } from '../../services/oauth/jwt-factory';
-import { D1AuthorizationCodeStorage } from '../../storage/d1-authorization-code-storage';
-import { D1RefreshTokenStorage } from '../../storage/d1-refresh-token-storage';
+import { PgAuthorizationCodeStorage } from '../../storage/pg-authorization-code-storage';
+import { PgRefreshTokenStorage } from '../../storage/pg-refresh-token-storage';
 
 // Token request parameters
 export interface TokenRequest {
@@ -41,13 +41,12 @@ export interface TokenResponse {
  */
 export const handleToken = async (c: Context<{ Bindings: Bindings }>) => {
   try {
-    // Initialize D1 storage (production-ready)
     const db = c.env?.DB;
-    const tenantId = c.env?.TENANT_ID || 'default-tenant';
+    const tenantId = c.env?.TENANT_ID || 'default';
     const jwtSecret = c.env?.JWT_SECRET;
 
     if (!db) {
-      console.error('D1 database not configured');
+      console.error('Database not configured');
       throw new HTTPException(500, { message: 'Database configuration error' });
     }
 
@@ -57,8 +56,8 @@ export const handleToken = async (c: Context<{ Bindings: Bindings }>) => {
     }
 
     // Initialize storage instances
-    const codeStorage = new D1AuthorizationCodeStorage(db, tenantId);
-    const refreshTokenStorage = new D1RefreshTokenStorage(db, tenantId);
+    const codeStorage = new PgAuthorizationCodeStorage(db, tenantId);
+    const refreshTokenStorage = new PgRefreshTokenStorage(db, tenantId);
 
     // Initialize JWT service with cached factory
     const jwtService = getJWTService({
@@ -120,8 +119,8 @@ export const handleToken = async (c: Context<{ Bindings: Bindings }>) => {
 async function handleAuthorizationCodeGrant(
   c: Context,
   request: TokenRequest,
-  codeStorage: D1AuthorizationCodeStorage,
-  refreshTokenStorage: D1RefreshTokenStorage,
+  codeStorage: PgAuthorizationCodeStorage,
+  refreshTokenStorage: PgRefreshTokenStorage,
   jwtService: JWTService
 ) {
   // Validate required parameters
@@ -231,7 +230,7 @@ async function handleAuthorizationCodeGrant(
 async function handleRefreshTokenGrant(
   c: Context,
   request: TokenRequest,
-  refreshTokenStorage: D1RefreshTokenStorage,
+  refreshTokenStorage: PgRefreshTokenStorage,
   jwtService: JWTService
 ) {
   // Validate required parameters

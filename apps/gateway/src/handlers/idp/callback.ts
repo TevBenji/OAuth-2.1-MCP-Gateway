@@ -185,11 +185,11 @@ export async function handleInitiateAuth(c: Context) {
     const idpId = c.req.param('idpId');
     const redirectUri = c.req.query('redirect_uri');
 
-    if (!redirectUri) {
+    if (!tenantId || !idpId || !redirectUri) {
       return c.json(
         {
           error: 'invalid_request',
-          error_description: 'Missing redirect_uri parameter',
+          error_description: 'Missing tenantId, idpId, or redirect_uri parameter',
         },
         400
       );

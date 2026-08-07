@@ -1,27 +1,37 @@
+import { and, asc, count, desc, eq, gte, like, lte, sql } from 'drizzle-orm';
+import { auditLogs, type Db } from '@oauth-mcp-gateway/db';
 import { AuditLogEntry, AuditLogOptions, AuditEventType, AuditLogQuery, AuditLogQueryResult, RetentionPolicy, ComplianceTag, LogEventParams } from '../../types/audit';
-import { D1Database } from '@cloudflare/workers-types';
 
 /**
  * AuditService handles all audit logging functionality for the system
  * Implements structured audit log creation with compliance tags
  */
 export class AuditService {
-  private db?: D1Database;
+  private db?: Db;
   private retentionPolicies: Map<ComplianceTag, RetentionPolicy>;
   private static instance: AuditService;
 
-  private constructor(database?: D1Database) {
+  private constructor(database?: Db) {
     this.db = database;
     this.retentionPolicies = new Map();
     this.initializeDefaultRetentionPolicies();
   }
 
   // Singleton pattern for global access
-  public static getInstance(database?: D1Database): AuditService {
+  public static getInstance(database?: Db): AuditService {
     if (!AuditService.instance) {
       AuditService.instance = new AuditService(database);
+    } else if (database && !AuditService.instance.db) {
+      // The instance is created at module load, before the server has a DB;
+      // attach it on first availability so logs actually persist.
+      AuditService.instance.db = database;
     }
     return AuditService.instance;
+  }
+
+  /** Attach the database after startup (see server.ts). */
+  attachDatabase(database: Db): void {
+    this.db = database;
   }
 
   /**
@@ -172,40 +182,31 @@ export class AuditService {
    */
   private async storeLogEntry(entry: AuditLogEntry): Promise<void> {
     try {
-      // Convert compliance tags to JSON string for storage
-      const complianceTagsJson = JSON.stringify(entry.complianceTags);
-      const detailsJson = JSON.stringify(entry.details);
-
-      await this.db!.prepare(
-        `INSERT INTO audit_logs (
-          id, timestamp, event, action, success, tenant_id, user_id, client_id, 
-          resource_id, resource_type, ip_address, user_agent, session_id, 
-          request_id, details, compliance_tags, severity, source
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(
-        entry.id,
-        entry.timestamp,
-        entry.event,
-        entry.action,
-        entry.success ? 1 : 0,
-        entry.tenantId,
-        entry.userId || null,
-        entry.clientId || null,
-        entry.resourceId || null,
-        entry.resourceType || null,
-        entry.ipAddress || null,
-        entry.userAgent || null,
-        entry.sessionId || null,
-        entry.requestId || null,
-        detailsJson,
-        complianceTagsJson,
-        entry.severity,
-        entry.source
-      ).run();
+      await this.db!.insert(auditLogs).values({
+        logId: entry.id,
+        tenantId: entry.tenantId,
+        eventType: entry.event,
+        userId: entry.userId ?? null,
+        clientId: entry.clientId ?? null,
+        resourceType: entry.resourceType ?? null,
+        resourceId: entry.resourceId ?? null,
+        action: entry.action,
+        outcome: entry.success ? 'success' : 'failure',
+        ipAddress: entry.ipAddress ?? null,
+        userAgent: entry.userAgent ?? null,
+        complianceTags: entry.complianceTags,
+        metadata: {
+          details: entry.details,
+          sessionId: entry.sessionId,
+          requestId: entry.requestId,
+          severity: entry.severity,
+          source: entry.source,
+        },
+        createdAt: new Date(entry.timestamp),
+      });
     } catch (error) {
       console.error('Failed to store audit log entry:', error);
-      // In production, you might want to have a fallback mechanism for critical audit logs
-      // For now, we'll log the error but continue
+      // Audit logging must never take the request down with it.
     }
   }
 
@@ -221,133 +222,78 @@ export class AuditService {
    * Query audit logs based on various criteria
    */
   async queryLogs(query: AuditLogQuery): Promise<AuditLogQueryResult> {
-    if (!this.db) {
-      // Return empty result if no database is configured
-      return { entries: [], totalCount: 0, limit: query.limit || 50, offset: query.offset || 0 };
-    }
-
-    // Build the query dynamically based on provided filters
-    let baseQuery = `
-      SELECT * FROM audit_logs
-      WHERE tenant_id = ?
-    `;
-    const params: any[] = [query.tenantId];
-    
-    // Add filters based on query options
-    if (query.userId) {
-      baseQuery += ` AND user_id = ?`;
-      params.push(query.userId);
-    }
-    
-    if (query.clientId) {
-      baseQuery += ` AND client_id = ?`;
-      params.push(query.clientId);
-    }
-    
-    if (query.event) {
-      baseQuery += ` AND event = ?`;
-      params.push(query.event);
-    }
-    
-    if (query.eventTypePrefix) {
-      baseQuery += ` AND event LIKE ?`;
-      params.push(`${query.eventTypePrefix}%`);
-    }
-    
-    if (query.severity) {
-      baseQuery += ` AND severity = ?`;
-      params.push(query.severity);
-    }
-    
-    if (query.source) {
-      baseQuery += ` AND source = ?`;
-      params.push(query.source);
-    }
-    
-    if (query.complianceTag) {
-      baseQuery += ` AND compliance_tags LIKE ?`;
-      params.push(`%${query.complianceTag}%`);
-    }
-    
-    if (query.startDate) {
-      baseQuery += ` AND timestamp >= ?`;
-      params.push(query.startDate);
-    }
-    
-    if (query.endDate) {
-      baseQuery += ` AND timestamp <= ?`;
-      params.push(query.endDate);
-    }
-
-    // Get total count for pagination
-    const countQuery = `SELECT COUNT(*) as count FROM (${baseQuery})`;
-    const countResult = await this.db.prepare(countQuery).bind(...params).first<{ count: number }>();
-    const totalCount = countResult?.count || 0;
-
-    // Apply ordering and pagination
-    const orderBy = query.orderBy || 'timestamp';
-    const orderDirection = query.orderDirection || 'desc';
-    baseQuery += ` ORDER BY ${orderBy} ${orderDirection}`;
-
     const limit = query.limit || 50;
     const offset = query.offset || 0;
-    baseQuery += ` LIMIT ? OFFSET ?`;
-    params.push(limit, offset);
 
-    // Execute the main query
-    const result = await this.db.prepare(baseQuery).bind(...params).all<AuditLogEntry>();
-    
-    // Parse JSON fields with safe parsing to prevent prototype pollution
-    const entries = result.results.map(log => ({
-      ...log,
-      details: typeof log.details === 'string' ? this.safeJsonParse(log.details, {}) : log.details,
-      complianceTags: typeof log.complianceTags === 'string' ? this.safeJsonParse(log.complianceTags, []) : log.complianceTags,
-      success: Boolean(log.success)
-    }));
-
-    return {
-      entries,
-      totalCount,
-      limit,
-      offset
-    };
-  }
-
-  /**
-   * Safely parse JSON with validation to prevent prototype pollution and other vulnerabilities
-   * @param jsonString The JSON string to parse
-   * @param defaultValue The default value to return if parsing fails
-   */
-  private safeJsonParse<T>(jsonString: string, defaultValue: T): T {
-    if (!jsonString) {
-      return defaultValue;
+    if (!this.db) {
+      // Return empty result if no database is configured
+      return { entries: [], totalCount: 0, limit, offset };
     }
 
-    try {
-      // First, validate the string to ensure it's a proper JSON array/object
-      if (typeof jsonString !== 'string' || !/^[\[\{].*[\]\}]$/.test(jsonString.trim())) {
-        console.warn('Invalid JSON format detected, returning default value');
-        return defaultValue;
-      }
-
-      // Parse the JSON
-      const parsed = JSON.parse(jsonString);
-
-      // Additional validation to prevent prototype pollution
-      if (parsed !== null && typeof parsed === 'object') {
-        // Check for dangerous properties that could lead to prototype pollution
-        if (Object.prototype.hasOwnProperty.call(parsed, '__proto__') || 
-            Object.prototype.hasOwnProperty.call(parsed, 'constructor')) {
-          console.error('Prototype pollution attempt detected');
-          return defaultValue;
-        }
-      }
-
-      return parsed as T;
-    } catch (error) {
-      console.error('JSON parsing error:', error);
-      return defaultValue;
+    const conditions = [eq(auditLogs.tenantId, query.tenantId)];
+    if (query.userId) conditions.push(eq(auditLogs.userId, query.userId));
+    if (query.clientId) conditions.push(eq(auditLogs.clientId, query.clientId));
+    if (query.event) conditions.push(eq(auditLogs.eventType, query.event));
+    if (query.eventTypePrefix) {
+      conditions.push(like(auditLogs.eventType, `${query.eventTypePrefix}%`));
     }
+    if (query.severity) {
+      conditions.push(sql`${auditLogs.metadata}->>'severity' = ${query.severity}`);
+    }
+    if (query.source) {
+      conditions.push(sql`${auditLogs.metadata}->>'source' = ${query.source}`);
+    }
+    if (query.complianceTag) {
+      conditions.push(
+        sql`${auditLogs.complianceTags} @> ${JSON.stringify([query.complianceTag])}::jsonb`
+      );
+    }
+    if (query.startDate) conditions.push(gte(auditLogs.createdAt, new Date(query.startDate)));
+    if (query.endDate) conditions.push(lte(auditLogs.createdAt, new Date(query.endDate)));
+
+    const where = and(...conditions);
+
+    const [countRow] = await this.db.select({ count: count() }).from(auditLogs).where(where);
+    const totalCount = countRow?.count ?? 0;
+
+    const order =
+      (query.orderDirection || 'desc') === 'asc'
+        ? asc(auditLogs.createdAt)
+        : desc(auditLogs.createdAt);
+
+    const rows = await this.db
+      .select()
+      .from(auditLogs)
+      .where(where)
+      .orderBy(order)
+      .limit(limit)
+      .offset(offset);
+
+    const entries: AuditLogEntry[] = rows.map(row => {
+      const meta = (row.metadata ?? {}) as Record<string, any>;
+      return {
+        id: row.logId,
+        timestamp: row.createdAt.toISOString(),
+        event: row.eventType as AuditEventType,
+        action: row.action,
+        success: row.outcome === 'success',
+        tenantId: row.tenantId,
+        userId: row.userId ?? undefined,
+        clientId: row.clientId ?? undefined,
+        resourceId: row.resourceId ?? undefined,
+        resourceType: row.resourceType ?? undefined,
+        ipAddress: row.ipAddress ?? undefined,
+        userAgent: row.userAgent ?? undefined,
+        sessionId: meta.sessionId,
+        requestId: meta.requestId,
+        details: meta.details ?? {},
+        complianceTags: (row.complianceTags ?? []) as ComplianceTag[],
+        severity: meta.severity ?? 'medium',
+        source: meta.source ?? 'gateway',
+      };
+    });
+
+    return { entries, totalCount, limit, offset };
   }
 
   /**
@@ -509,11 +455,14 @@ export class AuditService {
 
         try {
           // Remove logs older than retention period for this compliance tag
-          await this.db.prepare(
-            `DELETE FROM audit_logs 
-             WHERE compliance_tags LIKE ? 
-             AND timestamp < ?`
-          ).bind(`%${complianceTag}%`, cutoffDate.toISOString()).run();
+          await this.db
+            .delete(auditLogs)
+            .where(
+              and(
+                sql`${auditLogs.complianceTags} @> ${JSON.stringify([complianceTag])}::jsonb`,
+                lte(auditLogs.createdAt, cutoffDate)
+              )
+            );
         } catch (error) {
           console.error(`Failed to apply retention policy for ${complianceTag}:`, error);
         }

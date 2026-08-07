@@ -1,19 +1,19 @@
 import { RiskAssessment, RiskLevel } from '../../types/risk';
 import { AuditLogEntry } from '../../types/audit';
-import { KVNamespace } from '@cloudflare/workers-types';
+import type { KVLike } from '../../lib/memory-kv';
 
 /**
  * Service for assessing the risk of events.
  */
 export class RiskService {
   private static instance: RiskService;
-  private kv: KVNamespace | undefined;
+  private kv: KVLike | undefined;
 
-  private constructor(kv?: KVNamespace) {
+  private constructor(kv?: KVLike) {
     this.kv = kv;
   }
 
-  public static getInstance(kv?: KVNamespace): RiskService {
+  public static getInstance(kv?: KVLike): RiskService {
     if (!RiskService.instance) {
       RiskService.instance = new RiskService(kv);
     }
@@ -32,7 +32,7 @@ export class RiskService {
     }
 
     const key = `failed_login:${ipAddress}`;
-    const currentFailures = (await this.kv.get(key, { type: 'text' })) || '0';
+    const currentFailures = (await this.kv.get(key)) || '0';
     const newFailures = parseInt(currentFailures, 10) + 1;
 
     // Store the new failure count with a 15-minute expiration
@@ -110,7 +110,7 @@ export class RiskService {
     }
 
     const key = `failed_login:${ipAddress}`;
-    const currentFailures = (await this.kv.get(key, { type: 'text' })) || '0';
+    const currentFailures = (await this.kv.get(key)) || '0';
     const failureCount = parseInt(currentFailures, 10);
 
     // Consider an IP suspicious if it has 5 or more failed logins in the last 15 minutes

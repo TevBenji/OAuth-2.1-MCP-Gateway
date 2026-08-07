@@ -11,10 +11,12 @@ export interface RateLimitConfig {
   burst_limit: number;
 }
 
-export class RateLimitService {
-  private cache: KVNamespace;
+import type { KVLike } from '../../lib/memory-kv';
 
-  constructor(cache: KVNamespace) {
+export class RateLimitService {
+  private cache: KVLike;
+
+  constructor(cache: KVLike) {
     this.cache = cache;
   }
 

@@ -2,8 +2,9 @@
  * Tenant Isolation Service
  *
  * Manages tenant creation, configuration, and data isolation.
- * Requirements: 3.1, 3.2, 4.4
  */
+import { eq } from 'drizzle-orm';
+import { tenants, type Db } from '@oauth-mcp-gateway/db';
 
 export interface TenantConfig {
   tenant_id: string;
@@ -18,83 +19,66 @@ export interface TenantConfig {
 }
 
 export class TenantService {
-  private db: D1Database;
-
-  constructor(db: D1Database) {
-    this.db = db;
-  }
+  constructor(private db: Db) {}
 
   /**
    * Create a new tenant
    */
   async createTenant(config: TenantConfig): Promise<TenantConfig> {
-    const now = new Date().toISOString();
+    const [row] = await this.db
+      .insert(tenants)
+      .values({
+        tenantId: config.tenant_id,
+        name: config.name,
+        domain: config.domain,
+        maxUsers: config.max_users,
+        maxMcpServers: config.max_mcp_servers,
+        complianceTier: config.compliance_tier,
+        auditRetentionDays: config.audit_retention_days,
+      })
+      .returning();
 
-    await this.db
-      .prepare(
-        `INSERT INTO tenants (
-          tenant_id, name, domain, max_users, max_mcp_servers,
-          compliance_tier, audit_retention_days, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .bind(
-        config.tenant_id,
-        config.name,
-        config.domain,
-        config.max_users,
-        config.max_mcp_servers,
-        config.compliance_tier,
-        config.audit_retention_days,
-        now,
-        now
-      )
-      .run();
-
-    return {
-      ...config,
-      created_at: now,
-      updated_at: now
-    };
+    return this.toConfig(row!);
   }
 
   /**
    * Get tenant by ID
    */
   async getTenant(tenant_id: string): Promise<TenantConfig | null> {
-    const result = await this.db
-      .prepare('SELECT * FROM tenants WHERE tenant_id = ?')
-      .bind(tenant_id)
-      .first<TenantConfig>();
-
-    return result;
+    const [row] = await this.db
+      .select()
+      .from(tenants)
+      .where(eq(tenants.tenantId, tenant_id))
+      .limit(1);
+    return row ? this.toConfig(row) : null;
   }
 
   /**
-   * Update tenant configuration
+   * Update tenant configuration (only known fields are written)
    */
   async updateTenant(tenant_id: string, updates: Partial<TenantConfig>): Promise<void> {
-    const now = new Date().toISOString();
-    const fields = Object.keys(updates).filter(k => k !== 'tenant_id');
-    const values = fields.map(k => (updates as any)[k]);
+    const set: Partial<typeof tenants.$inferInsert> = {};
+    if (updates.name !== undefined) set.name = updates.name;
+    if (updates.domain !== undefined) set.domain = updates.domain;
+    if (updates.max_users !== undefined) set.maxUsers = updates.max_users;
+    if (updates.max_mcp_servers !== undefined) set.maxMcpServers = updates.max_mcp_servers;
+    if (updates.compliance_tier !== undefined) set.complianceTier = updates.compliance_tier;
+    if (updates.audit_retention_days !== undefined) {
+      set.auditRetentionDays = updates.audit_retention_days;
+    }
+    if (Object.keys(set).length === 0) return;
 
-    if (fields.length === 0) return;
-
-    const setClause = fields.map(f => `${f} = ?`).join(', ');
-
-    await this.db
-      .prepare(`UPDATE tenants SET ${setClause}, updated_at = ? WHERE tenant_id = ?`)
-      .bind(...values, now, tenant_id)
-      .run();
+    await this.db.update(tenants).set(set).where(eq(tenants.tenantId, tenant_id));
   }
 
   /**
-   * Delete tenant (soft delete by marking as inactive)
+   * Delete tenant (soft delete by suspending it)
    */
   async deleteTenant(tenant_id: string): Promise<void> {
     await this.db
-      .prepare('UPDATE tenants SET active = 0, updated_at = ? WHERE tenant_id = ?')
-      .bind(new Date().toISOString(), tenant_id)
-      .run();
+      .update(tenants)
+      .set({ status: 'suspended' })
+      .where(eq(tenants.tenantId, tenant_id));
   }
 
   /**
@@ -102,5 +86,19 @@ export class TenantService {
    */
   async verifyTenantIsolation(tenant_id: string, resource_tenant_id: string): Promise<boolean> {
     return tenant_id === resource_tenant_id;
+  }
+
+  private toConfig(row: typeof tenants.$inferSelect): TenantConfig {
+    return {
+      tenant_id: row.tenantId,
+      name: row.name,
+      domain: row.domain,
+      max_users: row.maxUsers,
+      max_mcp_servers: row.maxMcpServers,
+      compliance_tier: row.complianceTier as TenantConfig['compliance_tier'],
+      audit_retention_days: row.auditRetentionDays,
+      created_at: row.createdAt.toISOString(),
+      updated_at: row.updatedAt.toISOString(),
+    };
   }
 }
