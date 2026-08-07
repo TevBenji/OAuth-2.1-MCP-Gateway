@@ -55,3 +55,34 @@ jobs:
 
       - name: Docker build (gateway)
         run: docker build .
+
+  deploy:
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - name: Check for Railway token
+        id: token
+        run: |
+          if [ -n "$RAILWAY_TOKEN" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "RAILWAY_TOKEN secret not set — skipping deploy (CI still passed)."
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.token.outputs.ok == 'true'
+
+      - name: Install Railway CLI
+        if: steps.token.outputs.ok == 'true'
+        run: npm install -g @railway/cli
+
+      - name: Deploy gateway
+        if: steps.token.outputs.ok == 'true'
+        run: railway up --service gateway --ci
+
+      - name: Deploy dashboard
+        if: steps.token.outputs.ok == 'true'
+        run: railway up --service dashboard --ci
