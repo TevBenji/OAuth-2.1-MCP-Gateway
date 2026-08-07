@@ -115,7 +115,7 @@ export default function LandingPage() {
           </Link>
           <div className='flex items-center gap-6'>
             <a
-              href='https://github.com'
+              href='https://github.com/TevBenji/OAuth-2.1-MCP-Gateway'
               className='hidden items-center gap-1.5 text-sm font-medium text-white/70 transition hover:text-white sm:flex'
             >
               <Github className='h-4 w-4' />
@@ -361,7 +361,7 @@ export default function LandingPage() {
               <ArrowRight className='h-4 w-4 transition-transform group-hover:translate-x-0.5' />
             </Link>
             <a
-              href='https://github.com'
+              href='https://github.com/TevBenji/OAuth-2.1-MCP-Gateway'
               className='inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-white/20 px-8 text-[15px] font-semibold text-white transition hover:border-white/50 sm:w-auto'
             >
               <Github className='h-4 w-4' />
@@ -376,7 +376,7 @@ export default function LandingPage() {
         <div className='mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 border-t border-white/[0.08] px-6 py-8 text-[13px] text-white/40 sm:flex-row'>
           <p>OAuth 2.1 MCP Gateway · MIT License</p>
           <div className='flex items-center gap-6'>
-            <a href='https://github.com' className='transition hover:text-white'>
+            <a href='https://github.com/TevBenji/OAuth-2.1-MCP-Gateway' className='transition hover:text-white'>
               GitHub
             </a>
             <Link href='/sign-in' className='transition hover:text-white'>
