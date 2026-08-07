@@ -1,0 +1,439 @@
+openapi: 3.1.0
+info:
+  title: OAuth 2.1 MCP Gateway API
+  version: 1.0.0
+  description: |
+    OAuth 2.1 authentication and authorization gateway for MCP servers.
+
+    MCP proxy endpoints require a Bearer JWT obtained via the authorization
+    code flow with PKCE. The admin API (`/admin/api/*`, not listed here — see
+    docs/api-reference.md) uses a service token (`ADMIN_TOKEN`).
+
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8787
+    description: Local development
+  - url: https://gateway.example.com
+    description: Your deployment
+
+tags:
+  - name: Health
+    description: Health checks
+  - name: Discovery
+    description: OAuth metadata discovery (RFC 8414)
+  - name: OAuth 2.1
+    description: OAuth 2.1 authorization endpoints
+  - name: Client Registration
+    description: Dynamic client registration (RFC 7591)
+  - name: MCP
+    description: Authenticated MCP request proxying
+
+paths:
+  /health:
+    get:
+      summary: Gateway Health Check
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Gateway is healthy
+
+  /mcp/health:
+    get:
+      summary: MCP Subsystem Health Check
+      tags:
+        - Health
+      responses:
+        '200':
+          description: MCP gateway is healthy
+
+  /.well-known/oauth-authorization-server:
+    get:
+      summary: OAuth Authorization Server Metadata
+      description: Discover OAuth 2.1 server configuration (RFC 8414)
+      tags:
+        - Discovery
+      responses:
+        '200':
+          description: Authorization server metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationServerMetadata'
+
+  /oauth/authorize:
+    get:
+      summary: Authorization Endpoint
+      description: |
+        OAuth 2.1 authorization endpoint with mandatory PKCE.
+        POST with the same parameters is also accepted.
+        Errors are returned as query parameters on the redirect.
+      tags:
+        - OAuth 2.1
+      parameters:
+        - name: response_type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [code]
+        - name: client_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: redirect_uri
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uri
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: code_challenge
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: code_challenge_method
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [S256]
+      responses:
+        '302':
+          description: Redirect to redirect_uri with `code` and `state` (or `error`)
+
+  /oauth/token:
+    post:
+      summary: Token Endpoint
+      description: Exchange authorization code or refresh token for access tokens
+      tags:
+        - OAuth 2.1
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/AuthorizationCodeGrant'
+                - $ref: '#/components/schemas/RefreshTokenGrant'
+      responses:
+        '200':
+          description: Token response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
+
+  /oauth/register:
+    post:
+      summary: Dynamic Client Registration
+      description: Register new OAuth client (RFC 7591). `POST /register` is a legacy alias.
+      tags:
+        - Client Registration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientRegistrationRequest'
+      responses:
+        '201':
+          description: Client registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientRegistrationResponse'
+        '400':
+          description: Invalid registration request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
+
+  /mcp/{serverId}/{proxyPath}:
+    post:
+      summary: MCP Request Proxy
+      description: |
+        Proxy any request to the MCP server registered under `serverId`.
+        All HTTP methods are accepted. Requires `mcp:tools:read` or
+        `mcp:resources:read` scope. `/mcp/resource/{resourceId}` proxies by
+        resource identifier instead (scopes `mcp:resources:read`/`mcp:resources:write`).
+      tags:
+        - MCP
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: serverId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: proxyPath
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MCPRequest'
+      responses:
+        '200':
+          description: MCP response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MCPResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2Error'
+        '403':
+          description: Insufficient scope
+        '429':
+          description: Rate limit exceeded
+          headers:
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AuthorizationServerMetadata:
+      type: object
+      required:
+        - issuer
+        - authorization_endpoint
+        - token_endpoint
+        - response_types_supported
+        - grant_types_supported
+        - code_challenge_methods_supported
+      properties:
+        issuer:
+          type: string
+          format: uri
+        authorization_endpoint:
+          type: string
+          format: uri
+        token_endpoint:
+          type: string
+          format: uri
+        registration_endpoint:
+          type: string
+          format: uri
+        scopes_supported:
+          type: array
+          items:
+            type: string
+        response_types_supported:
+          type: array
+          items:
+            type: string
+        grant_types_supported:
+          type: array
+          items:
+            type: string
+        code_challenge_methods_supported:
+          type: array
+          items:
+            type: string
+        token_endpoint_auth_methods_supported:
+          type: array
+          items:
+            type: string
+
+    AuthorizationCodeGrant:
+      type: object
+      required:
+        - grant_type
+        - code
+        - redirect_uri
+        - client_id
+        - code_verifier
+      properties:
+        grant_type:
+          type: string
+          enum: [authorization_code]
+        code:
+          type: string
+        redirect_uri:
+          type: string
+          format: uri
+        client_id:
+          type: string
+        code_verifier:
+          type: string
+        client_secret:
+          type: string
+
+    RefreshTokenGrant:
+      type: object
+      required:
+        - grant_type
+        - refresh_token
+        - client_id
+      properties:
+        grant_type:
+          type: string
+          enum: [refresh_token]
+        refresh_token:
+          type: string
+        client_id:
+          type: string
+        client_secret:
+          type: string
+        scope:
+          type: string
+
+    TokenResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - expires_in
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+        refresh_token:
+          type: string
+        scope:
+          type: string
+
+    OAuth2Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          enum:
+            - invalid_request
+            - invalid_client
+            - invalid_grant
+            - unauthorized_client
+            - unsupported_grant_type
+            - invalid_scope
+            - access_denied
+        error_description:
+          type: string
+        error_uri:
+          type: string
+          format: uri
+
+    ClientRegistrationRequest:
+      type: object
+      required:
+        - client_name
+        - redirect_uris
+      properties:
+        client_name:
+          type: string
+        redirect_uris:
+          type: array
+          items:
+            type: string
+            format: uri
+        token_endpoint_auth_method:
+          type: string
+          enum: [client_secret_post, client_secret_basic, none]
+        grant_types:
+          type: array
+          items:
+            type: string
+        response_types:
+          type: array
+          items:
+            type: string
+        scope:
+          type: string
+        contacts:
+          type: array
+          items:
+            type: string
+            format: email
+        logo_uri:
+          type: string
+          format: uri
+        client_uri:
+          type: string
+          format: uri
+
+    ClientRegistrationResponse:
+      type: object
+      required:
+        - client_id
+      properties:
+        client_id:
+          type: string
+        client_secret:
+          type: string
+        client_secret_expires_at:
+          type: integer
+        client_id_issued_at:
+          type: integer
+
+    MCPRequest:
+      type: object
+      required:
+        - method
+      properties:
+        jsonrpc:
+          type: string
+        id:
+          type: integer
+        method:
+          type: string
+        params:
+          type: object
+
+    MCPResponse:
+      type: object
+      properties:
+        result:
+          type: object
+        error:
+          type: object
+          properties:
+            code:
+              type: integer
+            message:
+              type: string
+            data:
+              type: object

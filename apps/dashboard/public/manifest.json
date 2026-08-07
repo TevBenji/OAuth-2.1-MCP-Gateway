@@ -1,0 +1,21 @@
+{
+  "name": "OAuth 2.1 MCP Gateway",
+  "short_name": "OAuth MCP",
+  "description": "Enterprise-grade OAuth 2.1 authentication gateway for Model Context Protocol servers",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#9FE870",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["productivity", "developer", "security"],
+  "lang": "en-US",
+  "dir": "ltr",
+  "scope": "/"
+}

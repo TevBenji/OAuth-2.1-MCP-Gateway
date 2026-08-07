@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth 2.1 MCP Gateway - Interactive API Documentation</title>
+    <script src="https://unpkg.com/@stoplight/elements/web-components.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@stoplight/elements/styles.min.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0 0 0.5rem 0;
+            font-size: 2.5rem;
+        }
+        .header p {
+            margin: 0;
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .quick-links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+        .quick-link {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s;
+        }
+        .quick-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            border-color: #667eea;
+        }
+        .quick-link h3 {
+            margin: 0 0 0.5rem 0;
+            color: #667eea;
+        }
+        .quick-link p {
+            margin: 0;
+            color: #718096;
+            font-size: 0.9rem;
+        }
+        .sdk-section {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        .sdk-section h2 {
+            margin-top: 0;
+            color: #2d3748;
+        }
+        .code-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .code-tab {
+            padding: 0.5rem 1rem;
+            border: none;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .code-tab.active {
+            background: #667eea;
+            color: white;
+        }
+        .code-example {
+            display: none;
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+        .code-example.active {
+            display: block;
+        }
+        .code-example pre {
+            margin: 0;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 0.9rem;
+        }
+        .try-it {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 2rem;
+            margin-top: 2rem;
+        }
+        .try-it h3 {
+            margin-top: 0;
+            color: #2d3748;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #4a5568;
+        }
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            background: #5a67d8;
+        }
+        .response {
+            margin-top: 1rem;
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 1rem;
+        }
+        .response pre {
+            margin: 0;
+            white-space: pre-wrap;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>OAuth 2.1 MCP Gateway</h1>
+        <p>Interactive API Documentation & SDK Examples</p>
+    </div>
+
+    <div class="container">
+        <div class="quick-links">
+            <a href="#quickstart" class="quick-link">
+                <h3>🚀 Quickstart</h3>
+                <p>Get started in minutes with our SDK</p>
+            </a>
+            <a href="#api-reference" class="quick-link">
+                <h3>📚 API Reference</h3>
+                <p>Complete endpoint documentation</p>
+            </a>
+            <a href="#examples" class="quick-link">
+                <h3>💡 Code Examples</h3>
+                <p>TypeScript and Python samples</p>
+            </a>
+            <a href="#try-it" class="quick-link">
+                <h3>🔧 Try It Out</h3>
+                <p>Test API endpoints live</p>
+            </a>
+        </div>
+
+        <section id="quickstart" class="sdk-section">
+            <h2>Installation</h2>
+
+            <div class="code-tabs">
+                <button class="code-tab active" onclick="showCode('install-ts')">TypeScript</button>
+                <button class="code-tab" onclick="showCode('install-py')">Python</button>
+            </div>
+
+            <div id="install-ts" class="code-example active">
+                <pre>npm install @oauth-mcp-gateway/sdk
+
+# or with yarn
+yarn add @oauth-mcp-gateway/sdk</pre>
+            </div>
+
+            <div id="install-py" class="code-example">
+                <pre>pip install oauth-mcp-gateway</pre>
+            </div>
+        </section>
+
+        <section id="examples" class="sdk-section">
+            <h2>Quick Example</h2>
+
+            <div class="code-tabs">
+                <button class="code-tab active" onclick="showCode('example-ts')">TypeScript</button>
+                <button class="code-tab" onclick="showCode('example-py')">Python</button>
+            </div>
+
+            <div id="example-ts" class="code-example active">
+                <pre>import { OAuthMCPClient } from '@oauth-mcp-gateway/sdk';
+
+// Initialize client
+const client = new OAuthMCPClient({
+  gatewayUrl: 'http://localhost:8787',
+  clientId: 'your-client-id',
+  redirectUri: 'https://yourapp.com/callback',
+  scopes: ['mcp:tools:read', 'mcp:resources:read']
+});
+
+// Get authorization URL
+const { url, state, codeVerifier } = await client.getAuthorizationUrl();
+// Redirect user to `url`
+
+// Exchange code for tokens
+const tokens = await client.exchangeCode(code, codeVerifier);
+
+// Make MCP requests
+const response = await client.mcpRequest({
+  method: 'tools/list',
+  params: {}
+});</pre>
+            </div>
+
+            <div id="example-py" class="code-example">
+                <pre>from oauth_mcp_gateway import OAuthMCPClient
+
+# Initialize client
+client = OAuthMCPClient(
+    gateway_url='http://localhost:8787',
+    client_id='your-client-id',
+    redirect_uri='https://yourapp.com/callback',
+    scopes=['mcp:tools:read', 'mcp:resources:read']
+)
+
+# Get authorization URL
+auth_data = client.get_authorization_url()
+# Redirect user to auth_data['url']
+
+# Exchange code for tokens
+tokens = client.exchange_code(code, auth_data['code_verifier'])
+
+# Make MCP requests
+response = client.mcp_request(
+    method='tools/list',
+    params={}
+)</pre>
+            </div>
+        </section>
+
+        <section id="try-it" class="try-it">
+            <h3>Try It Out - Discover Gateway Metadata</h3>
+            <p>Test the discovery endpoint to see your gateway's OAuth configuration.</p>
+
+            <div class="form-group">
+                <label for="gateway-url">Gateway URL:</label>
+                <input type="text" id="gateway-url" value="http://localhost:8787" placeholder="http://localhost:8787">
+            </div>
+
+            <button class="btn" onclick="testDiscovery()">Send Request</button>
+
+            <div id="discovery-response" class="response" style="display: none;">
+                <strong>Response:</strong>
+                <pre id="discovery-result"></pre>
+            </div>
+        </section>
+
+        <section id="api-reference">
+            <h2>API Reference</h2>
+            <p>Browse the complete API documentation below:</p>
+
+            <!-- Stoplight Elements for OpenAPI rendering -->
+            <elements-api
+                apiDescriptionUrl="./openapi.yaml"
+                router="hash"
+                layout="sidebar"
+            />
+        </section>
+    </div>
+
+    <script>
+        function showCode(id) {
+            // Hide all code examples
+            document.querySelectorAll('.code-example').forEach(el => {
+                el.classList.remove('active');
+            });
+            document.querySelectorAll('.code-tab').forEach(el => {
+                el.classList.remove('active');
+            });
+
+            // Show selected code example
+            document.getElementById(id).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        async function testDiscovery() {
+            const gatewayUrl = document.getElementById('gateway-url').value;
+            const responseDiv = document.getElementById('discovery-response');
+            const resultPre = document.getElementById('discovery-result');
+
+            try {
+                const response = await fetch(`${gatewayUrl}/.well-known/oauth-authorization-server`);
+                const data = await response.json();
+
+                resultPre.textContent = JSON.stringify(data, null, 2);
+                responseDiv.style.display = 'block';
+            } catch (error) {
+                resultPre.textContent = `Error: ${error.message}`;
+                responseDiv.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>

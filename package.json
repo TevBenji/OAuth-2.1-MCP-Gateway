@@ -1,0 +1,21 @@
+{
+  "name": "oauth-mcp-gateway",
+  "version": "1.0.0",
+  "description": "OAuth 2.1 authentication gateway for MCP servers",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.20.0",
+  "scripts": {
+    "dev": "pnpm --filter @oauth-mcp-gateway/gateway dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "type-check": "pnpm -r type-check",
+    "format": "pnpm -r format",
+    "db:generate": "pnpm --filter @oauth-mcp-gateway/db generate",
+    "db:migrate": "pnpm --filter @oauth-mcp-gateway/db migrate"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
