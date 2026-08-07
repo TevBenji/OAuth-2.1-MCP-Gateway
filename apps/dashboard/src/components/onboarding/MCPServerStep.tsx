@@ -78,9 +78,7 @@ export function MCPServerStep({ onNext, onBack, onSkip }: MCPServerStepProps) {
   };
 
   const updateServer = (index: number, field: keyof MCPServer, value: string) => {
-    const newServers = [...servers];
-    newServers[index] = { ...newServers[index], [field]: value };
-    setServers(newServers);
+    setServers(servers.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
 
   const handleSkip = () => {

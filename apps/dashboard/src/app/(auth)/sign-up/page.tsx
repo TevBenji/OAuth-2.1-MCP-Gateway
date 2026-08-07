@@ -1,55 +1,99 @@
-import { SignUp } from '@clerk/nextjs';
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { toast } from 'sonner';
+import { signUp } from '@/lib/auth-client';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function SignUpPage() {
+  const router = useRouter();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    const { error } = await signUp.email({ name, email, password });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message ?? 'Sign up failed (sign-up may be disabled)');
+      return;
+    }
+    router.push('/onboarding');
+  }
+
   return (
-    <div className='min-h-screen flex items-center justify-center bg-wise-gray-50 py-12 px-4 sm:px-6 lg:px-8'>
-      <div className='max-w-md w-full'>
-        <div className='text-center mb-8'>
-          <div className='flex justify-center mb-4'>
-            <div className='w-12 h-12 bg-wise-green-primary rounded-xl flex items-center justify-center'>
-              <svg
-                className='w-7 h-7 text-white'
-                fill='none'
-                stroke='currentColor'
-                viewBox='0 0 24 24'
-              >
-                <path
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                  strokeWidth={2}
-                  d='M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z'
-                />
-              </svg>
+    <main className='flex min-h-screen items-center justify-center bg-gray-50 p-4'>
+      <Card className='w-full max-w-md'>
+        <CardHeader>
+          <CardTitle>Create account</CardTitle>
+          <CardDescription>
+            Set up the admin account for your MCP Gateway. Disable sign-up
+            (DASHBOARD_ALLOW_SIGNUP=false) once your team is on board.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className='space-y-4'>
+            <div>
+              <label htmlFor='name' className='mb-1 block text-sm font-medium text-gray-700'>
+                Name
+              </label>
+              <input
+                id='name'
+                type='text'
+                required
+                autoComplete='name'
+                value={name}
+                onChange={e => setName(e.target.value)}
+                className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/20'
+              />
             </div>
-          </div>
-          <h2 className='text-3xl font-bold text-wise-gray-900'>Create your account</h2>
-          <p className='mt-2 text-wise-gray-600'>
-            Start securing your MCP servers today
+            <div>
+              <label htmlFor='email' className='mb-1 block text-sm font-medium text-gray-700'>
+                Email
+              </label>
+              <input
+                id='email'
+                type='email'
+                required
+                autoComplete='email'
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/20'
+              />
+            </div>
+            <div>
+              <label htmlFor='password' className='mb-1 block text-sm font-medium text-gray-700'>
+                Password
+              </label>
+              <input
+                id='password'
+                type='password'
+                required
+                minLength={8}
+                autoComplete='new-password'
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/20'
+              />
+            </div>
+            <Button type='submit' disabled={loading} className='w-full'>
+              {loading ? 'Creating account…' : 'Create account'}
+            </Button>
+          </form>
+          <p className='mt-4 text-center text-sm text-gray-500'>
+            Already have an account?{' '}
+            <Link href='/sign-in' className='font-medium text-green-700 hover:underline'>
+              Sign in
+            </Link>
           </p>
-        </div>
-        <SignUp
-          appearance={{
-            elements: {
-              rootBox: 'mx-auto',
-              card: 'shadow-wise-card border-wise-gray-200',
-            },
-          }}
-          redirectUrl='/onboarding'
-          afterSignUpUrl='/onboarding'
-        />
-        <div className='mt-6 text-center'>
-          <p className='text-sm text-wise-gray-600'>
-            By signing up, you agree to our{' '}
-            <a href='/terms' className='text-wise-green-primary hover:text-wise-green-600 font-medium'>
-              Terms of Service
-            </a>{' '}
-            and{' '}
-            <a href='/privacy' className='text-wise-green-primary hover:text-wise-green-600 font-medium'>
-              Privacy Policy
-            </a>
-          </p>
-        </div>
-      </div>
-    </div>
+        </CardContent>
+      </Card>
+    </main>
   );
 }

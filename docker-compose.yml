@@ -31,5 +31,24 @@ services:
       postgres:
         condition: service_healthy
 
+  dashboard:
+    build:
+      context: .
+      dockerfile: apps/dashboard/Dockerfile
+    environment:
+      DATABASE_URL: postgres://gateway:gateway@postgres:5432/gateway
+      BETTER_AUTH_SECRET: dev-only-secret-change-me-in-production
+      BETTER_AUTH_URL: http://localhost:3000
+      GATEWAY_URL: http://gateway:8787
+      GATEWAY_ADMIN_TOKEN: dev-admin-token
+      DASHBOARD_ALLOW_SIGNUP: "true"
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      gateway:
+        condition: service_started
+
 volumes:
   pgdata:

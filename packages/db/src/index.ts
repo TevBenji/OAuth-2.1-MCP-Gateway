@@ -7,6 +7,7 @@ import { sql } from 'drizzle-orm';
 import * as schema from './schema.js';
 
 export * from './schema.js';
+export * as authSchema from './auth-schema.js';
 export { schema };
 
 export type Db = NodePgDatabase<typeof schema>;

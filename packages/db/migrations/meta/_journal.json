@@ -8,6 +8,13 @@
       "when": 1786060699285,
       "tag": "0000_loose_baron_strucker",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786061652678,
+      "tag": "0001_messy_grandmaster",
+      "breakpoints": true
     }
   ]
 }

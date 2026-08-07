@@ -1,43 +1,90 @@
-import { SignIn } from '@clerk/nextjs';
+'use client';
+
+import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { Suspense } from 'react';
+import { toast } from 'sonner';
+import { signIn } from '@/lib/auth-client';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
+function SignInForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    const { error } = await signIn.email({ email, password });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message ?? 'Sign in failed');
+      return;
+    }
+    router.push(searchParams.get('redirect') ?? '/dashboard');
+  }
+
+  return (
+    <Card className='w-full max-w-md'>
+      <CardHeader>
+        <CardTitle>Sign in</CardTitle>
+        <CardDescription>Access your MCP Gateway dashboard</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className='space-y-4'>
+          <div>
+            <label htmlFor='email' className='mb-1 block text-sm font-medium text-gray-700'>
+              Email
+            </label>
+            <input
+              id='email'
+              type='email'
+              required
+              autoComplete='email'
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/20'
+            />
+          </div>
+          <div>
+            <label htmlFor='password' className='mb-1 block text-sm font-medium text-gray-700'>
+              Password
+            </label>
+            <input
+              id='password'
+              type='password'
+              required
+              autoComplete='current-password'
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className='w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/20'
+            />
+          </div>
+          <Button type='submit' disabled={loading} className='w-full'>
+            {loading ? 'Signing in…' : 'Sign in'}
+          </Button>
+        </form>
+        <p className='mt-4 text-center text-sm text-gray-500'>
+          No account?{' '}
+          <Link href='/sign-up' className='font-medium text-green-700 hover:underline'>
+            Sign up
+          </Link>
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function SignInPage() {
   return (
-    <div className='min-h-screen flex items-center justify-center bg-wise-gray-50 py-12 px-4 sm:px-6 lg:px-8'>
-      <div className='max-w-md w-full'>
-        <div className='text-center mb-8'>
-          <div className='flex justify-center mb-4'>
-            <div className='w-12 h-12 bg-wise-green-primary rounded-xl flex items-center justify-center'>
-              <svg
-                className='w-7 h-7 text-white'
-                fill='none'
-                stroke='currentColor'
-                viewBox='0 0 24 24'
-              >
-                <path
-                  strokeLinecap='round'
-                  strokeLinejoin='round'
-                  strokeWidth={2}
-                  d='M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z'
-                />
-              </svg>
-            </div>
-          </div>
-          <h2 className='text-3xl font-bold text-wise-gray-900'>Welcome back</h2>
-          <p className='mt-2 text-wise-gray-600'>
-            Sign in to your account to continue
-          </p>
-        </div>
-        <SignIn
-          appearance={{
-            elements: {
-              rootBox: 'mx-auto',
-              card: 'shadow-wise-card border-wise-gray-200',
-            },
-          }}
-          redirectUrl='/dashboard'
-          afterSignInUrl='/dashboard'
-        />
-      </div>
-    </div>
+    <main className='flex min-h-screen items-center justify-center bg-gray-50 p-4'>
+      <Suspense>
+        <SignInForm />
+      </Suspense>
+    </main>
   );
 }

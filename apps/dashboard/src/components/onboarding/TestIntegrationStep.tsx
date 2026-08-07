@@ -5,13 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { ArrowRight, ArrowLeft, Copy, Check, Code, Terminal } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { cn } from '@/lib/utils';
+
+const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? 'http://localhost:8787';
 
 interface TestIntegrationStepProps {
   onNext: () => void;
   onBack: () => void;
   clientId: string;
-  clientSecret: string;
+  clientSecret?: string;
 }
 
 export function TestIntegrationStep({
@@ -21,9 +22,6 @@ export function TestIntegrationStep({
   clientSecret,
 }: TestIntegrationStepProps) {
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
-  const [selectedLanguage, setSelectedLanguage] = useState<'javascript' | 'python' | 'curl'>(
-    'javascript'
-  );
 
   const copyToClipboard = (text: string, item: string) => {
     navigator.clipboard.writeText(text);
@@ -31,85 +29,30 @@ export function TestIntegrationStep({
     setTimeout(() => setCopiedItem(null), 2000);
   };
 
-  const codeExamples = {
-    javascript: `// Install the SDK
-npm install @oauth-mcp-gateway/sdk
+  const curlExample = `# 1. Discover the gateway's OAuth 2.1 configuration
+curl ${GATEWAY_URL}/.well-known/oauth-authorization-server
 
-// Initialize the client
-import { OAuthClient } from '@oauth-mcp-gateway/sdk';
-
-const client = new OAuthClient({
-  clientId: '${clientId}',
-  clientSecret: '${clientSecret}',
-  redirectUri: 'https://your-app.com/callback',
-  gatewayUrl: '${typeof window !== 'undefined' ? window.location.origin : 'https://your-gateway.com'}'
-});
-
-// Generate authorization URL
-const authUrl = await client.getAuthorizationUrl({
-  scope: 'read write',
-  state: 'random-state-value'
-});
-
-// Redirect user to authUrl
-window.location.href = authUrl;
-
-// Exchange code for tokens (in your callback handler)
-const tokens = await client.exchangeCodeForTokens(code);
-console.log('Access token:', tokens.access_token);`,
-
-    python: `# Install the SDK
-pip install oauth-mcp-gateway-sdk
-
-# Initialize the client
-from oauth_mcp_gateway import OAuthClient
-
-client = OAuthClient(
-    client_id='${clientId}',
-    client_secret='${clientSecret}',
-    redirect_uri='https://your-app.com/callback',
-    gateway_url='${typeof window !== 'undefined' ? window.location.origin : 'https://your-gateway.com'}'
-)
-
-# Generate authorization URL
-auth_url = client.get_authorization_url(
-    scope='read write',
-    state='random-state-value'
-)
-
-# Redirect user to auth_url
-print(f'Redirect to: {auth_url}')
-
-# Exchange code for tokens (in your callback handler)
-tokens = client.exchange_code_for_tokens(code)
-print(f'Access token: {tokens["access_token"]}')`,
-
-    curl: `# Step 1: Generate PKCE code verifier and challenge
+# 2. Generate PKCE code verifier and challenge
 CODE_VERIFIER=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-43)
-CODE_CHALLENGE=$(echo -n $CODE_VERIFIER | openssl dgst -binary -sha256 | base64 | tr -d "=+/" | tr "/+" "_-")
+CODE_CHALLENGE=$(echo -n $CODE_VERIFIER | openssl dgst -binary -sha256 | base64 | tr -d "=" | tr "+/" "-_")
 
-# Step 2: Get authorization code (open in browser)
-AUTH_URL="${typeof window !== 'undefined' ? window.location.origin : 'https://your-gateway.com'}/authorize\\
+# 3. Get an authorization code (open in browser)
+echo "${GATEWAY_URL}/oauth/authorize\\
 ?client_id=${clientId}\\
-&redirect_uri=https://your-app.com/callback\\
+&redirect_uri=YOUR_REDIRECT_URI\\
 &response_type=code\\
-&scope=read%20write\\
 &state=random-state\\
 &code_challenge=$CODE_CHALLENGE\\
 &code_challenge_method=S256"
 
-echo "Open in browser: $AUTH_URL"
-
-# Step 3: Exchange code for tokens
-curl -X POST "${typeof window !== 'undefined' ? window.location.origin : 'https://your-gateway.com'}/token" \\
+# 4. Exchange the code for tokens
+curl -X POST "${GATEWAY_URL}/oauth/token" \\
   -H "Content-Type: application/x-www-form-urlencoded" \\
   -d "grant_type=authorization_code" \\
   -d "code=AUTHORIZATION_CODE" \\
-  -d "redirect_uri=https://your-app.com/callback" \\
-  -d "client_id=${clientId}" \\
-  -d "client_secret=${clientSecret}" \\
-  -d "code_verifier=$CODE_VERIFIER"`,
-  };
+  -d "redirect_uri=YOUR_REDIRECT_URI" \\
+  -d "client_id=${clientId}" \\${clientSecret ? `\n  -d "client_secret=${clientSecret}" \\` : ''}
+  -d "code_verifier=$CODE_VERIFIER"`;
 
   return (
     <motion.div
@@ -128,7 +71,7 @@ curl -X POST "${typeof window !== 'undefined' ? window.location.origin : 'https:
             <div>
               <CardTitle className="text-3xl">Test Your Integration</CardTitle>
               <CardDescription className="text-base mt-1">
-                Use these credentials and code examples to get started
+                Use these credentials against the gateway at {GATEWAY_URL}
               </CardDescription>
             </div>
           </div>
@@ -171,70 +114,50 @@ curl -X POST "${typeof window !== 'undefined' ? window.location.origin : 'https:
             </div>
 
             {/* Client Secret */}
-            <div className="bg-wise-gray-50 dark:bg-wise-gray-800 rounded-lg p-4">
-              <div className="flex justify-between items-start mb-2">
-                <label className="text-sm font-medium text-wise-gray-700 dark:text-wise-gray-300">
-                  Client Secret
-                </label>
-                <button
-                  onClick={() => copyToClipboard(clientSecret, 'clientSecret')}
-                  className="flex items-center text-sm text-wise-green-600 hover:text-wise-green-700"
-                  aria-label="Copy client secret"
-                >
-                  {copiedItem === 'clientSecret' ? (
-                    <>
-                      <Check className="h-4 w-4 mr-1" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-4 w-4 mr-1" />
-                      Copy
-                    </>
-                  )}
-                </button>
+            {clientSecret && (
+              <div className="bg-wise-gray-50 dark:bg-wise-gray-800 rounded-lg p-4">
+                <div className="flex justify-between items-start mb-2">
+                  <label className="text-sm font-medium text-wise-gray-700 dark:text-wise-gray-300">
+                    Client Secret
+                  </label>
+                  <button
+                    onClick={() => copyToClipboard(clientSecret, 'clientSecret')}
+                    className="flex items-center text-sm text-wise-green-600 hover:text-wise-green-700"
+                    aria-label="Copy client secret"
+                  >
+                    {copiedItem === 'clientSecret' ? (
+                      <>
+                        <Check className="h-4 w-4 mr-1" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 mr-1" />
+                        Copy
+                      </>
+                    )}
+                  </button>
+                </div>
+                <code className="text-sm font-mono text-wise-gray-900 dark:text-wise-gray-100 break-all">
+                  {clientSecret}
+                </code>
+                <p className="mt-2 text-xs text-wise-gray-600 dark:text-wise-gray-400">
+                  ⚠️ This secret is shown only once — store it securely and never commit it to
+                  version control.
+                </p>
               </div>
-              <code className="text-sm font-mono text-wise-gray-900 dark:text-wise-gray-100 break-all">
-                {clientSecret}
-              </code>
-              <p className="mt-2 text-xs text-wise-gray-600 dark:text-wise-gray-400">
-                ⚠️ Keep this secret secure! Don't commit it to version control.
-              </p>
-            </div>
+            )}
           </div>
 
-          {/* Code Examples Section */}
+          {/* Curl Example Section */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-wise-gray-900 dark:text-wise-gray-100">
-                Integration Code Examples
-              </h3>
-              <div className="flex gap-2">
-                {(['javascript', 'python', 'curl'] as const).map((lang) => (
-                  <button
-                    key={lang}
-                    onClick={() => setSelectedLanguage(lang)}
-                    className={cn(
-                      'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-                      selectedLanguage === lang
-                        ? 'bg-wise-green-500 text-white'
-                        : 'bg-wise-gray-200 dark:bg-wise-gray-700 text-wise-gray-700 dark:text-wise-gray-300 hover:bg-wise-gray-300 dark:hover:bg-wise-gray-600'
-                    )}
-                  >
-                    {lang === 'javascript'
-                      ? 'JavaScript'
-                      : lang === 'python'
-                        ? 'Python'
-                        : 'cURL'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
+            <h3 className="text-lg font-semibold text-wise-gray-900 dark:text-wise-gray-100">
+              Try It with cURL
+            </h3>
             <div className="relative">
               <div className="absolute top-3 right-3 z-10">
                 <button
-                  onClick={() => copyToClipboard(codeExamples[selectedLanguage], 'code')}
+                  onClick={() => copyToClipboard(curlExample, 'code')}
                   className="flex items-center px-3 py-1.5 text-sm bg-wise-gray-700 hover:bg-wise-gray-600 text-white rounded-lg transition-colors"
                   aria-label="Copy code"
                 >
@@ -252,7 +175,7 @@ curl -X POST "${typeof window !== 'undefined' ? window.location.origin : 'https:
                 </button>
               </div>
               <pre className="bg-wise-gray-900 text-wise-gray-100 rounded-lg p-6 overflow-x-auto">
-                <code className="text-sm font-mono">{codeExamples[selectedLanguage]}</code>
+                <code className="text-sm font-mono">{curlExample}</code>
               </pre>
             </div>
           </div>
@@ -265,10 +188,9 @@ curl -X POST "${typeof window !== 'undefined' ? window.location.origin : 'https:
             </h4>
             <ul className="space-y-1 text-sm text-wise-gray-700 dark:text-wise-gray-300 ml-7">
               <li>• Copy your credentials to a secure location</li>
-              <li>• Integrate the code example into your application</li>
-              <li>• Test the OAuth flow in your development environment</li>
-              <li>• Review our comprehensive API documentation</li>
-              <li>• Join our community for support and updates</li>
+              <li>• Run the discovery request to verify the gateway is reachable</li>
+              <li>• Test the full OAuth flow from your application</li>
+              <li>• Manage clients and servers anytime from the dashboard</li>
             </ul>
           </div>
 

@@ -9,29 +9,11 @@ import {
   Lock,
   Users,
   Server,
-  CheckCircle,
-  ArrowRight,
-  Code,
-  FileText,
   Cpu,
   RotateCcw,
   UserCheck,
   Monitor,
 } from 'lucide-react';
-import Link from 'next/link';
-
-const fadeIn = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
-
-const stagger = {
-  visible: {
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-};
 
 export default function GatewayInfoPage() {
   const features = [
@@ -73,14 +55,14 @@ export default function GatewayInfoPage() {
       step: 1,
       title: 'Authorization Request',
       description: 'MCP clients initiate OAuth flow with PKCE parameters',
-      details: 'GET /authorize?response_type=code&client_id=...&code_challenge=...&state=...',
+      details: 'GET /oauth/authorize?response_type=code&client_id=...&code_challenge=...&state=...',
     },
     {
       icon: RotateCcw,
       step: 2,
       title: 'Token Exchange',
       description: 'Exchange authorization code for access token',
-      details: 'POST /token with code_verifier for PKCE validation',
+      details: 'POST /oauth/token with code_verifier for PKCE validation',
     },
     {
       icon: Monitor,
@@ -98,6 +80,8 @@ export default function GatewayInfoPage() {
     },
   ];
 
+  const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL ?? 'http://localhost:8787';
+
   const endpoints = [
     {
       method: 'GET',
@@ -106,28 +90,23 @@ export default function GatewayInfoPage() {
     },
     {
       method: 'GET',
-      path: '/authorize',
+      path: '/oauth/authorize',
       description: 'Authorization endpoint for OAuth flows',
     },
     {
       method: 'POST',
-      path: '/token',
+      path: '/oauth/token',
       description: 'Token endpoint for exchanging authorization codes',
     },
     {
       method: 'POST',
-      path: '/register',
+      path: '/oauth/register',
       description: 'Dynamic client registration endpoint (RFC 7591)',
     },
     {
-      method: 'GET',
+      method: 'ALL',
       path: '/mcp/:serverId/*',
       description: 'Proxy requests to MCP servers by server ID',
-    },
-    {
-      method: 'GET',
-      path: '/mcp/resource/*',
-      description: 'Proxy requests using resource identifiers (RFC 8707)',
     },
   ];
 
@@ -302,6 +281,12 @@ export default function GatewayInfoPage() {
           viewport={{ once: true }}
           className='card-wise p-6'
         >
+          <div className='mb-4 pb-4 border-b border-wise-gray-100 flex items-center'>
+            <span className='text-sm text-wise-gray-600 mr-3'>Base URL</span>
+            <code className='text-sm bg-wise-gray-100 px-2 py-1 rounded text-wise-gray-800 font-mono'>
+              {gatewayUrl}
+            </code>
+          </div>
           <div className='space-y-4'>
             {endpoints.map((endpoint, index) => (
               <div key={index} className='flex items-center py-3 border-b border-wise-gray-100 last:border-0'>
@@ -324,39 +309,6 @@ export default function GatewayInfoPage() {
         </motion.div>
       </section>
 
-      {/* Integration Section */}
-      <section>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className='text-center max-w-3xl mx-auto'
-        >
-          <h2 className='text-2xl font-bold text-wise-gray-900 mb-2'>
-            Ready to Secure Your MCP Ecosystem?
-          </h2>
-          <p className='text-wise-gray-600 mb-6'>
-            Documentation and SDKs make integration straightforward
-          </p>
-
-          <div className='flex flex-col sm:flex-row gap-4 justify-center'>
-            <Link
-              href='/docs'
-              className='btn-wise-primary px-6 py-3 inline-flex items-center justify-center space-x-2'
-            >
-              <FileText className='w-4 h-4' />
-              <span>View Documentation</span>
-              <ArrowRight className='w-4 h-4' />
-            </Link>
-            <Link
-              href='/contact'
-              className='btn-wise-secondary px-6 py-3 inline-flex items-center justify-center space-x-2'
-            >
-              <span>Contact Support</span>
-            </Link>
-          </div>
-        </motion.div>
-      </section>
     </div>
   );
 }

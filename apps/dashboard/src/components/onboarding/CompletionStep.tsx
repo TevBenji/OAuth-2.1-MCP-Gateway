@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, BookOpen, MessageCircle, FileText, ArrowRight } from 'lucide-react';
+import { CheckCircle, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 
@@ -10,39 +10,12 @@ interface CompletionStepProps {
   onFinish: () => void;
 }
 
-const resources = [
-  {
-    icon: BookOpen,
-    title: 'API Documentation',
-    description: 'Comprehensive guides and API references',
-    href: '/docs/api',
-    color: 'text-wise-blue',
-    bgColor: 'bg-wise-blue/10',
-  },
-  {
-    icon: FileText,
-    title: 'Integration Examples',
-    description: 'Sample code and best practices',
-    href: '/docs/examples',
-    color: 'text-wise-green-600',
-    bgColor: 'bg-wise-green-100',
-  },
-  {
-    icon: MessageCircle,
-    title: 'Community Support',
-    description: 'Get help from our developer community',
-    href: '/community',
-    color: 'text-wise-purple',
-    bgColor: 'bg-wise-purple/10',
-  },
-];
-
 const quickLinks = [
   { label: 'View Dashboard', href: '/dashboard' },
-  { label: 'Manage Clients', href: '/dashboard/clients' },
+  { label: 'Manage Tenants', href: '/dashboard/tenants' },
   { label: 'API Analytics', href: '/dashboard/analytics' },
-  { label: 'Security Settings', href: '/dashboard/security' },
-];
+  { label: 'MCP Servers', href: '/dashboard/mcp-servers' },
+] as const;
 
 export function CompletionStep({ onFinish }: CompletionStepProps) {
   return (
@@ -90,44 +63,6 @@ export function CompletionStep({ onFinish }: CompletionStepProps) {
         </CardHeader>
 
         <CardContent className="space-y-8">
-          {/* Resources Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-          >
-            <h3 className="text-xl font-semibold text-wise-gray-900 dark:text-wise-gray-100 mb-4">
-              Helpful Resources
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {resources.map((resource, index) => (
-                <motion.div
-                  key={resource.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6 + index * 0.1 }}
-                >
-                  <Link
-                    href={resource.href}
-                    className="block p-6 rounded-lg border border-wise-gray-300 dark:border-wise-gray-600 hover:border-wise-green-500 transition-all hover:shadow-lg group"
-                  >
-                    <div
-                      className={`h-12 w-12 rounded-lg ${resource.bgColor} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}
-                    >
-                      <resource.icon className={`h-6 w-6 ${resource.color}`} />
-                    </div>
-                    <h4 className="font-semibold text-wise-gray-900 dark:text-wise-gray-100 mb-2">
-                      {resource.title}
-                    </h4>
-                    <p className="text-sm text-wise-gray-600 dark:text-wise-gray-400">
-                      {resource.description}
-                    </p>
-                  </Link>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-
           {/* Quick Links */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
