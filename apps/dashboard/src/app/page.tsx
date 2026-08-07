@@ -4,102 +4,132 @@ import {
   KeyRound,
   Network,
   ScrollText,
-  LayoutDashboard,
-  Github,
   Lock,
+  Github,
   ArrowRight,
   Check,
+  X,
+  Container,
 } from 'lucide-react';
+import { ExplainerAnimation } from './explainer-animation';
+
+const painPoints = [
+  'API keys pasted into config files, committed to repos, shared in Slack',
+  'No idea which client accessed which server, or when',
+  'One leaked key means rotating everything and hoping for the best',
+];
+
+const fixes = [
+  'Clients authenticate with OAuth 2.1 — PKCE required, no exceptions',
+  'Every token is scoped, short-lived, and logged in a full audit trail',
+  'Revoke one client in one click; nothing else is touched',
+];
 
 const features = [
   {
     icon: ShieldCheck,
-    title: 'OAuth 2.1, done right',
-    body: 'PKCE-mandatory flows, refresh token rotation, and dynamic client registration (RFC 7591) — the hard parts of auth, already built and battle-tested.',
-  },
-  {
-    icon: KeyRound,
-    title: 'Never ship an API key again',
-    body: 'Static keys in config files are a breach waiting to happen. Clients get short-lived, scoped JWTs instead — leaked tokens expire, keys never had to exist.',
+    title: 'OAuth 2.1, by the book',
+    body: 'Mandatory PKCE, refresh token rotation, RFC 7591 dynamic client registration, and RFC 8414 discovery. The standard, implemented properly.',
   },
   {
     icon: Network,
     title: 'MCP-native reverse proxy',
-    body: 'Register your MCP servers once. The gateway authenticates every request, enforces scopes, and routes it to the right upstream — Claude, Cursor, any MCP client.',
+    body: 'Register your MCP servers once. The gateway authenticates every request, enforces scopes, and routes to the right upstream.',
   },
   {
     icon: Lock,
-    title: 'Multi-tenant by design',
-    body: 'Tenants, per-tenant OAuth clients, servers, and API keys with strict isolation in every query. One gateway can safely serve every team you have.',
+    title: 'Multi-tenant isolation',
+    body: 'Tenants, clients, servers, and keys are isolated in every query. One gateway safely serves every team in your organization.',
   },
   {
     icon: ScrollText,
-    title: 'Audit everything',
-    body: 'A structured, compliance-taggable audit trail of every token issued and every request proxied. When someone asks "who accessed what?", you have the answer.',
+    title: 'Complete audit trail',
+    body: 'Every token issued and every request proxied is recorded with compliance tags. "Who accessed what?" always has an answer.',
   },
   {
-    icon: LayoutDashboard,
-    title: 'Yours, forever',
-    body: 'MIT licensed, self-hosted, zero vendor lock-in. One docker compose up and the whole stack — gateway, dashboard, Postgres — belongs to you.',
+    icon: KeyRound,
+    title: 'Admin dashboard included',
+    body: 'Manage tenants, OAuth clients, and MCP servers from a clean web UI — with analytics and audit logs built in.',
+  },
+  {
+    icon: Container,
+    title: 'Self-hosted, MIT licensed',
+    body: 'One docker compose up on your own infrastructure. No vendor, no fees, no lock-in — the whole stack is yours.',
   },
 ];
 
 const steps = [
   {
-    number: '01',
-    title: 'Deploy in one command',
-    body: 'docker compose up — the gateway, admin dashboard, and PostgreSQL come online with migrations applied automatically.',
+    number: '1',
+    title: 'Deploy',
+    body: 'docker compose up brings up the gateway, dashboard, and PostgreSQL. Migrations run themselves.',
   },
   {
-    number: '02',
-    title: 'Register your MCP servers',
-    body: 'Point the gateway at your MCP servers from the dashboard or the admin API. Each one gets a resource identifier and required scopes.',
+    number: '2',
+    title: 'Register servers',
+    body: 'Add your MCP servers in the dashboard. Each gets a resource identifier and required scopes.',
   },
   {
-    number: '03',
-    title: 'Clients authenticate themselves',
-    body: 'MCP clients discover your gateway, register dynamically, and complete a PKCE flow. From then on, every request is a scoped, expiring token.',
+    number: '3',
+    title: 'Connect clients',
+    body: 'MCP clients discover the gateway and complete a PKCE flow. Every request from then on is a scoped, expiring token.',
+  },
+];
+
+const faqs = [
+  {
+    q: 'Is it really free?',
+    a: 'Yes. The entire stack is MIT licensed and self-hosted. There is no hosted tier, no usage meter, and no paid features — you run it on your own infrastructure.',
+  },
+  {
+    q: 'Do I have to change my MCP servers?',
+    a: 'No. The gateway sits in front of your existing servers as a reverse proxy. You register their endpoints; clients talk to the gateway instead of directly to them.',
+  },
+  {
+    q: 'Which MCP clients work with it?',
+    a: 'Any client that speaks OAuth 2.1 with PKCE — including Claude, Cursor, and other MCP clients. Clients can self-register via RFC 7591 dynamic registration.',
+  },
+  {
+    q: 'What does it run on?',
+    a: 'Node.js and PostgreSQL, packaged as Docker images. It runs on any VPS, home server, or container platform — a Railway deployment guide is included.',
+  },
+  {
+    q: 'How production-ready is it?',
+    a: 'The gateway ships with 400+ automated tests covering the OAuth flows, tenant isolation, and security paths, and the whole codebase is open for your own review.',
   },
 ];
 
 export default function LandingPage() {
   return (
     <div className='bg-white text-wise-gray-900 antialiased'>
-      <style>{`
-        @keyframes rise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
-        .rise { animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-        .caret { animation: blink 1.1s step-end infinite; }
-      `}</style>
-
       {/* Nav */}
-      <header className='absolute inset-x-0 top-0 z-20'>
-        <nav className='mx-auto flex max-w-6xl items-center justify-between px-6 py-5'>
+      <header className='bg-wise-green-forest'>
+        <nav className='mx-auto flex h-16 max-w-6xl items-center justify-between px-6'>
           <Link href='/' className='flex items-center gap-2.5'>
-            <span className='flex h-8 w-8 items-center justify-center rounded-lg bg-wise-green-bright font-black text-wise-green-forest'>
+            <span className='flex h-7 w-7 items-center justify-center rounded-md bg-wise-green-bright text-sm font-black text-wise-green-forest'>
               G
             </span>
             <span className='text-[15px] font-semibold tracking-tight text-white'>
               MCP Gateway
             </span>
           </Link>
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-6'>
             <a
               href='https://github.com'
-              className='hidden items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium text-white/80 transition hover:text-white sm:flex'
+              className='hidden items-center gap-1.5 text-sm font-medium text-white/70 transition hover:text-white sm:flex'
             >
               <Github className='h-4 w-4' />
               GitHub
             </a>
             <Link
               href='/sign-in'
-              className='rounded-full px-4 py-2 text-sm font-medium text-white/80 transition hover:text-white'
+              className='text-sm font-medium text-white/70 transition hover:text-white'
             >
               Sign in
             </Link>
             <Link
               href='/sign-up'
-              className='rounded-full bg-wise-green-bright px-4 py-2 text-sm font-semibold text-wise-green-forest transition hover:brightness-110'
+              className='rounded-lg bg-wise-green-bright px-4 py-2 text-sm font-bold text-wise-green-forest transition hover:brightness-105'
             >
               Get started
             </Link>
@@ -108,208 +138,248 @@ export default function LandingPage() {
       </header>
 
       {/* Hero */}
-      <section className='relative overflow-hidden bg-wise-green-forest'>
-        <div
-          aria-hidden
-          className='pointer-events-none absolute inset-0'
-          style={{
-            background:
-              'radial-gradient(60rem 32rem at 78% -10%, rgba(159,232,112,0.22), transparent 60%), radial-gradient(40rem 24rem at 8% 110%, rgba(29,185,84,0.18), transparent 65%)',
-          }}
-        />
-        <div className='relative mx-auto grid max-w-6xl gap-14 px-6 pb-24 pt-36 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:pb-32'>
+      <section className='relative bg-wise-green-forest'>
+        <div className='mx-auto grid max-w-6xl items-center gap-16 px-6 pb-20 pt-16 lg:grid-cols-2 lg:pb-24 lg:pt-24'>
           <div>
-            <p className='rise mb-6 inline-flex items-center gap-2 rounded-full border border-white/15 px-3.5 py-1.5 text-xs font-medium tracking-wide text-wise-green-bright'>
-              <span className='h-1.5 w-1.5 rounded-full bg-wise-green-bright' />
-              100% open source · MIT · Self-hosted
+            <p className='mb-5 text-[13px] font-semibold uppercase tracking-[0.14em] text-wise-green-bright'>
+              Open source · MIT · Self-hosted
             </p>
-            <h1
-              className='rise text-[2.75rem] font-black leading-[1.04] tracking-tight text-white sm:text-6xl'
-              style={{ animationDelay: '80ms' }}
-            >
-              Ship MCP servers.
-              <br />
-              <span className='text-wise-green-bright'>Never ship an API key</span> again.
+            <h1 className='text-[2.5rem] font-extrabold leading-[1.08] tracking-tight text-white sm:text-[3.25rem]'>
+              Put real authentication in front of your MCP servers.
             </h1>
-            <p
-              className='rise mt-6 max-w-xl text-lg leading-relaxed text-white/70'
-              style={{ animationDelay: '160ms' }}
-            >
-              The open-source OAuth 2.1 gateway that stands in front of every Model Context
-              Protocol server you run. Real authentication, scoped tokens, a full audit trail —
-              and it all lives on your own infrastructure, free forever.
+            <p className='mt-5 max-w-md text-[17px] leading-relaxed text-white/70'>
+              An open-source OAuth 2.1 gateway that replaces pasted API keys with scoped,
+              expiring tokens — deployed on your infrastructure in one command.
             </p>
-            <div className='rise mt-9 flex flex-wrap gap-3' style={{ animationDelay: '240ms' }}>
+            <div className='mt-8 flex flex-col gap-4 sm:flex-row sm:items-center'>
               <Link
                 href='/sign-up'
-                className='group inline-flex items-center gap-2 rounded-full bg-wise-green-bright px-6 py-3.5 text-[15px] font-bold text-wise-green-forest transition hover:brightness-110'
+                className='group inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-wise-green-bright px-7 text-[15px] font-bold text-wise-green-forest transition hover:brightness-105'
               >
-                Get started free
+                Start free — deploy in minutes
                 <ArrowRight className='h-4 w-4 transition-transform group-hover:translate-x-0.5' />
               </Link>
               <a
                 href='#how-it-works'
-                className='inline-flex items-center gap-2 rounded-full border border-white/20 px-6 py-3.5 text-[15px] font-semibold text-white transition hover:border-white/40'
+                className='text-[15px] font-semibold text-white/70 underline-offset-4 transition hover:text-white hover:underline sm:px-2'
               >
                 See how it works
               </a>
             </div>
-            <p
-              className='rise mt-6 text-[13px] text-white/40'
-              style={{ animationDelay: '320ms' }}
-            >
-              One command to deploy. No credit card, no cloud account, no strings.
+            <p className='mt-5 text-[13px] text-white/40'>
+              No credit card. No cloud account. MIT licensed, forever.
             </p>
           </div>
 
-          {/* Terminal card */}
-          <div className='rise' style={{ animationDelay: '280ms' }}>
-            <div className='overflow-hidden rounded-2xl border border-white/10 bg-[#0d2000] shadow-2xl shadow-black/40'>
-              <div className='flex items-center gap-1.5 border-b border-white/10 px-4 py-3'>
-                <span className='h-2.5 w-2.5 rounded-full bg-white/15' />
-                <span className='h-2.5 w-2.5 rounded-full bg-white/15' />
-                <span className='h-2.5 w-2.5 rounded-full bg-white/15' />
-                <span className='ml-3 text-xs text-white/40'>you@yourserver</span>
+          {/* Terminal */}
+          <div className='w-full'>
+            <div className='overflow-hidden rounded-xl border border-white/[0.08] bg-[#081400] shadow-[0_24px_64px_-16px_rgba(0,0,0,0.6)]'>
+              <div className='flex items-center justify-between border-b border-white/[0.08] px-4 py-2.5'>
+                <div className='flex items-center gap-1.5'>
+                  <span className='h-2.5 w-2.5 rounded-full bg-[#ff5f57]' />
+                  <span className='h-2.5 w-2.5 rounded-full bg-[#febc2e]' />
+                  <span className='h-2.5 w-2.5 rounded-full bg-[#28c840]' />
+                </div>
+                <span className='font-mono text-[11px] text-white/30'>zsh — deploy</span>
               </div>
-              <pre className='overflow-x-auto px-5 py-5 text-[13px] leading-6 text-white/80'>
+              <pre className='overflow-x-auto p-5 font-mono text-[13px] leading-[1.7]'>
                 <code>
-                  <span className='text-wise-green-bright'>$</span> docker compose up -d{'\n'}
-                  <span className='text-white/40'>
-                    ✓ postgres · gateway :8787 · dashboard :3000{'\n'}
-                    ✓ migrations applied
-                  </span>
+                  <span className='text-wise-green-bright'>➜</span>{' '}
+                  <span className='text-white'>docker compose up -d</span>
+                  {'\n'}
+                  <span className='text-white/35'>[+] Running 3/3</span>
+                  {'\n'}
+                  <span className='text-[#28c840]'> ✔</span>{' '}
+                  <span className='text-white/60'>postgres</span>
+                  <span className='text-white/35'>{'      '}Healthy</span>
+                  {'\n'}
+                  <span className='text-[#28c840]'> ✔</span>{' '}
+                  <span className='text-white/60'>gateway</span>
+                  <span className='text-white/35'>{'       '}Started · :8787</span>
+                  {'\n'}
+                  <span className='text-[#28c840]'> ✔</span>{' '}
+                  <span className='text-white/60'>dashboard</span>
+                  <span className='text-white/35'>{'     '}Started · :3000</span>
                   {'\n\n'}
-                  <span className='text-wise-green-bright'>$</span> curl -X POST
-                  localhost:8787/oauth/register \{'\n'}
-                  {'    '}-d {`'{"redirect_uris":["..."]}'`}{'\n'}
-                  <span className='text-white/40'>{`{ "client_id": "mcp_client_…" }`}</span>
-                  {'\n\n'}
-                  <span className='text-wise-green-bright'>$</span>{' '}
-                  <span className='text-white'>
-                    # your MCP servers are now behind OAuth 2.1
-                  </span>
-                  <span className='caret text-wise-green-bright'>▍</span>
+                  <span className='text-wise-green-bright'>➜</span>{' '}
+                  <span className='text-white'>curl localhost:8787/health</span>
+                  {'\n'}
+                  <span className='text-white/35'>{`{ "status": `}</span>
+                  <span className='text-wise-green-bright'>&quot;healthy&quot;</span>
+                  <span className='text-white/35'>{` }`}</span>
                 </code>
               </pre>
             </div>
+            <p className='mt-4 text-center font-mono text-[12px] text-white/30'>
+              gateway · dashboard · postgres — one command
+            </p>
           </div>
         </div>
 
-        {/* Stat strip */}
-        <div className='relative border-t border-white/10'>
-          <div className='mx-auto grid max-w-6xl grid-cols-2 gap-6 px-6 py-8 text-center sm:grid-cols-4'>
+        {/* Proof bar */}
+        <div className='border-t border-white/[0.08]'>
+          <div className='mx-auto grid max-w-6xl grid-cols-2 divide-white/[0.08] px-6 py-7 text-center sm:grid-cols-4 sm:divide-x'>
             {[
-              ['422', 'automated tests, all green'],
-              ['PKCE', 'mandatory on every flow'],
-              ['MIT', 'licensed, forever'],
-              ['$0', 'vendor fees, ever'],
+              ['400+', 'automated tests'],
+              ['OAuth 2.1', 'PKCE mandatory'],
+              ['RFC 7591', 'dynamic registration'],
+              ['MIT', 'licensed, no fees'],
             ].map(([stat, label]) => (
-              <div key={label}>
-                <p className='text-2xl font-black tracking-tight text-wise-green-bright'>{stat}</p>
-                <p className='mt-1 text-[13px] text-white/50'>{label}</p>
+              <div key={label} className='py-1'>
+                <p className='text-lg font-bold tracking-tight text-white'>{stat}</p>
+                <p className='mt-0.5 text-[13px] text-white/45'>{label}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Features */}
-      <section className='mx-auto max-w-6xl px-6 py-24'>
-        <div className='max-w-2xl'>
-          <h2 className='text-3xl font-black tracking-tight text-wise-green-forest sm:text-4xl'>
-            Everything between your MCP servers and the outside world.
-          </h2>
-          <p className='mt-4 text-lg text-wise-gray-500'>
-            You built the servers. The gateway handles the part that keeps you up at night.
-          </p>
+      {/* Problem / Solution */}
+      <section className='mx-auto max-w-6xl px-6 py-20 lg:py-24'>
+        <p className='text-[13px] font-semibold uppercase tracking-[0.14em] text-wise-green-primary'>
+          The problem
+        </p>
+        <h2 className='mt-3 max-w-2xl text-3xl font-extrabold tracking-tight text-wise-green-forest sm:text-4xl'>
+          MCP adoption is exploding. MCP security hasn&apos;t caught up.
+        </h2>
+        <div className='mt-12 grid gap-6 lg:grid-cols-2'>
+          <div className='rounded-xl border border-wise-gray-200 bg-wise-gray-50 p-7'>
+            <p className='text-sm font-bold uppercase tracking-wide text-wise-gray-500'>
+              Without a gateway
+            </p>
+            <ul className='mt-5 space-y-4'>
+              {painPoints.map(item => (
+                <li key={item} className='flex gap-3 text-[15px] leading-relaxed text-wise-gray-600'>
+                  <X className='mt-0.5 h-5 w-5 shrink-0 text-wise-gray-400' />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className='rounded-xl border border-wise-green-primary/30 bg-wise-green-50 p-7'>
+            <p className='text-sm font-bold uppercase tracking-wide text-wise-green-700'>
+              With MCP Gateway
+            </p>
+            <ul className='mt-5 space-y-4'>
+              {fixes.map(item => (
+                <li key={item} className='flex gap-3 text-[15px] leading-relaxed text-wise-gray-700'>
+                  <Check className='mt-0.5 h-5 w-5 shrink-0 text-wise-green-primary' />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
-        <div className='mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3'>
-          {features.map(feature => (
-            <div
-              key={feature.title}
-              className='group rounded-2xl border border-wise-gray-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-wise-green-primary/40 hover:shadow-lg hover:shadow-wise-green-primary/5'
-            >
-              <span className='inline-flex h-10 w-10 items-center justify-center rounded-xl bg-wise-green-bright/20 text-wise-green-forest transition group-hover:bg-wise-green-bright/35'>
-                <feature.icon className='h-5 w-5' />
+      </section>
+
+      {/* Features */}
+      <section className='border-y border-wise-gray-200 bg-wise-gray-50'>
+        <div className='mx-auto max-w-6xl px-6 py-20 lg:py-24'>
+          <p className='text-[13px] font-semibold uppercase tracking-[0.14em] text-wise-green-primary'>
+            What you get
+          </p>
+          <h2 className='mt-3 max-w-2xl text-3xl font-extrabold tracking-tight text-wise-green-forest sm:text-4xl'>
+            Everything between your servers and the outside world.
+          </h2>
+          <div className='mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3'>
+            {features.map(feature => (
+              <div key={feature.title} className='rounded-xl border border-wise-gray-200 bg-white p-6'>
+                <span className='inline-flex h-9 w-9 items-center justify-center rounded-lg bg-wise-green-forest text-wise-green-bright'>
+                  <feature.icon className='h-[18px] w-[18px]' />
+                </span>
+                <h3 className='mt-4 text-base font-bold text-wise-green-forest'>{feature.title}</h3>
+                <p className='mt-1.5 text-[14px] leading-relaxed text-wise-gray-500'>
+                  {feature.body}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section id='how-it-works' className='mx-auto max-w-6xl px-6 py-20 lg:py-24'>
+        <p className='text-[13px] font-semibold uppercase tracking-[0.14em] text-wise-green-primary'>
+          How it works
+        </p>
+        <h2 className='mt-3 max-w-2xl text-3xl font-extrabold tracking-tight text-wise-green-forest sm:text-4xl'>
+          Watch a request make it through.
+        </h2>
+        <div className='mt-10'>
+          <ExplainerAnimation />
+        </div>
+        <div className='mt-12 grid gap-5 md:grid-cols-3'>
+          {steps.map(step => (
+            <div key={step.number} className='relative rounded-xl border border-wise-gray-200 p-6'>
+              <span className='inline-flex h-8 w-8 items-center justify-center rounded-full bg-wise-green-bright text-sm font-black text-wise-green-forest'>
+                {step.number}
               </span>
-              <h3 className='mt-4 text-[17px] font-bold text-wise-green-forest'>
-                {feature.title}
-              </h3>
-              <p className='mt-2 text-[15px] leading-relaxed text-wise-gray-500'>{feature.body}</p>
+              <h3 className='mt-4 text-base font-bold text-wise-green-forest'>{step.title}</h3>
+              <p className='mt-1.5 text-[14px] leading-relaxed text-wise-gray-500'>{step.body}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* How it works */}
-      <section id='how-it-works' className='bg-wise-green-forest'>
-        <div className='mx-auto max-w-6xl px-6 py-24'>
-          <h2 className='max-w-2xl text-3xl font-black tracking-tight text-white sm:text-4xl'>
-            From <span className='text-wise-green-bright'>zero</span> to production auth in an
-            afternoon.
+      {/* FAQ */}
+      <section className='border-t border-wise-gray-200'>
+        <div className='mx-auto max-w-3xl px-6 py-20 lg:py-24'>
+          <h2 className='text-center text-3xl font-extrabold tracking-tight text-wise-green-forest'>
+            Questions, answered.
           </h2>
-          <div className='mt-14 grid gap-10 md:grid-cols-3'>
-            {steps.map(step => (
-              <div key={step.number} className='relative'>
-                <p className='text-5xl font-black tracking-tight text-wise-green-bright/25'>
-                  {step.number}
-                </p>
-                <h3 className='mt-3 text-lg font-bold text-white'>{step.title}</h3>
-                <p className='mt-2 text-[15px] leading-relaxed text-white/60'>{step.body}</p>
-              </div>
+          <div className='mt-10 divide-y divide-wise-gray-200 border-y border-wise-gray-200'>
+            {faqs.map(faq => (
+              <details key={faq.q} className='group py-5'>
+                <summary className='flex cursor-pointer list-none items-center justify-between text-[15px] font-semibold text-wise-green-forest [&::-webkit-details-marker]:hidden'>
+                  {faq.q}
+                  <span className='ml-4 text-wise-gray-400 transition-transform group-open:rotate-45'>
+                    +
+                  </span>
+                </summary>
+                <p className='mt-3 text-[15px] leading-relaxed text-wise-gray-500'>{faq.a}</p>
+              </details>
             ))}
           </div>
         </div>
       </section>
 
       {/* Final CTA */}
-      <section className='mx-auto max-w-3xl px-6 py-24 text-center'>
-        <h2 className='text-3xl font-black tracking-tight text-wise-green-forest sm:text-4xl'>
-          Life&apos;s too short to rotate leaked keys.
-        </h2>
-        <p className='mx-auto mt-4 max-w-xl text-lg text-wise-gray-500'>
-          Put real authentication in front of your MCP servers today — and never think about a
-          pasted API key again.
-        </p>
-        <ul className='mx-auto mt-6 flex max-w-md flex-col items-center gap-2 text-[15px] text-wise-gray-600 sm:flex-row sm:justify-center sm:gap-6'>
-          {['Self-hosted', 'Open source', 'Free forever'].map(item => (
-            <li key={item} className='flex items-center gap-1.5'>
-              <Check className='h-4 w-4 text-wise-green-primary' />
-              {item}
-            </li>
-          ))}
-        </ul>
-        <div className='mt-9 flex flex-wrap justify-center gap-3'>
-          <Link
-            href='/sign-up'
-            className='group inline-flex items-center gap-2 rounded-full bg-wise-green-forest px-7 py-3.5 text-[15px] font-bold text-wise-green-bright transition hover:brightness-125'
-          >
-            Start now — it&apos;s yours
-            <ArrowRight className='h-4 w-4 transition-transform group-hover:translate-x-0.5' />
-          </Link>
-          <Link
-            href='/sign-in'
-            className='inline-flex items-center rounded-full border border-wise-gray-300 px-7 py-3.5 text-[15px] font-semibold text-wise-green-forest transition hover:border-wise-green-forest'
-          >
-            Sign in
-          </Link>
+      <section className='bg-wise-green-forest'>
+        <div className='mx-auto max-w-3xl px-6 py-20 text-center lg:py-24'>
+          <h2 className='text-3xl font-extrabold tracking-tight text-white sm:text-4xl'>
+            Your MCP servers, properly secured — tonight.
+          </h2>
+          <p className='mx-auto mt-4 max-w-lg text-[17px] leading-relaxed text-white/60'>
+            One command to deploy. One evening to never worry about a pasted API key again.
+          </p>
+          <div className='mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row'>
+            <Link
+              href='/sign-up'
+              className='group inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-wise-green-bright px-8 text-[15px] font-bold text-wise-green-forest transition hover:brightness-105 sm:w-auto'
+            >
+              Get started free
+              <ArrowRight className='h-4 w-4 transition-transform group-hover:translate-x-0.5' />
+            </Link>
+            <a
+              href='https://github.com'
+              className='inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-white/20 px-8 text-[15px] font-semibold text-white transition hover:border-white/50 sm:w-auto'
+            >
+              <Github className='h-4 w-4' />
+              View the source
+            </a>
+          </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className='border-t border-wise-gray-200'>
-        <div className='mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 text-[13px] text-wise-gray-500 sm:flex-row'>
-          <p className='flex items-center gap-2'>
-            <span className='flex h-6 w-6 items-center justify-center rounded-md bg-wise-green-bright text-[11px] font-black text-wise-green-forest'>
-              G
-            </span>
-            OAuth 2.1 MCP Gateway · MIT License
-          </p>
-          <div className='flex items-center gap-5'>
-            <a href='https://github.com' className='transition hover:text-wise-green-forest'>
+      <footer className='bg-wise-green-forest'>
+        <div className='mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 border-t border-white/[0.08] px-6 py-8 text-[13px] text-white/40 sm:flex-row'>
+          <p>OAuth 2.1 MCP Gateway · MIT License</p>
+          <div className='flex items-center gap-6'>
+            <a href='https://github.com' className='transition hover:text-white'>
               GitHub
             </a>
-            <Link href='/sign-in' className='transition hover:text-wise-green-forest'>
+            <Link href='/sign-in' className='transition hover:text-white'>
               Dashboard
             </Link>
           </div>
