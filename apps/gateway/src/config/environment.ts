@@ -74,7 +74,7 @@ export function loadEnvironmentConfig(env: Bindings): EnvironmentConfig {
     environment: env.ENVIRONMENT || 'development',
     
     jwtIssuer: env.JWT_ISSUER || 'https://oauth-mcp-gateway.example.com',
-    jwtExpirySeconds: 3600, // 1 hour
+    jwtExpirySeconds: 900, // 15 minutes — tracks JWT_CONFIG.ACCESS_TOKEN_LIFETIME
     refreshTokenExpirySeconds: 86400 * 30, // 30 days
     
     corsOrigins,

@@ -30,9 +30,10 @@ export const OAUTH_CONSTANTS = {
     CODE_CHALLENGE_LENGTH: 43
   } as const,
   
-  // Token Expiry (seconds)
+  // Token Expiry (seconds) — access-token value must track
+  // JWT_CONFIG.ACCESS_TOKEN_LIFETIME (900s ceiling, no revocation path yet)
   TOKEN_EXPIRY: {
-    ACCESS_TOKEN: 3600, // 1 hour
+    ACCESS_TOKEN: 900, // 15 minutes
     REFRESH_TOKEN: 86400 * 30, // 30 days
     AUTHORIZATION_CODE: 600, // 10 minutes
     ID_TOKEN: 3600 // 1 hour
