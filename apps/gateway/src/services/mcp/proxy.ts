@@ -40,7 +40,10 @@ export class MCPProxyService {
       retryDelay: config?.retryDelay ?? 1000,
       timeout: config?.timeout ?? 30000,
       addTenantHeaders: config?.addTenantHeaders ?? true,
-      addAuthHeaders: config?.addAuthHeaders ?? true,
+      // SECURITY DEFAULT: the gateway terminates auth. Upstream servers should
+      // not receive the client's bearer token unless explicitly opted in, or it
+      // leaks into upstream logs/APM and widens replay surface.
+      addAuthHeaders: config?.addAuthHeaders ?? false,
       preserveHostHeader: config?.preserveHostHeader ?? false,
     };
   }
@@ -131,6 +134,17 @@ export class MCPProxyService {
     config: Required<ProxyConfig>
   ): Record<string, string> {
     const headers: Record<string, string> = { ...request.headers };
+
+    // SECURITY: strip any inbound identity headers before injecting our own.
+    // The gateway re-derives these from the verified token context; a client
+    // must never be able to smuggle them through to an upstream.
+    for (const h of Object.keys(headers)) {
+      const lower = h.toLowerCase();
+      if (lower === 'x-tenant-id' || lower === 'x-user-id' || lower === 'x-client-id' ||
+          lower === 'x-session-id' || lower === 'x-device-id' || lower === 'x-oauth-scopes') {
+        delete headers[h];
+      }
+    }
 
     // Add tenant context headers
     if (config.addTenantHeaders) {
