@@ -6,10 +6,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { eq } from 'drizzle-orm';
+import { oauthClients } from '@oauth-mcp-gateway/db';
 import app from '../../src/index';
 import type { ClientRegistrationRequest, OAuthError } from '../../src/types/oauth';
 import { makeTestEnv } from '../helpers/env';
-import { createTenant } from '../helpers/db';
+import { getTestDb } from '../helpers/db';
 
 const testEnv = makeTestEnv();
 
@@ -300,59 +302,44 @@ describe('Client Registration Security Tests', () => {
   });
 
   describe('Tenant Isolation Security', () => {
-    it('should isolate clients by tenant', async () => {
-      await createTenant('tenant-a');
-      await createTenant('tenant-b');
-
-      const clientRequest = {
-        redirect_uris: ['https://example.com/callback'],
-        client_name: 'Tenant Test Client'
-      };
-
-      // Register client for tenant A
-      const responseA = await app.request('/register', {
+    it('should ignore client-supplied X-Tenant-ID and register under the server-side tenant', async () => {
+      // 'tenant-a' deliberately does not exist: if the header were still
+      // trusted, the insert would hit a missing-tenant FK. Registration must
+      // land in the env-configured tenant regardless of the header.
+      const response = await app.request('/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-Tenant-ID': 'tenant-a'
         },
-        body: JSON.stringify(clientRequest)
+        body: JSON.stringify({
+          redirect_uris: ['https://example.com/callback'],
+          client_name: 'Tenant Test Client'
+        })
       }, testEnv);
 
-      // Register client for tenant B
-      const responseB = await app.request('/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Tenant-ID': 'tenant-b'
-        },
-        body: JSON.stringify(clientRequest)
-      }, testEnv);
+      expect(response.status).toBe(201);
+      const client = await response.json();
 
-      expect(responseA.status).toBe(201);
-      expect(responseB.status).toBe(201);
-
-      const clientA = await responseA.json();
-      const clientB = await responseB.json();
-
-      // Should generate different client_ids for different tenants
-      expect(clientA.client_id).not.toBe(clientB.client_id);
+      const [row] = await getTestDb().db
+        .select()
+        .from(oauthClients)
+        .where(eq(oauthClients.clientId, client.client_id));
+      expect(row.tenantId).toBe(testEnv.TENANT_ID);
     });
 
-    it('should handle missing tenant ID gracefully', async () => {
+    it('should handle missing tenant ID header the same as any other request', async () => {
       const response = await app.request('/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-          // No X-Tenant-ID header
         },
         body: JSON.stringify({
           redirect_uris: ['https://example.com/callback']
         })
       }, testEnv);
 
-      // Should use default tenant or reject
-      expect([201, 400]).toContain(response.status);
+      expect(response.status).toBe(201);
     });
   });
 
