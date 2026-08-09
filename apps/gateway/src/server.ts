@@ -11,6 +11,7 @@ import { MemoryKV } from './lib/memory-kv';
 import { PgSessionStorage } from './storage/pg-session-storage';
 import { PgAuthorizationCodeStorage } from './storage/pg-authorization-code-storage';
 import { PgRefreshTokenStorage } from './storage/pg-refresh-token-storage';
+import { RateLimitStoragePg } from './services/security/rate-limit-storage-pg';
 import type { Bindings } from './types/bindings';
 
 const config = loadConfig();
@@ -26,6 +27,7 @@ const env: Bindings = {
   CORS_ORIGINS: config.CORS_ORIGINS,
   ADMIN_TOKEN: config.ADMIN_TOKEN,
   UPSTREAM_HMAC_SECRETS: config.UPSTREAM_HMAC_SECRETS,
+  RATE_LIMIT_STORAGE: config.RATE_LIMIT_STORAGE,
   DB: db,
   SESSIONS: new PgSessionStorage(db),
   CACHE: new MemoryKV(),
@@ -40,8 +42,14 @@ async function cleanupExpired(): Promise<void> {
     const codes = await new PgAuthorizationCodeStorage(db).cleanupExpiredCodes();
     const tokens = await new PgRefreshTokenStorage(db).cleanupExpiredTokens();
     const sessions = await new PgSessionStorage(db).cleanupExpiredSessions();
-    if (codes || tokens || sessions) {
-      console.log(`cleanup: ${codes} codes, ${tokens} tokens, ${sessions} sessions removed`);
+    const rateLimits =
+      config.RATE_LIMIT_STORAGE === 'postgres'
+        ? await new RateLimitStoragePg(db).cleanupExpired()
+        : 0;
+    if (codes || tokens || sessions || rateLimits) {
+      console.log(
+        `cleanup: ${codes} codes, ${tokens} tokens, ${sessions} sessions, ${rateLimits} rate-limit rows removed`
+      );
     }
   } catch (error) {
     console.error('cleanup failed:', error);

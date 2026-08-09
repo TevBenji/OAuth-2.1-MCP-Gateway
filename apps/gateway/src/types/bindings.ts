@@ -23,6 +23,8 @@ export interface Bindings {
    * upstream without an entry gets no signature headers.
    */
   UPSTREAM_HMAC_SECRETS?: string;
+  /** Rate-limit counter backend: 'memory' (default, per-process) or 'postgres' (shared). */
+  RATE_LIMIT_STORAGE?: 'memory' | 'postgres';
 
   DB: Db;
   SESSIONS: SessionStorage;

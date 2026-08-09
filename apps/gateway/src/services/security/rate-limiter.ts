@@ -2,9 +2,9 @@
  * Rate Limiter Service
  *
  * Implements sliding window rate limiting over a pluggable RateLimitStorage
- * backend. Current shipped implementation is in-memory and single-instance:
- * limits multiply and IP blocks do not propagate across replicas. See
- * docs/security/hardening-notes.md for the Postgres-backed storage plan.
+ * backend: in-memory (default, per-process — limits multiply across
+ * replicas) or Postgres (RATE_LIMIT_STORAGE=postgres, shared counters and
+ * IP blocks across replicas).
  * Supports per-tenant, per-user, and IP-based rate limiting with DDoS protection.
  */
 

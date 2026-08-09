@@ -16,6 +16,8 @@ const ConfigSchema = z
     TENANT_ID: z.string().default('default'),
     /** JSON map of upstream signing secrets, keyed by server_id or resource_identifier. */
     UPSTREAM_HMAC_SECRETS: z.string().optional(),
+    /** 'postgres' shares rate-limit counters and IP blocks across replicas. */
+    RATE_LIMIT_STORAGE: z.enum(['memory', 'postgres']).default('memory'),
   })
   .refine(c => c.ENVIRONMENT !== 'production' || c.JWT_SECRET.length >= 32, {
     message: 'JWT_SECRET must be at least 32 characters in production',

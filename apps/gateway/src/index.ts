@@ -18,6 +18,7 @@ import { authMiddleware, requireScopes } from './middleware/auth';
 import { rateLimitMiddleware, ipRateLimitMiddleware } from './middleware/rate-limit';
 import { RateLimiter } from './services/security/rate-limiter';
 import { RateLimitStorageMemory } from './services/security/rate-limit-storage-memory';
+import { RateLimitStoragePg } from './services/security/rate-limit-storage-pg';
 import { MCPServerRegistry } from './services/mcp/registry';
 import { MCPProxyService } from './services/mcp/proxy';
 import { PgMcpServerDatabase } from './storage/pg-mcp-server-database';
@@ -79,9 +80,24 @@ app.get('/.well-known/oauth-authorization-server', c => {
   });
 });
 
-// Process-wide rate limiter backed by in-memory counters.
-const rateLimiter = new RateLimiter(new RateLimitStorageMemory());
-const createRateLimiter = (_env: unknown) => rateLimiter;
+// Rate limiter per environment. Backend is selected by RATE_LIMIT_STORAGE:
+// 'postgres' shares counters and IP blocks across replicas; the default
+// in-memory backend is per-process (fine for a single instance / dev).
+const rateLimiters = new WeakMap<object, RateLimiter>();
+const fallbackRateLimiter = new RateLimiter(new RateLimitStorageMemory());
+const createRateLimiter = (env: Bindings | undefined): RateLimiter => {
+  if (!env) return fallbackRateLimiter;
+  let limiter = rateLimiters.get(env);
+  if (!limiter) {
+    const storage =
+      env.RATE_LIMIT_STORAGE === 'postgres' && env.DB
+        ? new RateLimitStoragePg(env.DB)
+        : new RateLimitStorageMemory();
+    limiter = new RateLimiter(storage);
+    rateLimiters.set(env, limiter);
+  }
+  return limiter;
+};
 
 // Proxy service per environment (one per process; tests get one per fake env).
 const proxyServices = new WeakMap<object, MCPProxyService>();
