@@ -12,6 +12,7 @@ import {
   timestamp,
   index,
   uniqueIndex,
+  primaryKey,
 } from 'drizzle-orm/pg-core';
 
 const uuid = () => crypto.randomUUID();
@@ -239,6 +240,35 @@ export const apiKeys = pgTable(
     createdAt: createdAt(),
   },
   t => [index('idx_api_keys_tenant_id').on(t.tenantId)]
+);
+
+// One token-bucket row per (key, window); a single upsert per check keeps it
+// race-safe across gateway replicas (see rate-limit-storage-pg.ts).
+export const rateLimitWindows = pgTable(
+  'rate_limit_windows',
+  {
+    key: text('key').notNull(),
+    window: text('window').notNull(),
+    count: integer('count').notNull().default(0),
+    windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  t => [
+    primaryKey({ columns: [t.key, t.window] }),
+    index('idx_rate_limit_windows_expires_at').on(t.expiresAt),
+  ]
+);
+
+export const rateLimitBlocks = pgTable(
+  'rate_limit_blocks',
+  {
+    key: text('key').primaryKey(),
+    blockedAt: timestamp('blocked_at', { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    reason: text('reason').notNull(),
+    violationCount: integer('violation_count').notNull().default(1),
+  },
+  t => [index('idx_rate_limit_blocks_expires_at').on(t.expiresAt)]
 );
 
 export const auditLogs = pgTable(
