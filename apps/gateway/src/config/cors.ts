@@ -23,7 +23,7 @@ export function createCorsMiddleware() {
       return null;
     },
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
+    allowHeaders: ['Content-Type', 'Authorization'],
     exposeHeaders: ['X-RateLimit-Remaining', 'X-RateLimit-Reset'],
   });
 }

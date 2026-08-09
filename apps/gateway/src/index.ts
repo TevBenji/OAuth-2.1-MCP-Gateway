@@ -48,7 +48,9 @@ app.use(
       return allowed.includes(origin) ? origin : null;
     },
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
+    // X-Tenant-ID is gone on purpose: no endpoint reads it inbound anymore
+    // (tenant is a server-side decision; identity headers are stripped).
+    allowHeaders: ['Content-Type', 'Authorization'],
     exposeHeaders: ['X-RateLimit-Remaining', 'X-RateLimit-Reset'],
   })
 );
