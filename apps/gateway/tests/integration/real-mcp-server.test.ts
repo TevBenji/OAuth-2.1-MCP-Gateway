@@ -183,6 +183,30 @@ describe('Real MCP Server Integration Tests', () => {
       expect(result.isError).toBe(false);
     });
 
+    it('must not forward the client bearer upstream, and strips smuggled identity headers', async () => {
+      const response = await app.request(
+        `/mcp/${registeredServerId}/mcp/tools/list`,
+        {
+          headers: {
+            Authorization: `Bearer ${validAccessToken}`,
+            'X-Tenant-ID': 'attacker-tenant',
+            'X-User-ID': 'attacker-user',
+            'X-OAuth-Scopes': 'mcp:admin',
+          },
+        },
+        testEnv
+      );
+
+      expect(response.status).toBe(200);
+      const upstream = mcpServer.getLastRequest()!;
+      // The gateway terminates auth: the client's bearer never reaches upstream.
+      expect(upstream.headers['authorization']).toBeUndefined();
+      // Identity comes from the verified token, never from client-supplied headers.
+      expect(upstream.headers['x-tenant-id']).toBe(testTenantId);
+      expect(upstream.headers['x-user-id']).toBe(testUserId);
+      expect(upstream.headers['x-oauth-scopes']).not.toContain('mcp:admin');
+    });
+
     it('should reject gateway access without a token', async () => {
       const response = await app.request(
         `/mcp/${registeredServerId}/mcp/tools/list`,
