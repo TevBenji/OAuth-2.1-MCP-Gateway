@@ -6,7 +6,8 @@ import { validatePKCE } from '../../services/oauth/pkce';
 import { JWTService, TokenClaims, TokenType, JWT_CONFIG } from '../../services/oauth/jwt';
 import { getJWTService } from '../../services/oauth/jwt-factory';
 import { PgAuthorizationCodeStorage } from '../../storage/pg-authorization-code-storage';
-import { PgRefreshTokenStorage } from '../../storage/pg-refresh-token-storage';
+import { PgRefreshTokenStorage, type RefreshTokenData } from '../../storage/pg-refresh-token-storage';
+import { auditService } from '../../services/security/audit';
 
 // Token request parameters
 export interface TokenRequest {
@@ -225,7 +226,12 @@ async function handleAuthorizationCodeGrant(
 }
 
 /**
- * Handle refresh token grant with rotation
+ * Handle refresh token grant with rotation and reuse detection (RFC 9700).
+ *
+ * State machine on the presented token:
+ * - active  -> rotate: mark rotated, issue a child in the same family
+ * - rotated -> reuse detected: revoke the entire family, audit, invalid_grant
+ * - revoked/unknown/expired -> invalid_grant, no family effects
  */
 async function handleRefreshTokenGrant(
   c: Context,
@@ -241,13 +247,44 @@ async function handleRefreshTokenGrant(
     );
   }
 
-  // Retrieve and validate the refresh token
-  const refreshTokenData = await refreshTokenStorage.retrieveAndDeleteRefreshToken(request.refresh_token);
-  if (!refreshTokenData) {
-    return c.json(
+  const tenantId = c.env?.TENANT_ID || 'default';
+  const invalidGrant = () =>
+    c.json(
       { error: 'invalid_grant', error_description: 'Invalid or expired refresh token' },
       400
     );
+
+  const reuseDetected = async (data: RefreshTokenData) => {
+    const revoked = await refreshTokenStorage.revokeFamily(data.familyId);
+    await auditService.createLogEntry(
+      tenantId,
+      'security.suspicious.activity',
+      'Refresh token reuse detected; token family revoked',
+      false,
+      {
+        userId: data.userId,
+        clientId: data.clientId,
+        details: { familyId: data.familyId, tokensRevoked: revoked },
+        severity: 'critical',
+        source: 'gateway',
+      }
+    );
+    return invalidGrant();
+  };
+
+  // Retrieve and validate the refresh token
+  const refreshTokenData = await refreshTokenStorage.getRefreshToken(request.refresh_token);
+  if (!refreshTokenData) {
+    return invalidGrant();
+  }
+
+  if (refreshTokenData.status === 'rotated') {
+    // A rotated token can only be presented again by replay: someone (the
+    // legitimate client or a thief) already spent it. Kill the whole family.
+    return reuseDetected(refreshTokenData);
+  }
+  if (refreshTokenData.status === 'revoked') {
+    return invalidGrant();
   }
 
   // Optionally validate client_id for confidential clients
@@ -265,14 +302,24 @@ async function handleRefreshTokenGrant(
     audience: refreshTokenData.clientId, // Or resource server identifier for RFC 8707
     scopes: refreshTokenData.scopes.join(' '),
     expiresIn: JWT_CONFIG.ACCESS_TOKEN_LIFETIME,
-    tenantId: c.env?.TENANT_ID || 'default',
+    tenantId,
     userId: refreshTokenData.userId,
     // Add resource indicators if needed per RFC 8707
     resourceIndicators: ['default-resource'],
     mcpPermissions: refreshTokenData.scopes // Map scopes to MCP permissions
   } as TokenClaims);
 
-  // Generate new refresh token for rotation
+  // Rotate: atomically flip the parent to 'rotated' before the child exists.
+  // If the flip fails, a concurrent request rotated it first — that is the
+  // no-grace-window race policy: treat it as reuse (the double-submitting
+  // client re-authenticates; a thief loses the whole family).
+  const childTokenId = uuidv4();
+  const rotated = await refreshTokenStorage.markRotated(refreshTokenData.tokenId, childTokenId);
+  if (!rotated) {
+    return reuseDetected(refreshTokenData);
+  }
+
+  // Generate new refresh token in the same family
   const newRefreshToken = `refresh_${uuidv4().replace(/-/g, '')}`;
   const newRefreshTokenExpiry = Date.now() + (JWT_CONFIG.REFRESH_TOKEN_LIFETIME * 1000); // 30 days
 
@@ -282,7 +329,8 @@ async function handleRefreshTokenGrant(
     refreshTokenData.clientId,
     refreshTokenData.userId,
     refreshTokenData.scopes,
-    newRefreshTokenExpiry
+    newRefreshTokenExpiry,
+    { familyId: refreshTokenData.familyId, tokenId: childTokenId }
   );
 
   // Create response with new tokens
