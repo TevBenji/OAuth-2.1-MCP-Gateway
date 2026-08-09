@@ -50,8 +50,12 @@ export const registerClient = async (c: Context) => {
       return c.json(validationError, HTTP_STATUS.BAD_REQUEST);
     }
 
-    // Extract tenant context (if multi-tenant)
-    const tenantId = c.req.header('X-Tenant-ID') || 'default';
+    // SECURITY: tenant is a server-side decision (mirrors token issuance in
+    // token.ts). Never derive tenant from client-supplied headers on an
+    // unauthenticated endpoint; the previous header-based lookup allowed
+    // cross-tenant client registration. Multi-tenant DCR requires an
+    // authenticated registration flow (see docs/security/hardening-notes.md).
+    const tenantId = c.env?.TENANT_ID || 'default';
     
     // Initialize client service
     const clientService = new ClientService(c.env.DB);
@@ -274,7 +278,7 @@ export const registerPreflight = async (c: Context) => {
     c.header('Access-Control-Allow-Origin', 'null');
   }
   c.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  c.header('Access-Control-Allow-Headers', 'Content-Type, X-Tenant-ID');
+  c.header('Access-Control-Allow-Headers', 'Content-Type');
   c.header('Vary', 'Origin'); // Important for caching when using origin-based CORS
   return c.body(null, 204);
 };
