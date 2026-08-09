@@ -129,7 +129,7 @@ curl -X POST http://localhost:8787/oauth/token \
 {
   "access_token": "eyJ...",
   "token_type": "Bearer",
-  "expires_in": 3600,
+  "expires_in": 900,
   "refresh_token": "...",
   "scope": "mcp:tools:read mcp:resources:read"
 }
@@ -173,7 +173,7 @@ Dynamic client registration (RFC 7591). `POST /register` is a legacy alias.
 }
 ```
 
-For multi-tenant deployments, pass `X-Tenant-ID: <tenant>` — defaults to `default`.
+Registration is single-tenant: clients are registered under the tenant configured server-side via the `TENANT_ID` environment variable (defaults to `default`). The `X-Tenant-ID` request header is ignored — tenant identity never comes from client-supplied input.
 
 ## MCP Proxy Endpoints
 
