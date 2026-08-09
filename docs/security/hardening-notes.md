@@ -2,6 +2,16 @@
 
 Patched on this branch: header-derived tenant on DCR removed; addAuthHeaders defaults to false; inbound identity headers stripped before injection; access-token TTL lowered to 15 minutes; rate-limiter docs made honest. Remaining items below are designed here and belong in a local dev loop with tests, because they touch schema and storage interfaces.
 
+## Completed
+
+- **Tenant is server-side on DCR.** `/oauth/register` derives the tenant from `c.env.TENANT_ID`, never from the client-supplied `X-Tenant-ID` header, which is also gone from the CORS preflight allow-list. — `633dbef`
+- **Gateway terminates auth.** `addAuthHeaders` defaults to false, so the client's bearer token is not forwarded upstream; `X-Tenant-ID`/`X-User-ID`/`X-Client-ID`/`X-Session-ID`/`X-Device-ID`/`X-OAuth-Scopes` are stripped from the inbound request before the gateway injects its own. — `3d81d8b`
+- **Access-token TTL is 900s.** Lowered from 3600s because no revocation path exists; the end-to-end test now asserts `JWT_CONFIG.ACCESS_TOKEN_LIFETIME` and a `<= 900` ceiling instead of a literal, so raising it fails the suite. — `89b8598`, `1f26bab`
+- **Rate-limiter docs are honest.** The header states the shipped backend is in-memory and single-instance. — `f6286d1`
+- **Suite is green against all of the above, with none of it weakened.** The MCP test upstream authenticates on the gateway's injected context instead of a forwarded bearer (§2 option (a) applied to the fixture only, not to the product), and a regression test locks the two proxy invariants: no bearer upstream, smuggled identity headers replaced by token-derived values. — `30b12cb`, `92ae9d5`
+
+Sections 1–4 below are still design only; nothing in them has shipped.
+
 ## 1. Refresh-token reuse detection (family revocation, RFC 9700)
 Current behavior deletes a refresh token on use; a replayed (stolen, already-rotated) token is indistinguishable from a never-issued one, so the thief's rotated chain survives while the victim sees invalid_grant.
 Plan: stop deleting on rotation. Schema: add `family_id UUID` and `status TEXT CHECK (status IN ('active','rotated','revoked'))` to refresh tokens; a family is created at authorization-code exchange and inherited on every rotation. Handler logic on presentation: status=active -> rotate normally (mark rotated, issue child in same family); status=rotated -> REUSE DETECTED -> set every token in the family to revoked, log a security event, return invalid_grant; unknown -> invalid_grant. Prune terminal-status rows past REFRESH_TOKEN_LIFETIME. The vestigial `rotatedRefreshToken?` field in pg-refresh-token-storage.ts becomes the rotation linkage. Tests: replay-after-rotation kills the whole family; legitimate double-submit race (client retry within a small grace window) documented as accepted invalid_grant or handled with a 10s reuse-grace on the immediate parent only.
