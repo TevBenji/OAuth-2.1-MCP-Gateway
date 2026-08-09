@@ -25,6 +25,7 @@ const env: Bindings = {
   TENANT_ID: config.TENANT_ID,
   CORS_ORIGINS: config.CORS_ORIGINS,
   ADMIN_TOKEN: config.ADMIN_TOKEN,
+  UPSTREAM_HMAC_SECRETS: config.UPSTREAM_HMAC_SECRETS,
   DB: db,
   SESSIONS: new PgSessionStorage(db),
   CACHE: new MemoryKV(),

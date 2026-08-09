@@ -17,6 +17,12 @@ export interface Bindings {
   CORS_ORIGINS: string;
   /** Bearer token protecting /admin/api/* */
   ADMIN_TOKEN?: string;
+  /**
+   * JSON map of upstream shared secrets for gateway->upstream context
+   * signing, keyed by MCP server_id or resource_identifier. Optional; an
+   * upstream without an entry gets no signature headers.
+   */
+  UPSTREAM_HMAC_SECRETS?: string;
 
   DB: Db;
   SESSIONS: SessionStorage;

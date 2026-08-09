@@ -92,7 +92,16 @@ app.use('/mcp/*', async (c, next) => {
     let service = proxyServices.get(c.env);
     if (!service) {
       const registry = new MCPServerRegistry(new PgMcpServerDatabase(c.env.DB), 60000, false);
-      service = new MCPProxyService(registry);
+      let upstreamSecrets: Record<string, string> | undefined;
+      if (c.env.UPSTREAM_HMAC_SECRETS) {
+        try {
+          upstreamSecrets = JSON.parse(c.env.UPSTREAM_HMAC_SECRETS);
+        } catch {
+          // never echo the value: it holds secrets
+          console.error('UPSTREAM_HMAC_SECRETS is not valid JSON; upstream signing disabled');
+        }
+      }
+      service = new MCPProxyService(registry, { upstreamSecrets });
       proxyServices.set(c.env, service);
     }
     c.set('proxyService', service);

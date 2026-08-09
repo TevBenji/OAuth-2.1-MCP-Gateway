@@ -24,6 +24,46 @@ export interface ProxyConfig {
   addTenantHeaders?: boolean;
   addAuthHeaders?: boolean;
   preserveHostHeader?: boolean;
+  /**
+   * Opt-in gateway->upstream context authentication: shared secrets keyed by
+   * server_id or resource_identifier. When an upstream has a secret, its
+   * requests carry X-Gateway-Ts and X-Gateway-Signature (see
+   * docs/security/upstream-verification.md). No secret -> headers absent.
+   */
+  upstreamSecrets?: Record<string, string>;
+}
+
+/** ProxyConfig with every per-request knob resolved (secrets stay separate). */
+type ResolvedProxyConfig = Required<Omit<ProxyConfig, 'upstreamSecrets'>>;
+
+/**
+ * Compute the upstream context signature: hex HMAC-SHA256 over the exact
+ * string `tenant|user|client|scopes|ts` (scopes space-joined). Exported so
+ * tests can pin the format — upstream verifiers depend on it byte-for-byte.
+ */
+export async function signGatewayContext(
+  secret: string,
+  context: Pick<MCPRequestContext, 'tenant_id' | 'user_id' | 'client_id' | 'scopes'>,
+  ts: number
+): Promise<string> {
+  const payload = [
+    context.tenant_id,
+    context.user_id,
+    context.client_id,
+    context.scopes.join(' '),
+    String(ts),
+  ].join('|');
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload));
+  return Array.from(new Uint8Array(mac))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 /**
@@ -31,10 +71,12 @@ export interface ProxyConfig {
  */
 export class MCPProxyService {
   private registry: MCPServerRegistry;
-  private defaultConfig: Required<ProxyConfig>;
+  private defaultConfig: ResolvedProxyConfig;
+  private upstreamSecrets: Record<string, string>;
 
   constructor(registry: MCPServerRegistry, config?: ProxyConfig) {
     this.registry = registry;
+    this.upstreamSecrets = config?.upstreamSecrets ?? {};
     this.defaultConfig = {
       maxRetries: config?.maxRetries ?? 3,
       retryDelay: config?.retryDelay ?? 1000,
@@ -74,6 +116,18 @@ export class MCPProxyService {
 
     // Build request headers with tenant context
     const headers = this.buildRequestHeaders(request, context, proxyConfig);
+
+    // Opt-in upstream context authentication: sign the injected identity so
+    // the upstream can verify it came from the gateway. Secrets and
+    // signatures are never logged.
+    const secret =
+      this.upstreamSecrets[server.server_id] ??
+      this.upstreamSecrets[server.config.resource_identifier];
+    if (secret) {
+      const ts = Math.floor(Date.now() / 1000);
+      headers['X-Gateway-Ts'] = String(ts);
+      headers['X-Gateway-Signature'] = `v1=${await signGatewayContext(secret, context, ts)}`;
+    }
 
     // Perform request with retry logic
     return this.performRequestWithRetry(
@@ -131,17 +185,19 @@ export class MCPProxyService {
   private buildRequestHeaders(
     request: MCPProxyRequest,
     context: MCPRequestContext,
-    config: Required<ProxyConfig>
+    config: ResolvedProxyConfig
   ): Record<string, string> {
     const headers: Record<string, string> = { ...request.headers };
 
     // SECURITY: strip any inbound identity headers before injecting our own.
     // The gateway re-derives these from the verified token context; a client
-    // must never be able to smuggle them through to an upstream.
+    // must never be able to smuggle them through to an upstream. The gateway
+    // signature headers are stripped for the same reason.
     for (const h of Object.keys(headers)) {
       const lower = h.toLowerCase();
       if (lower === 'x-tenant-id' || lower === 'x-user-id' || lower === 'x-client-id' ||
-          lower === 'x-session-id' || lower === 'x-device-id' || lower === 'x-oauth-scopes') {
+          lower === 'x-session-id' || lower === 'x-device-id' || lower === 'x-oauth-scopes' ||
+          lower === 'x-gateway-ts' || lower === 'x-gateway-signature') {
         delete headers[h];
       }
     }
@@ -197,7 +253,7 @@ export class MCPProxyService {
     headers: Record<string, string>,
     body: string | ArrayBuffer | ReadableStream | undefined,
     server: MCPServerRegistryEntry,
-    config: Required<ProxyConfig>
+    config: ResolvedProxyConfig
   ): Promise<MCPProxyResponse> {
     const maxRetries = Math.min(config.maxRetries, server.config.retry_attempts);
     let lastError: Error | null = null;

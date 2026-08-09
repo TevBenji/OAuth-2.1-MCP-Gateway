@@ -14,6 +14,8 @@ const ConfigSchema = z
     /** Bearer token required for /admin/api/* (the dashboard's service token). */
     ADMIN_TOKEN: z.string().optional(),
     TENANT_ID: z.string().default('default'),
+    /** JSON map of upstream signing secrets, keyed by server_id or resource_identifier. */
+    UPSTREAM_HMAC_SECRETS: z.string().optional(),
   })
   .refine(c => c.ENVIRONMENT !== 'production' || c.JWT_SECRET.length >= 32, {
     message: 'JWT_SECRET must be at least 32 characters in production',
