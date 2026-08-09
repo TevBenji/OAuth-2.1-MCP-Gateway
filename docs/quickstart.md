@@ -94,7 +94,7 @@ Response:
 {
   "access_token": "eyJ...",
   "token_type": "Bearer",
-  "expires_in": 3600,
+  "expires_in": 900,
   "refresh_token": "...",
   "scope": "mcp:tools:read mcp:resources:read"
 }

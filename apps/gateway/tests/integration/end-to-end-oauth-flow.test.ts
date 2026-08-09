@@ -8,7 +8,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import app from '../../src/index';
-import { JWTService } from '../../src/services/oauth/jwt';
+import { JWTService, JWT_CONFIG } from '../../src/services/oauth/jwt';
 import { generateCodeVerifier, createS256CodeChallenge } from '../../src/services/oauth/pkce';
 import { MCPServerRegistry } from '../../src/services/mcp/registry';
 import { PgMcpServerDatabase } from '../../src/storage/pg-mcp-server-database';
@@ -60,7 +60,10 @@ describe('End-to-End OAuth 2.1 Flow with Real MCP Servers', () => {
 
       expect(flow.access_token).toBeDefined();
       expect(flow.token_type).toBe('Bearer');
-      expect(flow.expires_in).toBe(3600);
+      // Access tokens are short-lived because no revocation path exists yet;
+      // assert the ceiling, not a magic number, so raising it fails here.
+      expect(flow.expires_in).toBe(JWT_CONFIG.ACCESS_TOKEN_LIFETIME);
+      expect(flow.expires_in).toBeLessThanOrEqual(900);
       expect(flow.scope).toBe('mcp:tools:read mcp:resources:read');
       expect(flow.refresh_token).toMatch(/^refresh_/);
 

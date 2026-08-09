@@ -18,6 +18,7 @@ import { authMiddleware, requireScopes } from './middleware/auth';
 import { rateLimitMiddleware, ipRateLimitMiddleware } from './middleware/rate-limit';
 import { RateLimiter } from './services/security/rate-limiter';
 import { RateLimitStorageMemory } from './services/security/rate-limit-storage-memory';
+import { RateLimitStoragePg } from './services/security/rate-limit-storage-pg';
 import { MCPServerRegistry } from './services/mcp/registry';
 import { MCPProxyService } from './services/mcp/proxy';
 import { PgMcpServerDatabase } from './storage/pg-mcp-server-database';
@@ -48,7 +49,9 @@ app.use(
       return allowed.includes(origin) ? origin : null;
     },
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
+    // X-Tenant-ID is gone on purpose: no endpoint reads it inbound anymore
+    // (tenant is a server-side decision; identity headers are stripped).
+    allowHeaders: ['Content-Type', 'Authorization'],
     exposeHeaders: ['X-RateLimit-Remaining', 'X-RateLimit-Reset'],
   })
 );
@@ -77,9 +80,24 @@ app.get('/.well-known/oauth-authorization-server', c => {
   });
 });
 
-// Process-wide rate limiter backed by in-memory counters.
-const rateLimiter = new RateLimiter(new RateLimitStorageMemory());
-const createRateLimiter = (_env: unknown) => rateLimiter;
+// Rate limiter per environment. Backend is selected by RATE_LIMIT_STORAGE:
+// 'postgres' shares counters and IP blocks across replicas; the default
+// in-memory backend is per-process (fine for a single instance / dev).
+const rateLimiters = new WeakMap<object, RateLimiter>();
+const fallbackRateLimiter = new RateLimiter(new RateLimitStorageMemory());
+const createRateLimiter = (env: Bindings | undefined): RateLimiter => {
+  if (!env) return fallbackRateLimiter;
+  let limiter = rateLimiters.get(env);
+  if (!limiter) {
+    const storage =
+      env.RATE_LIMIT_STORAGE === 'postgres' && env.DB
+        ? new RateLimitStoragePg(env.DB)
+        : new RateLimitStorageMemory();
+    limiter = new RateLimiter(storage);
+    rateLimiters.set(env, limiter);
+  }
+  return limiter;
+};
 
 // Proxy service per environment (one per process; tests get one per fake env).
 const proxyServices = new WeakMap<object, MCPProxyService>();
@@ -90,7 +108,16 @@ app.use('/mcp/*', async (c, next) => {
     let service = proxyServices.get(c.env);
     if (!service) {
       const registry = new MCPServerRegistry(new PgMcpServerDatabase(c.env.DB), 60000, false);
-      service = new MCPProxyService(registry);
+      let upstreamSecrets: Record<string, string> | undefined;
+      if (c.env.UPSTREAM_HMAC_SECRETS) {
+        try {
+          upstreamSecrets = JSON.parse(c.env.UPSTREAM_HMAC_SECRETS);
+        } catch {
+          // never echo the value: it holds secrets
+          console.error('UPSTREAM_HMAC_SECRETS is not valid JSON; upstream signing disabled');
+        }
+      }
+      service = new MCPProxyService(registry, { upstreamSecrets });
       proxyServices.set(c.env, service);
     }
     c.set('proxyService', service);

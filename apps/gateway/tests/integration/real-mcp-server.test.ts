@@ -6,6 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { createHmac } from 'node:crypto';
 import app from '../../src/index';
 import { createTestMCPServer, RealMCPServerMock } from '../helpers/real-mcp-server';
 import { getTestDb } from '../helpers/db';
@@ -183,6 +184,30 @@ describe('Real MCP Server Integration Tests', () => {
       expect(result.isError).toBe(false);
     });
 
+    it('must not forward the client bearer upstream, and strips smuggled identity headers', async () => {
+      const response = await app.request(
+        `/mcp/${registeredServerId}/mcp/tools/list`,
+        {
+          headers: {
+            Authorization: `Bearer ${validAccessToken}`,
+            'X-Tenant-ID': 'attacker-tenant',
+            'X-User-ID': 'attacker-user',
+            'X-OAuth-Scopes': 'mcp:admin',
+          },
+        },
+        testEnv
+      );
+
+      expect(response.status).toBe(200);
+      const upstream = mcpServer.getLastRequest()!;
+      // The gateway terminates auth: the client's bearer never reaches upstream.
+      expect(upstream.headers['authorization']).toBeUndefined();
+      // Identity comes from the verified token, never from client-supplied headers.
+      expect(upstream.headers['x-tenant-id']).toBe(testTenantId);
+      expect(upstream.headers['x-user-id']).toBe(testUserId);
+      expect(upstream.headers['x-oauth-scopes']).not.toContain('mcp:admin');
+    });
+
     it('should reject gateway access without a token', async () => {
       const response = await app.request(
         `/mcp/${registeredServerId}/mcp/tools/list`,
@@ -191,6 +216,76 @@ describe('Real MCP Server Integration Tests', () => {
       );
 
       expect(response.status).toBe(401);
+    });
+  });
+
+  describe('Upstream context signing (opt-in HMAC)', () => {
+    const upstreamSecret = 'integration-shared-secret';
+    // Separate env: the proxy service (and its secret map) is built per env
+    const signedEnv = makeTestEnv({
+      UPSTREAM_HMAC_SECRETS: JSON.stringify({ 'mcp://real-test-server': upstreamSecret }),
+    });
+    let validAccessToken: string;
+
+    beforeEach(async () => {
+      validAccessToken = await jwtService.createToken({
+        issuer: testEnv.JWT_ISSUER,
+        subject: testUserId,
+        audience: 'mcp://real-test-server',
+        scopes: 'mcp:tools:read mcp:tools:write mcp:resources:read',
+        tenantId: testTenantId,
+        userId: testUserId,
+        expiresIn: 3600,
+      });
+    });
+
+    it('adds a fresh timestamp and a verifiable v1 signature when a secret is configured', async () => {
+      const response = await app.request(
+        `/mcp/${registeredServerId}/mcp/tools/list`,
+        { headers: { Authorization: `Bearer ${validAccessToken}` } },
+        signedEnv
+      );
+
+      expect(response.status).toBe(200);
+      const upstream = mcpServer.getLastRequest()!;
+
+      const ts = Number(upstream.headers['x-gateway-ts']);
+      expect(Number.isFinite(ts)).toBe(true);
+      expect(Math.abs(Date.now() / 1000 - ts)).toBeLessThan(60);
+
+      const signature = upstream.headers['x-gateway-signature'];
+      expect(signature).toMatch(/^v1=[0-9a-f]{64}$/);
+
+      // Independent verification, exactly as an upstream would do it
+      // (docs/security/upstream-verification.md): tenant|user|client|scopes|ts
+      const payload = [
+        upstream.headers['x-tenant-id'],
+        upstream.headers['x-user-id'],
+        upstream.headers['x-client-id'] ?? '',
+        upstream.headers['x-oauth-scopes'] ?? '',
+        String(ts),
+      ].join('|');
+      const expected = createHmac('sha256', upstreamSecret).update(payload).digest('hex');
+      expect(signature).toBe(`v1=${expected}`);
+    });
+
+    it('sends no signature headers when no secret is configured, even if the client smuggles them', async () => {
+      const response = await app.request(
+        `/mcp/${registeredServerId}/mcp/tools/list`,
+        {
+          headers: {
+            Authorization: `Bearer ${validAccessToken}`,
+            'X-Gateway-Ts': '1700000000',
+            'X-Gateway-Signature': 'v1=forged',
+          },
+        },
+        testEnv
+      );
+
+      expect(response.status).toBe(200);
+      const upstream = mcpServer.getLastRequest()!;
+      expect(upstream.headers['x-gateway-ts']).toBeUndefined();
+      expect(upstream.headers['x-gateway-signature']).toBeUndefined();
     });
   });
 

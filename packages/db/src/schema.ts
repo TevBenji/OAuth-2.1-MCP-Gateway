@@ -12,6 +12,7 @@ import {
   timestamp,
   index,
   uniqueIndex,
+  primaryKey,
 } from 'drizzle-orm/pg-core';
 
 const uuid = () => crypto.randomUUID();
@@ -144,6 +145,13 @@ export const refreshTokens = pgTable(
     tokenId: text('token_id').primaryKey().$defaultFn(uuid),
     // only a hash of the token is stored
     tokenHash: text('token_hash').notNull().unique(),
+    // RFC 9700 reuse detection: every token issued at code exchange starts a
+    // family; rotation issues children in the same family. Presenting a
+    // rotated token is theft evidence and revokes the whole family.
+    familyId: text('family_id').notNull().$defaultFn(uuid),
+    status: text('status').$type<'active' | 'rotated' | 'revoked'>().notNull().default('active'),
+    // token_id of the child this token was rotated into (rotation linkage)
+    rotatedTo: text('rotated_to'),
     clientId: text('client_id')
       .notNull()
       .references(() => oauthClients.clientId, { onDelete: 'cascade' }),
@@ -161,6 +169,7 @@ export const refreshTokens = pgTable(
   t => [
     index('idx_refresh_tokens_client_id').on(t.clientId),
     index('idx_refresh_tokens_expires_at').on(t.expiresAt),
+    index('idx_refresh_tokens_family_id').on(t.familyId),
   ]
 );
 
@@ -231,6 +240,35 @@ export const apiKeys = pgTable(
     createdAt: createdAt(),
   },
   t => [index('idx_api_keys_tenant_id').on(t.tenantId)]
+);
+
+// One token-bucket row per (key, window); a single upsert per check keeps it
+// race-safe across gateway replicas (see rate-limit-storage-pg.ts).
+export const rateLimitWindows = pgTable(
+  'rate_limit_windows',
+  {
+    key: text('key').notNull(),
+    window: text('window').notNull(),
+    count: integer('count').notNull().default(0),
+    windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  t => [
+    primaryKey({ columns: [t.key, t.window] }),
+    index('idx_rate_limit_windows_expires_at').on(t.expiresAt),
+  ]
+);
+
+export const rateLimitBlocks = pgTable(
+  'rate_limit_blocks',
+  {
+    key: text('key').primaryKey(),
+    blockedAt: timestamp('blocked_at', { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    reason: text('reason').notNull(),
+    violationCount: integer('violation_count').notNull().default(1),
+  },
+  t => [index('idx_rate_limit_blocks_expires_at').on(t.expiresAt)]
 );
 
 export const auditLogs = pgTable(

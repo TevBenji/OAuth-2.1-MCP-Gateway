@@ -25,7 +25,9 @@ container and a Postgres database run.
   retention policies
 - **Admin dashboard** — Next.js UI for tenants, clients, MCP servers, audit
   logs, and analytics, authenticated with email/password (better-auth)
-- **Rate limiting** and session management out of the box
+- **Rate limiting** and session management out of the box — in-memory
+  counters per process by default, or Postgres-backed shared counters and IP
+  blocks across replicas (`RATE_LIMIT_STORAGE=postgres`)
 
 ## Quickstart
 

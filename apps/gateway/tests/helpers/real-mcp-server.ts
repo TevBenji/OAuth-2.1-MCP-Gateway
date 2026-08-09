@@ -139,10 +139,18 @@ export class RealMCPServerMock {
     }
     this.requestLog.push({ timestamp: Date.now(), method, path, headers, body: parsedBody });
 
-    // Handle authentication if required (health endpoint stays public)
+    // Handle authentication if required (health endpoint stays public).
+    // Two accepted signals: a bearer token, for callers hitting this server
+    // directly, or the gateway's injected identity context. The gateway
+    // terminates auth and no longer forwards client bearer tokens upstream,
+    // so a proxied request arrives with context headers and no Authorization
+    // (docs/security/hardening-notes.md §2, option (a): upstream reachable
+    // only by the gateway).
     if (this.config.requireAuth && path !== '/health') {
       const authHeader = headers['authorization'];
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      const hasBearer = !!authHeader && authHeader.startsWith('Bearer ');
+      const hasGatewayContext = !!headers['x-tenant-id'] && !!headers['x-user-id'];
+      if (!hasBearer && !hasGatewayContext) {
         return this.send(res, 401, {
           error: 'unauthorized',
           error_description: 'Missing or invalid authorization header',

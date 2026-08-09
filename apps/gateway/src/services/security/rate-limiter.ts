@@ -1,7 +1,10 @@
 /**
  * Rate Limiter Service
  *
- * Implements sliding window rate limiting with Cloudflare KV storage.
+ * Implements sliding window rate limiting over a pluggable RateLimitStorage
+ * backend: in-memory (default, per-process — limits multiply across
+ * replicas) or Postgres (RATE_LIMIT_STORAGE=postgres, shared counters and
+ * IP blocks across replicas).
  * Supports per-tenant, per-user, and IP-based rate limiting with DDoS protection.
  */
 

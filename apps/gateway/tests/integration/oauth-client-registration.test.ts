@@ -4,20 +4,17 @@
  * End-to-end tests for the Dynamic Client Registration endpoint (RFC 7591).
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import app from '../../src/index';
 import type { ClientRegistrationRequest, ClientRegistrationResponse, OAuthError } from '../../src/types/oauth';
 import { makeTestEnv } from '../helpers/env';
-import { createTenant } from '../helpers/db';
 
 const testEnv = makeTestEnv();
 
 describe('OAuth Client Registration Integration', () => {
-  beforeEach(async () => {
-    // The X-Tenant-ID header used below must reference an existing tenant
-    await createTenant('test-tenant');
-  });
-
+  // Registration is single-tenant: the tenant comes from the server-side
+  // TENANT_ID env ('default', seeded by the global test setup), never from
+  // client-supplied headers.
   describe('POST /register', () => {
     const validRegistrationRequest: ClientRegistrationRequest = {
       redirect_uris: ['https://example.com/callback', 'https://app.example.com/auth'],
@@ -37,8 +34,7 @@ describe('OAuth Client Registration Integration', () => {
       const response = await app.request('/register', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'X-Tenant-ID': 'test-tenant'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(validRegistrationRequest)
       }, testEnv);

@@ -241,7 +241,7 @@ export enum TokenType {
 
 // Default configuration constants
 export const JWT_CONFIG = {
-  ACCESS_TOKEN_LIFETIME: 3600, // 1 hour in seconds
+  ACCESS_TOKEN_LIFETIME: 900, // 15 minutes in seconds
   REFRESH_TOKEN_LIFETIME: 2592000, // 30 days in seconds
   ID_TOKEN_LIFETIME: 3600, // 1 hour in seconds
   ALGORITHM: 'RS256' as const,
