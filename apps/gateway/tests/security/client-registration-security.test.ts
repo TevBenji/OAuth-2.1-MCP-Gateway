@@ -325,7 +325,7 @@ describe('Client Registration Security Tests', () => {
         .select()
         .from(oauthClients)
         .where(eq(oauthClients.clientId, client.client_id));
-      expect(row.tenantId).toBe(testEnv.TENANT_ID);
+      expect(row!.tenantId).toBe(testEnv.TENANT_ID);
     });
 
     it('should handle missing tenant ID header the same as any other request', async () => {
