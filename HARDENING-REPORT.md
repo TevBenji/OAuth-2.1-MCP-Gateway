@@ -33,14 +33,14 @@ All five were fallout from `3d81d8b` (`addAuthHeaders` default → false) and `8
 
 ## Deviations from the brief / notes doc
 
-1. **The brief's Repo A item list never arrived.** The message I received contains the ground rules, a `Repo B — MCP-Warden` section (B0–B3), and the final-report instructions. There is no `Repo A` section with numbered items. I therefore did only what the ground rules explicitly require for this repo — "Step zero is making the existing state build and pass tests" — and did not improvise the rest. **Nothing in notes §1–§4 was implemented.**
+1. **The brief's Repo A item list never arrived.** The message I received contains the ground rules, a `Repo B — MCP-Warden` section (B0–B3), and the final-report instructions. There is no `Repo A` section with numbered items. I therefore did only what the ground rules explicitly require for this repo — "Step zero is making the existing state build and pass tests" — and did not improvise the rest. **Nothing in notes §1–§4 was implemented.** Asked about it, TevBenji confirmed the remaining scope was MCP-Warden only, so §1–§4 stay design deliberately, not by omission.
 2. **Added one test that was not asked for** (`92ae9d5`). The invariants the brief says must not be weakened had nothing locking them in; a future contributor could flip `addAuthHeaders` back to `true` and the suite would stay green. 22 lines.
 3. **Fixed a stale comment in `src/services/oauth/jwt.ts`** rather than leaving `900 // 1 hour in seconds`. Folded into `1f26bab` (same concern) instead of its own commit.
 
 ## Deliberately left open
 
 - **§1 refresh-token family revocation** — design only. Rotation still deletes on use, so a replayed token is indistinguishable from a never-issued one.
-- **§2 gateway→upstream authentication** — design only, and **blocked on a decision**: the notes say "Options, pick one: (a) private-network requirement in docs, or (b) per-upstream HMAC". Per the stop-and-ask rule I did not pick. The fixture change above does not commit the product to either.
+- **§2 gateway→upstream authentication** — design only. The notes say "Options, pick one: (a) private-network requirement in docs, or (b) per-upstream HMAC"; per the stop-and-ask rule I did not pick, and TevBenji deferred the choice. The fixture change above does not commit the product to either.
 - **§3 Postgres-backed `RateLimitStorage`** — design only. Rate limits still multiply per replica and IP blocks do not propagate.
 - **§4 jti denylist** — explicitly out of scope per the brief.
 - **Multi-tenant DCR.** `633dbef` makes `/oauth/register` single-tenant (`TENANT_ID` env, default `default`), matching `token.ts` and `authorize.ts`. Anyone who relied on `X-Tenant-ID` for multi-tenant registration has no replacement path and no migration note. That is the correct security outcome but it is a behaviour break worth calling out in the PR description.
