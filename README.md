@@ -33,7 +33,7 @@ container and a Postgres database run.
 
 ```bash
 git clone https://github.com/TevBenji/OAuth-2.1-MCP-Gateway.git
-cd oauth-mcp-gateway
+cd OAuth-2.1-MCP-Gateway
 docker compose up
 ```
 
